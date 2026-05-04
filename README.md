@@ -1,65 +1,229 @@
 <div align="center">
-    <img width="256" src="ZalithLauncher/src/main/res/drawable/app_name_title.png"></img>
+
+<img src="assets/logo.png" alt="FlintLauncher Logo" width="600"/>
+
+### Run Minecraft: Java Edition on Android — even on devices others gave up on.
+
+![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-Android%208%2B-brightgreen?style=flat-square)
+![Status](https://img.shields.io/badge/status-In%20Development-yellow?style=flat-square)
+![Forks](https://img.shields.io/github/forks/FlintLauncherDev/FlintLauncher?style=flat-square)
+![Stars](https://img.shields.io/github/stars/FlintLauncherDev/FlintLauncher?style=flat-square)
+
+**Free. Open Source. Performance-first. Built for everyone.**
+
+[Download](#download) • [Features](#features) • [Compatibility](#compatibility) • [Contributing](#contributing) • [Community](#community)
+
 </div>
+
+---
+
+## ⚠️ Legal Disclaimer
+
+> **FlintLauncher is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft in any way.**
+>
+> Minecraft is a trademark of Mojang Studios. All Minecraft assets, game files, and intellectual property belong to their respective owners.
+>
+> FlintLauncher does **not** include, distribute, or provide Minecraft game files. You must **own a legitimate copy of Minecraft: Java Edition** through [minecraft.net](https://minecraft.net) to use this launcher. Using FlintLauncher to play without purchasing the game is a violation of the [Minecraft End User License Agreement (EULA)](https://www.minecraft.net/en-us/eula).
+>
+> By using FlintLauncher, you agree to comply with Mojang's EULA and all applicable terms of service.
+
+---
+
+## What is FlintLauncher?
+
+FlintLauncher is a free, open-source Minecraft: Java Edition launcher for Android, forked from [ZalithLauncher](https://github.com/ZalithLauncher/ZalithLauncher). Built with one goal: **make Minecraft Java accessible to every Android user**, especially those on low-end or older devices that other launchers ignore.
+
+No PC. No expensive phone. Just you and the game.
+
+---
+
+## Features
+
+### 🚀 Performance
+- **Auto RAM profiling** — detects your device's memory and sets safe JVM limits automatically
+- **GPU-based renderer switching** — picks the best renderer for your GPU (GL4ES, Zink, VirGL)
+- **Optimized JVM arguments** — tuned garbage collection and heap settings for low-end hardware
+- **CPU thread control** — prevents the JVM from choking slower processors
+- **Performance Pack** — optional one-tap install of Sodium, Lithium, FerriteCore, and more
+
+### 🎨 Customization
+- **Theme engine** — fully customizable UI with JSON-based themes
+- **Custom control layouts** — drag, resize, and reposition every touch button
+- **Per-version profiles** — separate RAM, renderer, mods, and JVM args per Minecraft version
+- **Custom icons and backgrounds** — make the launcher yours
+
+### 🔧 Compatibility
+- Supports **Android 8.0+** (API 26+)
+- **ARM32 and ARM64** device support
+- Works with **Mali, Adreno, PowerVR, and Dimensity** GPUs
+- Compatible with **Forge, Fabric, Quilt, and NeoForge**
+- Supports Minecraft Java versions **1.8 through latest**
+
+### 🌐 Open Source
+- Fully open source under **GPL-3.0**
+- Community-driven development
+- Clean, documented codebase
+- Easy to fork and contribute to
+
+---
+
+## Screenshots
+
+> Screenshots coming soon. Want to contribute some? Open a pull request!
+
+---
+
+## Compatibility
+
+| Device Tier | RAM | Android | Expected Performance |
+|---|---|---|---|
+| High-end | 6GB+ | 10+ | Excellent |
+| Mid-range | 3–6GB | 8+ | Great |
+| Low-end | 2–3GB | 8+ | Playable with optimizations |
+| Very low-end | Under 2GB | Any | Not supported |
+
+> ⚠️ Devices with under 2GB RAM or Android below 8.0 are not supported. This is a hardware limitation, not a launcher limitation.
+
+### Recommended Low-End Mods (Auto-suggested on weak devices)
+
+| Mod | Effect |
+|---|---|
+| Sodium | Massive FPS boost via renderer replacement |
+| Lithium | Game logic optimization |
+| FerriteCore | Significant RAM usage reduction |
+| Starlight | Rewrites the lighting engine |
+| EntityCulling | Skips rendering entities behind walls |
+
+---
+
+## Download
+
+> Releases coming soon.
+
+Watch this repo for updates, or [build from source](#building-from-source).
+
+---
+
+## Building from Source
+
+FlintLauncher uses GitHub Actions for cloud builds — no PC required.
+
+1. Fork this repository
+2. Push any change to trigger a build
+3. Go to **Actions → Build APK → Artifacts** and download your APK
+
+Or build locally with Android Studio:
+
+```bash
+git clone https://github.com/FlintLauncherDev/FlintLauncher.git
+cd FlintLauncher
+./gradlew assembleDebug
+```
+
+APK output: `app/build/outputs/apk/debug/`
+
+---
+
+## Project Structure
+
+```
+FlintLauncher/
+├── app/
+│   └── src/main/
+│       ├── java/com/flintlauncher/
+│       │   ├── ui/               # Activities, fragments, screens
+│       │   ├── game/             # Launch logic, version manager
+│       │   ├── performance/      # RAM detector, GPU profiler
+│       │   ├── theme/            # Theme engine
+│       │   └── profiles/         # Profile manager
+│       ├── cpp/
+│       │   ├── CMakeLists.txt
+│       │   ├── launcher.cpp      # JNI bridge
+│       │   └── renderer/         # GL4ES, Zink, VirGL loaders
+│       └── assets/
+│           ├── logo.png          # FlintLauncher logo
+│           └── themes/           # Default themes (JSON)
+├── .github/
+│   └── workflows/
+│       └── build.yml             # Auto APK build
+├── LICENSE
+├── README.md
+└── CONTRIBUTING.md
+```
+
+---
+
+## Roadmap
+
+### v0.1 — Foundation
+- [x] Fork ZalithLauncher
+- [ ] Rebrand UI and assets
+- [ ] GitHub Actions build pipeline
+- [ ] Confirm Minecraft boots
+
+### v0.2 — Low-End Focus
+- [ ] Auto RAM detection and JVM profiles
+- [ ] GPU detection and renderer auto-switcher
+- [ ] Performance Pack mod installer
+- [ ] ZRAM detection and user notice
+
+### v0.3 — Customization
+- [ ] JSON theme engine
+- [ ] Custom control layout editor
+- [ ] Per-version profiles
+
+### v1.0 — Public Release
+- [ ] Stable APK release
+- [ ] Full documentation
+- [ ] Community contributions open
+
+---
+
+## Contributing
+
+FlintLauncher is open to everyone. Whether you fix a typo or add a whole feature — all contributions are welcome.
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/your-feature`
+3. Commit your changes
+4. Open a Pull Request
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting.
+
+---
+
+## Community
+
+> Discord server coming soon.
+
+Use GitHub Issues for bug reports and feature requests in the meantime.
+
+---
+
+## Credits
+
+FlintLauncher is built on the shoulders of giants:
+
+- [PojavLauncher](https://github.com/PojavLaunch/PojavLauncher) — the original Android Java launcher
+- [ZalithLauncher](https://github.com/ZalithLauncher/ZalithLauncher) — the modern fork we built on
+- [GL4ES](https://github.com/ptitSeb/gl4es) — OpenGL to OpenGL ES translation
+- [Boardwalk](https://github.com/zhuowei/Boardwalk) — early iOS/Android Java MC research
+
+---
+
+## License
+
+FlintLauncher is licensed under the **GNU General Public License v3.0**.
+See [LICENSE](LICENSE) for full details.
+
+---
 
 <div align="center">
 
-[![Android CI](https://github.com/ZalithLauncher/ZalithLauncher/actions/workflows/android.yml/badge.svg)](https://github.com/ZalithLauncher/ZalithLauncher/actions/workflows/android.yml)
-![Downloads](https://img.shields.io/github/downloads/ZalithLauncher/ZalithLauncher/total)
-[![Sponsor](https://img.shields.io/badge/sponsor-30363D?logo=GitHub-Sponsors)](https://afdian.com/a/MovTery)
+<img src="assets/logo.png" alt="FlintLauncher" width="300"/>
+
+*Hello :D*
 
 </div>
 
-- <a href="/README_ZH_CN.md">简体中文</a>丨<a href="/README-ZH_TW.md">繁體中文</a>
-- Zalith Launcher is a Minecraft launcher based on [PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher) that runs [Minecraft: Java Edition](https://www.minecraft.net/) on Android devices.
-- Zalith Launcher aims to enhance user experience by redesigning the app interface, adding more practical features, and lowering the barrier to entry, making it easier for more people to enjoy Minecraft.
-
-> [!WARNING]
-> Attention! This project is only a **community remake**, just like PojavLauncher is developed based on [Boardwalk](https://github.com/zhuowei/Boardwalk).  
-> We are planning to build the official website [zalithlauncher.cn](https://zalithlauncher.cn). Please note, our website domain ends with `.cn`, not `.com`! **That is not our site!** We do not participate in, accept, or trust that site! Please be careful to distinguish it and protect your personal privacy!
-
-<h2 align="center">New Features</h2>
-
-- [x] Refactored app layout for improved aesthetics and usability.
-- [x] Built-in simple file manager to eliminate worries about Android permission restrictions!
-- [x] Better version management, customizable game directory location, allowing settings in external storage directories.
-- [x] Add more renderers, with support for renderer plugins!
-- [x] Download Mods, ModPacks, resource packs, saves, and shader packs directly within the launcher!
-- [x] Customizable virtual mouse icon and launcher background image.
-- [x] Light and dark themes available.
-- [x] And more features!
-
-<h2 align="center">Screenshots</h2>
-
-![Screenshot1](/.github/images/Screenshot_Launcher_Light_EN_US.jpg)
-![Screenshot2](/.github/images/Screenshot_Launcher_Dark_EN_US.jpg)
-![Screenshot3](/.github/images/Screenshot_Game_EN_US.jpg)
-
-<h2 align="center">License</h2>
-
-- Zalith Launcher is open source under the GPL v3 license.
-
-<h2 align="center">Special Thanks</h2>
-
-This project uses several useful code libraries. Special thanks to them!
-
-#### Code Libraries Used by PojavLauncher
-
->- [Boardwalk](https://github.com/zhuowei/Boardwalk) (JVM Launcher): Unknown license / [Apache License 2.0](https://github.com/zhuowei/Boardwalk/blob/master/LICENSE) or GNU GPLv2.
->- Android Support Library: [Apache License 2.0](https://android.googlesource.com/platform/prebuilts/maven_repo/android/+/master/NOTICE.txt).
->- [GL4ES](https://github.com/PojavLauncherTeam/gl4es): [MIT License](https://github.com/ptitSeb/gl4es/blob/master/LICENSE).
->- [OpenJDK](https://github.com/PojavLauncherTeam/openjdk-multiarch-jdk8u): [GNU GPLv2 License](https://openjdk.java.net/legal/gplv2+ce.html).
->- [LWJGL3](https://github.com/PojavLauncherTeam/lwjgl3): [BSD-3 License](https://github.com/LWJGL/lwjgl3/blob/master/LICENSE.md).
->- [LWJGLX](https://github.com/PojavLauncherTeam/lwjglx) (LWJGL2 API compatibility layer for LWJGL3): Unknown license.
->- [Mesa 3D Graphics Library](https://gitlab.freedesktop.org/mesa/mesa): [MIT License](https://docs.mesa3d.org/license.html).
->- [pro-grade](https://github.com/pro-grade/pro-grade) (Java Sandbox Security Manager): [Apache License 2.0](https://github.com/pro-grade/pro-grade/blob/master/LICENSE.txt).
->- [bhook](https://github.com/bytedance/bhook) (For exit code capture): [MIT License](https://github.com/bytedance/bhook/blob/main/LICENSE).
->- [libepoxy](https://github.com/anholt/libepoxy): [MIT License](https://github.com/anholt/libepoxy/blob/master/COPYING).
->- [virglrenderer](https://github.com/PojavLauncherTeam/virglrenderer): [MIT License](https://gitlab.freedesktop.org/virgl/virglrenderer/-/blob/master/COPYING).
-
-#### Additional Code Libraries Used by Zalith Launcher
-
->- [HMCL](https://github.com/HMCL-dev/HMCL) (uses some source code): [GPL-3.0 License](https://github.com/HMCL-dev/HMCL/blob/main/LICENSE)
->- [CommonMark](https://github.com/thephpleague/commonmark) (for rendering Markdown text): [BSD-3-Clause License](https://github.com/thephpleague/commonmark/blob/2.5/LICENSE)
->- [AndroidViewAnimations](https://github.com/daimajia/AndroidViewAnimations) (uses part of the animation source code): [MIT License](https://github.com/daimajia/AndroidViewAnimations/blob/master/License)
->- [TapTargetView](https://github.com/KeepSafe/TapTargetView) (for creating onboarding guides): [Apache License 2.0](https://github.com/KeepSafe/TapTargetView/blob/master/LICENSE)
