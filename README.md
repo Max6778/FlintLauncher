@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" alt="FlintLauncher Logo" width="600"/>
+<img src="logo.png" alt="FlintLauncher Logo" width="600"/>
 
 ### Run Minecraft: Java Edition on Android — even on devices others gave up on.
 
