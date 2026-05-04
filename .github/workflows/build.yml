@@ -5,7 +5,10 @@ on:
     branches: [ main, master, dev ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch: # lets you trigger a build manually from GitHub
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -29,7 +32,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK
+      - name: Install NDK and CMake
         run: |
           echo "y" | sdkmanager "ndk;25.2.9519653"
           echo "y" | sdkmanager "cmake;3.22.1"
@@ -48,26 +51,25 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew :ZalithLauncher:assembleDebug --stacktrace --no-daemon
         env:
-          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-debug-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/*.apk
+          path: ZalithLauncher/build/outputs/apk/debug/*.apk
           retention-days: 30
 
-      - name: Build Release APK (unsigned)
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Build Release APK
+        run: ./gradlew :ZalithLauncher:assembleRelease --stacktrace --no-daemon
         env:
-          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError"
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-release-${{ github.run_number }}
-          path: app/build/outputs/apk/release/*.apk
+          path: ZalithLauncher/build/outputs/apk/release/*.apk
           retention-days: 30
-
