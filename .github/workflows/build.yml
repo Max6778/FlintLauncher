@@ -53,23 +53,11 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew :ZalithLauncher:assembleDebug --stacktrace --no-daemon
         env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-debug-${{ github.run_number }}
           path: ZalithLauncher/build/outputs/apk/debug/*.apk
-          retention-days: 30
-
-      - name: Build Release APK
-        run: ./gradlew :ZalithLauncher:assembleRelease --stacktrace --no-daemon
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError"
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: FlintLauncher-release-${{ github.run_number }}
-          path: ZalithLauncher/build/outputs/apk/release/*.apk
           retention-days: 30
