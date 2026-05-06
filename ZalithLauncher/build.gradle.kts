@@ -49,7 +49,7 @@ configure<StringFogExtension> {
 }
 
 android {
-    namespace = nameId
+    namespace = "com.movtery.zalithlauncher"
     compileSdk = 34
 
     signingConfigs {
