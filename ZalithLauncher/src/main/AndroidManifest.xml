@@ -35,7 +35,7 @@
         android:label="${launcher_name}"
         android:process=":launcher"
         android:resizeableActivity="true"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme"
         tools:targetApi="r"
         tools:ignore="DiscouragedApi" >
