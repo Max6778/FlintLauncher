@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Zalith Launcher -->
+    <!-- FlintLauncher -->
+    <string name="app_name">FlintLauncher</string>
     <string name="generic_open">Open</string>
     <string name="generic_close">Close</string>
     <string name="generic_return">Return</string>
@@ -217,7 +218,6 @@
     <string name="controller_dpad_right">D-Pad Right</string>
     <string name="controller_remapper_operating_mode">Current Mode</string>
     <string name="controller_remapper_expand_entry">Expand to change key code</string>
-
     <!-- Version -->
     <string name="version_manager_title">Version Management</string>
     <string name="version_no_versions">No versions installed</string>
@@ -250,7 +250,7 @@
     <string name="version_manager_delete_tip_invalid">The current version is missing the version JSON file and is therefore considered an invalid version. You cannot select this version. Click Confirm to delete this erroneous version.</string>
     <string name="version_manager_task_in_progress">Task in progress, version management is temporarily unavailable</string>
     <string name="version_manager_invalid">This version is invalid</string>
-    <string name="version_manager_no_installed_version">Launcher did not find any installed Minecraft!</string>
+    <string name="version_manager_no_installed_version">FlintLauncher did not find any installed Minecraft!</string>
     <string name="version_manager_isolation_type_follow_global">Follow Launcher Settings</string>
     <string name="version_manager_favorites_add_category">Add Favorite</string>
     <string name="version_manager_favorites_remove_folder_title">Remove Favorite</string>
@@ -499,7 +499,7 @@
     <string name="setting_version_isolation_title">Version Isolation</string>
     <string name="setting_version_isolation_desc">Enable version isolation for the game version\nWhen disabled, the game path will be .minecraft/\nWhen enabled, the game path will change to .minecraft/versions/&lt;version name&gt;/</string>
     <string name="setting_version_custom_info_title">Custom Info</string>
-    <string name="setting_version_custom_info_desc">Custom info will be displayed in the lower-left corner of the game’s main menu and the upper-left corner of the F3 debug screen. After adding the [zl_version] field, the launcher will replace it with the launcher version number.</string>
+    <string name="setting_version_custom_info_desc">Custom info will be displayed in the lower-left corner of the game\'s main menu and the upper-left corner of the F3 debug screen. After adding the [fl_version] field, the launcher will replace it with the launcher version number.</string>
     <string name="setting_set_game_language_title">Auto Set Game Language</string>
     <string name="setting_set_game_language_desc">Automatically set the game language to the selected language when the game starts</string>
     <string name="setting_set_game_language_list">Set Game Language</string>
@@ -638,12 +638,12 @@
     <string name="other_login_registry_now">No account? Click here to register one!</string>
     <string name="other_login_role_not_found">Role matching the current account not found, please check if this role exists on the server you are using!</string>
     <!-- Splash -->
-    <string name="splash_screen_desc">The launcher needs to install these contents to ensure Minecraft can start properly. These contents are included in the app and need to be extracted before they can be used. Click the button below to start extracting and updating these contents.</string>
-    <string name="splash_screen_installing">The launcher is extracting these contents. The main interface will automatically open after extraction is complete. Please wait patiently.</string>
+    <string name="splash_screen_desc">FlintLauncher needs to install these contents to ensure Minecraft can start properly. These contents are included in the app and need to be extracted before they can be used. Click the button below to start extracting and updating these contents.</string>
+    <string name="splash_screen_installing">FlintLauncher is extracting these contents. The main interface will automatically open after extraction is complete. Please wait patiently.</string>
     <string name="splash_screen_lwjgl">Lightweight Java Game Library, Minecraft relies on it to run the game.</string>
     <string name="splash_screen_cacio">Provides a portable GUI backend for OpenJDK.</string>
     <string name="splash_screen_authlib_injector">Injects authlib via runtime to enable login outside the game.</string>
-    <string name="splash_screen_components">Some components that the launcher depends on.</string>
+    <string name="splash_screen_components">Some components that FlintLauncher depends on.</string>
     <string name="splash_screen_jre8">Java 8 environment, Minecraft 1.16- depends on Java 8.</string>
     <string name="splash_screen_jre17">Java 17 environment, Minecraft 1.17+ depends on Java 17.</string>
     <string name="splash_screen_jre21">Java 21 environment, Minecraft 1.20.5+ depends on Java 21.</string>
@@ -651,8 +651,8 @@
     <string name="splash_screen_apply">Agree and Install</string>
     <!-- About -->
     <string name="about_tab">About %s</string>
-    <string name="about_dec1">%s is a Minecraft launcher based on PojavLauncher that allows Minecraft: Java Edition to run on Android devices.</string>
-    <string name="about_dec2">%s focuses on optimizing user experience, redesigning the application interface, and adding more practical features, aiming to lower the barriers to play and let more people enjoy the fun of Minecraft easily.</string>
+    <string name="about_dec1">%s is a free, open-source Minecraft: Java Edition launcher for Android, built for everyone — especially players on low-end devices.</string>
+    <string name="about_dec2">%s focuses on performance optimization, low-end device compatibility, and deep customization — aiming to make Minecraft Java accessible to every Android user, no matter their hardware.</string>
     <string name="about_dec3">%s uses the GPL 3.0 open-source license, which is "viral." Any code that uses, modifies, or derives from GPL libraries or software must also adopt the GPL license for open sourcing. If you intend to distribute this software, please comply with the relevant provisions of the GPL 3.0 open-source license.</string>
     <string name="about_contributors">Contributors and Acknowledgements:</string>
     <string name="about_sponsors">Acknowledgements to Sponsors:</string>
@@ -660,7 +660,7 @@
     <string name="about_sponsors_desc">The following are all the sponsors who support the development, thank you very much!</string>
     <string name="about_sponsors_amount">Time and Total Amount</string>
     <string name="about_button_support_development">Sponsor Development</string>
-    <string name="about_MovTery_desc">Main author of the launcher</string>
+    <string name="about_MovTery_desc">Original ZalithLauncher author</string>
     <string name="about_PojavLauncher_desc">The development team of PojavLauncher, who developed and open-sourced PojavLauncher</string>
     <string name="about_mcmod_desc">The launcher uses Mod and modpack Chinese translations from MC Wiki</string>
     <string name="about_VeraFirefly_desc">Provided technical support for rendering in the launcher</string>
@@ -691,6 +691,6 @@
     <string name="newbie_guide_mod_download">Click to enter the Mod download page where you can search and download Mods online.</string>
     <string name="newbie_guide_game_menu">You can drag the game menu floating window to any position on the screen.</string>
     <!-- Sponsorship Related -->
-    <string name="request_sponsorship_title">Support My Development</string>
-    <string name="request_sponsorship_message">Most of the content in this software is developed and maintained by me alone. If you find this software helpful and are in a position to do so, I hope you will consider sponsoring me to give me more motivation to continue developing and improving it. Thank you for your support!</string>
+    <string name="request_sponsorship_title">Support FlintLauncher Development</string>
+    <string name="request_sponsorship_message">FlintLauncher is a free, open-source project. If you find it helpful and are in a position to do so, please consider sponsoring development to help keep the project alive and improving. Thank you for your support!</string>
 </resources>
