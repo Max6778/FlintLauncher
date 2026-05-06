@@ -220,7 +220,7 @@ tasks.register("generateInfoDistributor") {
             "APP_NAME" to project.property("launcher_app_name").toString(),
             "BUILD_TYPE" to getBuildType()
         )
-        generateJavaClass(generatedZalithDir, "com.movtery.zalithlauncher", "InfoDistributor", constantMap)
+        generateJavaClass(generatedZalithDir, "com.flintlauncher", "InfoDistributor", constantMap)
     }
 }
 
