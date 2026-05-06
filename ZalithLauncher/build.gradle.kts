@@ -23,7 +23,8 @@ val getCFApiKey = {
 
 val getBuildType = {
     val buildType = System.getenv("FL_BUILD_TYPE") ?: "DEBUG"
-logger.warn("BUILD: Build Type --> $buildType")
+    logger.warn("BUILD: Build Type --> $buildType")
+    buildType
 }
 
 val nameId = "com.flintlauncher"
