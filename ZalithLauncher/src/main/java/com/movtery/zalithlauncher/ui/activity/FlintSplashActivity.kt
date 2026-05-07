@@ -1,6 +1,5 @@
 package com.movtery.zalithlauncher.ui.activity
 
-import com.movtery.zalithlauncher.feature.profile.AutoPerformanceManager
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
@@ -15,6 +14,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.feature.profile.AutoPerformanceManager
 import com.movtery.zalithlauncher.utils.ZHTools
 
 @SuppressLint("CustomSplashScreen")
@@ -23,6 +23,9 @@ class FlintSplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flint_splash)
+
+        // Apply device-optimized settings on first launch
+        AutoPerformanceManager.applyIfFirstLaunch(this)
 
         val logo = findViewById<ImageView>(R.id.splash_logo)
         val title = findViewById<TextView>(R.id.splash_title)
