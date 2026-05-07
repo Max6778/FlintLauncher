@@ -1,7 +1,6 @@
 package com.movtery.zalithlauncher.utils.path
 
 import com.movtery.zalithlauncher.BuildConfig
-import com.movtery.zalithlauncher.InfoDistributor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -13,9 +12,12 @@ import java.util.concurrent.TimeUnit
 
 class UrlManager {
     companion object {
-        private const val URL_USER_AGENT: String = "${InfoDistributor.LAUNCHER_NAME}/${BuildConfig.VERSION_NAME}"
+        // Hardcoded launcher name avoids const val + class reference issue
+        private val URL_USER_AGENT: String = "FlintLauncher/${BuildConfig.VERSION_NAME}"
+
         @JvmField
         val TIME_OUT = Pair(8000, TimeUnit.MILLISECONDS)
+
         const val URL_GITHUB_HOME: String = "https://api.github.com/repos/Max6778/FlintLauncher/contents/"
         const val URL_MCMOD: String = "https://www.mcmod.cn/"
         const val URL_MINECRAFT: String = "https://www.minecraft.net/"
@@ -31,7 +33,6 @@ class UrlManager {
             connection.setRequestProperty("User-Agent", URL_USER_AGENT)
             connection.setConnectTimeout(TIME_OUT.first)
             connection.setReadTimeout(TIME_OUT.first)
-
             return connection
         }
 
@@ -49,7 +50,7 @@ class UrlManager {
         @JvmStatic
         fun createRequestBuilder(url: String, body: RequestBody?): Request.Builder {
             val request = Request.Builder().url(url).header("User-Agent", URL_USER_AGENT)
-            body?.let{ request.post(it) }
+            body?.let { request.post(it) }
             return request
         }
 
