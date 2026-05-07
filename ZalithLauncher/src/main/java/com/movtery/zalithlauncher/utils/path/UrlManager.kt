@@ -16,12 +16,12 @@ class UrlManager {
         private const val URL_USER_AGENT: String = "${InfoDistributor.LAUNCHER_NAME}/${BuildConfig.VERSION_NAME}"
         @JvmField
         val TIME_OUT = Pair(8000, TimeUnit.MILLISECONDS)
-        const val URL_GITHUB_HOME: String = "https://api.github.com/repos/ZalithLauncher/Zalith-Info/contents/"
+        const val URL_GITHUB_HOME: String = "https://api.github.com/repos/Max6778/FlintLauncher/contents/"
         const val URL_MCMOD: String = "https://www.mcmod.cn/"
         const val URL_MINECRAFT: String = "https://www.minecraft.net/"
         const val URL_MINECRAFT_VERSION_REPOS: String = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
-        const val URL_SUPPORT: String = "https://afdian.com/a/MovTery"
-        const val URL_HOME: String = "https://github.com/ZalithLauncher/ZalithLauncher"
+        const val URL_SUPPORT: String = "https://github.com/Max6778/FlintLauncher"
+        const val URL_HOME: String = "https://github.com/Max6778/FlintLauncher"
         const val URL_FCL_RENDERER_PLUGIN: String = "https://github.com/ShirosakiMio/FCLRendererPlugin/releases/tag/Renderer"
         const val URL_FCL_DRIVER_PLUGIN: String = "https://github.com/FCL-Team/FCLDriverPlugin/releases/tag/Turnip"
 
@@ -56,9 +56,6 @@ class UrlManager {
         @JvmStatic
         fun createOkHttpClient(): OkHttpClient = createOkHttpClientBuilder().build()
 
-        /**
-         * 创建一个OkHttpClient，可自定义一些内容
-         */
         @JvmStatic
         fun createOkHttpClientBuilder(action: (OkHttpClient.Builder) -> Unit = { }): OkHttpClient.Builder {
             return OkHttpClient.Builder()
