@@ -1,5 +1,6 @@
 package com.movtery.zalithlauncher.ui.activity
 
+import com.movtery.zalithlauncher.feature.profile.AutoPerformanceManager
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
