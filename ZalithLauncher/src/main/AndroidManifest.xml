@@ -39,21 +39,32 @@
         android:theme="@style/AppTheme"
         tools:targetApi="r"
         tools:ignore="DiscouragedApi" >
+
         <meta-data
             android:name="android.max_aspect"
             android:value="ratio_float" />
+
+        <!-- FlintLauncher branded splash — shown first on every launch -->
         <activity
-            android:name="com.movtery.zalithlauncher.ui.activity.SplashActivity"
+            android:name="com.movtery.zalithlauncher.ui.activity.FlintSplashActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:theme="@style/SplashTheme"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
-            android:screenOrientation="sensorLandscape" >
+            android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Component installer — launched by FlintSplashActivity -->
+        <activity
+            android:name="com.movtery.zalithlauncher.ui.activity.SplashActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
+            android:screenOrientation="sensorLandscape" />
+
         <activity
             android:name="net.kdt.pojavlaunch.MissingStorageActivity"
             android:exported="false"
@@ -83,7 +94,6 @@
             android:screenOrientation="sensorLandscape" >
             <intent-filter>
                 <action android:name=".CustomControlsActivity" />
-
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -123,6 +133,7 @@
                 android:value="This application is intended to run a 3rd-party piece of software which cannot be managed using the activity's saved instance state. This service is used for background persistence of this piece of software."/>
         </service>
     </application>
+
     <queries>
         <package android:name="net.kdt.pojavlaunch.ffmpeg"/>
         <intent>
