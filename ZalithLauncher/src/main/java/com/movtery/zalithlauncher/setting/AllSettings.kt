@@ -97,7 +97,7 @@ class AllSettings {
         val versionIsolation = BooleanSettingUnit("versionIsolation", true)
 
         @JvmStatic
-        val versionCustomInfo = StringSettingUnit("versionCustomInfo", "${InfoDistributor.LAUNCHER_NAME}[zl_version]")
+        val versionCustomInfo = StringSettingUnit("versionCustomInfo", "${InfoDistributor.LAUNCHER_NAME}[fl_version]")
 
         @JvmStatic
         val autoSetGameLanguage = BooleanSettingUnit("autoSetGameLanguage", true)
@@ -116,7 +116,6 @@ class AllSettings {
 
         @JvmStatic
         val ramAllocation = lazy {
-            //涉及到Context初始化，需要进行懒加载
             IntSettingUnit("allocation", LauncherPreferences.findBestRAMAllocation(ContextExecutor.getApplication()))
         }
 
@@ -248,3 +247,4 @@ class AllSettings {
         }
     }
 }
+
