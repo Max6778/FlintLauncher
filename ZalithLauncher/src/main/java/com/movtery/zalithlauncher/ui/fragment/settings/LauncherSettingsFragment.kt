@@ -1,5 +1,6 @@
 package com.movtery.zalithlauncher.ui.fragment.settings
 
+import com.movtery.zalithlauncher.context.LocaleHelper
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
