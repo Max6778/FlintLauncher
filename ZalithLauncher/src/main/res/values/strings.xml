@@ -398,6 +398,9 @@
     <string name="setting_category_java_tweaks">Java tweaks</string>
     <string name="setting_category_video">Video Settings</string>
     <string name="setting_category_version">Version Settings</string>
+    <string name="setting_launcher_language">Launcher Language</string>
+    <string name="setting_launcher_language_system">Follow System</string>
+    <string name="setting_launcher_language_restart">Language changed. Restart to apply.</string>
     <string name="setting_category_language">Language</string>
     <string name="setting_category_personalization">Personalization</string>
     <string name="setting_category_download">Downloads</string>
