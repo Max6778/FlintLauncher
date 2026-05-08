@@ -38,26 +38,25 @@ object AutoPerformanceManager {
 
     private fun applySettings(profile: DeviceProfiler.DeviceProfile) {
         // RAM allocation
-        AllSettings.ramAllocation.value.save(profile.recommendedRamMb)
+        AllSettings.ramAllocation.value.put(profile.recommendedRamMb).save()
 
         // Renderer
-        AllSettings.renderer.save(profile.recommendedRenderer)
+        AllSettings.renderer.put(profile.recommendedRenderer).save()
 
         // JVM args — only set if user hasn't written anything custom
         val currentArgs = AllSettings.javaArgs.getValue()
         if (currentArgs.isBlank()) {
-            AllSettings.javaArgs.save(profile.recommendedJvmArgs)
+            AllSettings.javaArgs.put(profile.recommendedJvmArgs).save()
         }
 
         // Low-end specific tweaks
         if (profile.isLowEnd) {
             // Scale down resolution slightly to gain FPS
-            AllSettings.resolutionRatio.save(85)
+            AllSettings.resolutionRatio.put(85).save()
             // Disable animations to reduce overhead
-            AllSettings.animation.save(false)
+            AllSettings.animation.put(false).save()
             // Enable sustained performance mode
-            AllSettings.sustainedPerformance.save(true)
+            AllSettings.sustainedPerformance.put(true).save()
         }
     }
 }
-
