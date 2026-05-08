@@ -274,6 +274,34 @@
                 android:text="@string/setting_category_personalization"
                 android:textColor="@color/settings_category" />
 
+            <!-- Launcher Language Picker — FlintLauncher feature -->
+            <com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout
+                android:id="@+id/launcher_language_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?android:attr/selectableItemBackground"
+                android:padding="@dimen/_12sdp">
+
+                <TextView
+                    android:id="@+id/launcher_language_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_alignParentEnd="true"
+                    android:text="@string/setting_launcher_language"
+                    android:textColor="@color/black_or_white" />
+
+                <TextView
+                    android:id="@+id/launcher_language_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@+id/launcher_language_title"
+                    android:layout_alignParentStart="true"
+                    android:layout_alignParentEnd="true"
+                    android:text="@string/setting_launcher_language_system" />
+
+            </com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout>
+
             <com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout
                 android:id="@+id/launcherTheme_layout"
                 android:layout_width="match_parent"
