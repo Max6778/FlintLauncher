@@ -1,13 +1,15 @@
 package com.movtery.zalithlauncher.ui.fragment.settings
 
-import com.movtery.zalithlauncher.context.LocaleHelper
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import com.movtery.anim.AnimPlayer
 import com.movtery.anim.animations.Animations
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.context.LocaleHelper
 import com.movtery.zalithlauncher.databinding.SettingsFragmentLauncherBinding
 import com.movtery.zalithlauncher.event.single.PageOpacityChangeEvent
 import com.movtery.zalithlauncher.feature.update.UpdateUtils
@@ -23,7 +25,12 @@ import com.movtery.zalithlauncher.utils.ZHTools
 import net.kdt.pojavlaunch.LauncherActivity
 import org.greenrobot.eventbus.EventBus
 
-class LauncherSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fragment_launcher, SettingCategory.LAUNCHER) {
+class LauncherSettingsFragment() :
+    AbstractSettingsFragment(
+        R.layout.settings_fragment_launcher,
+        SettingCategory.LAUNCHER
+    ) {
+
     private lateinit var binding: SettingsFragmentLauncherBinding
     private var parentFragment: FragmentWithAnim? = null
 
@@ -77,7 +84,8 @@ class LauncherSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fr
             binding.downloadSourceLayout,
             binding.downloadSourceTitle,
             binding.downloadSourceValue,
-            R.array.download_source_names, R.array.download_source_values
+            R.array.download_source_names,
+            R.array.download_source_values
         )
 
         SeekBarSettingsWrapper(
@@ -97,8 +105,43 @@ class LauncherSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fr
             binding.launcherThemeLayout,
             binding.launcherThemeTitle,
             binding.launcherThemeValue,
-            R.array.launcher_theme_names, R.array.launcher_theme_values
+            R.array.launcher_theme_names,
+            R.array.launcher_theme_values
         ).setRequiresReboot()
+
+        // Launcher language picker
+        val savedLang = LocaleHelper.getSavedLanguage(requireContext())
+
+        binding.launcherLanguageValue.text =
+            LocaleHelper.SUPPORTED_LANGUAGES[savedLang] ?: "Follow System"
+
+        binding.launcherLanguageLayout.setOnClickListener {
+            val keys = LocaleHelper.SUPPORTED_LANGUAGES.keys.toTypedArray()
+            val values = LocaleHelper.SUPPORTED_LANGUAGES.values.toTypedArray()
+
+            val current = keys.indexOf(
+                LocaleHelper.getSavedLanguage(requireContext())
+            )
+
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.setting_launcher_language))
+                .setSingleChoiceItems(values, current) { dialog, which ->
+                    val chosen = keys[which]
+
+                    LocaleHelper.saveLanguage(requireContext(), chosen)
+
+                    binding.launcherLanguageValue.text = values[which]
+
+                    dialog.dismiss()
+
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.setting_launcher_language_restart),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                .show()
+        }
 
         BaseSettingsWrapper(
             context,
@@ -170,7 +213,11 @@ class LauncherSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fr
             context,
             binding.checkUpdateLayout
         ) {
-            UpdateUtils.checkDownloadedPackage(context, force = true, ignore = false)
+            UpdateUtils.checkDownloadedPackage(
+                context,
+                force = true,
+                ignore = false
+            )
         }
 
         SwitchSettingsWrapper(
@@ -186,24 +233,38 @@ class LauncherSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fr
             binding.notificationPermissionRequestLayout,
             binding.notificationPermissionRequest
         )
+
         setupNotificationRequestPreference(notificationPermissionRequest)
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
+        animPlayer.apply(
+            AnimPlayer.Entry(
+                binding.root,
+                Animations.BounceInDown
+            )
+        )
     }
 
-    private fun setupNotificationRequestPreference(notificationPermissionRequest: SwitchSettingsWrapper) {
+    private fun setupNotificationRequestPreference(
+        notificationPermissionRequest: SwitchSettingsWrapper
+    ) {
         val activity = requireActivity()
+
         if (activity is LauncherActivity) {
-            if (ZHTools.checkForNotificationPermission()) notificationPermissionRequest.setGone()
-            notificationPermissionRequest.switchView.setOnCheckedChangeListener { _, _ ->
-                activity.askForNotificationPermission {
-                    notificationPermissionRequest.mainView.visibility = View.GONE
-                }
+            if (ZHTools.checkForNotificationPermission()) {
+                notificationPermissionRequest.setGone()
             }
+
+            notificationPermissionRequest.switchView
+                .setOnCheckedChangeListener { _, _ ->
+                    activity.askForNotificationPermission {
+                        notificationPermissionRequest.mainView.visibility =
+                            View.GONE
+                    }
+                }
         } else {
             notificationPermissionRequest.mainView.visibility = View.GONE
         }
     }
-}
+    }
