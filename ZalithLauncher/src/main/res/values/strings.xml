@@ -695,7 +695,7 @@
     <string name="newbie_guide_game_menu">You can drag the game menu floating window to any position on the screen.</string>
     <!-- Sponsorship Related -->
     <string name="request_sponsorship_title">Support FlintLauncher Development</string>
-    <string name="request_sponsorship_message">FlintLauncher is a free, open-source project. If you find it helpful and are in a position to do so, please consider sponsoring development to help keep the project alive and improving. Thank you for your support!</string
+    <string name="request_sponsorship_message">FlintLauncher is a free, open-source project. If you find it helpful and are in a position to do so, please consider sponsoring development to help keep the project alive and improving. Thank you for your support!</string>
     <!-- ── App info ── -->
     <string name="flint_launcher_version">v1.0.0</string>
     <!-- ── Section labels ── -->
