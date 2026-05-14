@@ -39,7 +39,6 @@ import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.multirt.MultiRTUtils;
-import net.kdt.pojavlaunch.prefs.LauncherPreferences;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -205,9 +204,11 @@ public class MainMenuFragment extends FragmentWithAnim {
         try {
 
             // RAM
+            // AllSettings.ramAllocation is a Kotlin lazy<IntSettingUnit>.
+            // From Java: .getValue() unwraps the Lazy, then .getValue() reads the int.
             if (binding.statRamValue != null) {
                 try {
-                    int ram = LauncherPreferences.PREF_RAM_ALLOCATION;
+                    int ram = AllSettings.ramAllocation.getValue().getValue();
                     binding.statRamValue.setText(ram + " MB alloc");
                 } catch (Exception e) {
                     binding.statRamValue.setText("RAM");
@@ -215,9 +216,10 @@ public class MainMenuFragment extends FragmentWithAnim {
             }
 
             // Active JRE
+            // AllSettings.defaultRuntime is a @JvmStatic val StringSettingUnit — access as a field, not a method.
             if (binding.statJreValue != null) {
                 try {
-                    String defaultRuntime = AllSettings.getDefaultRuntime().getValue();
+                    String defaultRuntime = AllSettings.defaultRuntime.getValue();
 
                     if (defaultRuntime != null && !defaultRuntime.isEmpty()) {
                         net.kdt.pojavlaunch.multirt.Runtime rt =
@@ -236,9 +238,10 @@ public class MainMenuFragment extends FragmentWithAnim {
             }
 
             // Renderer
+            // AllSettings.renderer is a @JvmStatic val StringSettingUnit.
             if (binding.statRendererValue != null) {
                 try {
-                    String renderer = LauncherPreferences.PREF_RENDERER;
+                    String renderer = AllSettings.renderer.getValue();
 
                     binding.statRendererValue.setText(
                             renderer != null ? renderer : "GL4ES"
@@ -325,4 +328,5 @@ public class MainMenuFragment extends FragmentWithAnim {
                 new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceShrink)
         );
     }
-                }
+}
+
