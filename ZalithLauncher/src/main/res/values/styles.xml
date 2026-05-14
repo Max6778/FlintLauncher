@@ -27,7 +27,7 @@
         <!-- IMPORTANT:
              Rename exo2-Regular.ttf -> exo2_regular.ttf
         -->
-        <item name="android:fontFamily">@font/exo2_regular</item>
+        <item name="android:fontFamily">@font/exo2</item>
 
         <!-- Force dark mode regardless of system setting -->
         <item name="android:forceDarkAllowed" tools:ignore="NewApi">false</item>
