@@ -23,6 +23,7 @@ import com.movtery.zalithlauncher.feature.version.Version;
 import com.movtery.zalithlauncher.feature.version.utils.VersionIconUtils;
 import com.movtery.zalithlauncher.feature.version.VersionInfo;
 import com.movtery.zalithlauncher.feature.version.VersionsManager;
+import com.movtery.zalithlauncher.setting.AllSettings;
 import com.movtery.zalithlauncher.task.TaskExecutors;
 import com.movtery.zalithlauncher.ui.fragment.AboutFragment;
 import com.movtery.zalithlauncher.ui.fragment.ControlButtonFragment;
@@ -37,6 +38,7 @@ import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
+import net.kdt.pojavlaunch.multirt.MultiRTUtils;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -62,67 +64,193 @@ public class MainMenuFragment extends FragmentWithAnim {
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        // ── About ──
         binding.aboutText.setText(InfoCenter.replaceName(requireActivity(), R.string.about_tab));
-        binding.aboutButton.setOnClickListener(v -> ZHTools.swapFragmentWithAnim(this, AboutFragment.class, AboutFragment.TAG, null));
-        binding.customControlButton.setOnClickListener(v -> ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
+        binding.aboutButton.setOnClickListener(v ->
+                ZHTools.swapFragmentWithAnim(this, AboutFragment.class, AboutFragment.TAG, null));
+
+        // ── Controls ──
+        binding.customControlButton.setOnClickListener(v ->
+                ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
+
+        // ── Files ──
         binding.openMainDirButton.setOnClickListener(v -> {
             Bundle bundle = new Bundle();
             bundle.putString(FilesFragment.BUNDLE_LIST_PATH, PathManager.DIR_GAME_HOME);
             ZHTools.swapFragmentWithAnim(this, FilesFragment.class, FilesFragment.TAG, bundle);
         });
+
+        // ── Install JAR ──
         binding.installJarButton.setOnClickListener(v -> runInstallerWithConfirmation(false));
         binding.installJarButton.setOnLongClickListener(v -> {
             runInstallerWithConfirmation(true);
             return true;
         });
+
+        // ── Share Logs ──
         binding.shareLogsButton.setOnClickListener(v -> ZHTools.shareLogs(requireActivity()));
 
+        // BUG 4 FIX: Left sidebar — Versions button
+        if (binding.navItemVersions != null) {
+            binding.navItemVersions.setOnClickListener(v -> {
+                if (!isTaskRunning()) {
+                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
+                } else {
+                    ViewAnimUtils.setViewAnim(binding.navItemVersions, Animations.Shake);
+                    showTaskRunningToast();
+                }
+            });
+        }
+
+        // BUG 4 FIX: Left sidebar — Download button
+        if (binding.navItemDownload != null) {
+            binding.navItemDownload.setOnClickListener(v ->
+                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null));
+        }
+
+        // ── Version card (center) ──
         binding.version.setOnClickListener(v -> {
             if (!isTaskRunning()) {
                 ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
             } else {
                 ViewAnimUtils.setViewAnim(binding.version, Animations.Shake);
-                TaskExecutors.runInUIThread(() -> Toast.makeText(requireContext(), R.string.version_manager_task_in_progress, Toast.LENGTH_SHORT).show());
+                showTaskRunningToast();
             }
         });
+
         binding.managerProfileButton.setOnClickListener(v -> {
             if (!isTaskRunning()) {
                 ViewAnimUtils.setViewAnim(binding.managerProfileButton, Animations.Pulse);
                 ZHTools.swapFragmentWithAnim(this, VersionManagerFragment.class, VersionManagerFragment.TAG, null);
             } else {
                 ViewAnimUtils.setViewAnim(binding.managerProfileButton, Animations.Shake);
-                TaskExecutors.runInUIThread(() -> Toast.makeText(requireContext(), R.string.version_manager_task_in_progress, Toast.LENGTH_SHORT).show());
+                showTaskRunningToast();
             }
         });
 
+        // BUG 3 FIX: Play button — background set to flint_btn_play (blue) in XML
+        // EventBus fires the launch
         binding.playButton.setOnClickListener(v -> EventBus.getDefault().post(new LaunchGameEvent()));
+
+        // BUG 6 FIX: Quick action buttons
+        if (binding.quickVersionsButton != null) {
+            binding.quickVersionsButton.setOnClickListener(v -> {
+                if (!isTaskRunning()) {
+                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
+                } else {
+                    showTaskRunningToast();
+                }
+            });
+        }
+
+        if (binding.quickControlsButton != null) {
+            binding.quickControlsButton.setOnClickListener(v ->
+                    ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
+        }
+
+        if (binding.quickFilesButton != null) {
+            binding.quickFilesButton.setOnClickListener(v -> {
+                Bundle bundle = new Bundle();
+                bundle.putString(FilesFragment.BUNDLE_LIST_PATH, PathManager.DIR_GAME_HOME);
+                ZHTools.swapFragmentWithAnim(this, FilesFragment.class, FilesFragment.TAG, bundle);
+            });
+        }
+
+        if (binding.quickLogsButton != null) {
+            binding.quickLogsButton.setOnClickListener(v -> ZHTools.shareLogs(requireActivity()));
+        }
 
         binding.versionName.setSelected(true);
         binding.versionInfo.setSelected(true);
 
         refreshCurrentVersion();
+
+        // BUG 5 FIX: Populate RAM and Renderer stats in right panel
+        refreshStatusPanel();
     }
 
+    // BUG 7 + BUG 5 FIX: Refresh version info and ready tag properly
     private void refreshCurrentVersion() {
         Version version = VersionsManager.INSTANCE.getCurrentVersion();
 
-        int versionInfoVisibility;
         if (version != null) {
             binding.versionName.setText(version.getVersionName());
+
             VersionInfo versionInfo = version.getVersionInfo();
             if (versionInfo != null) {
                 binding.versionInfo.setText(versionInfo.getInfoString());
-                versionInfoVisibility = View.VISIBLE;
-            } else versionInfoVisibility = View.GONE;
+                binding.versionInfo.setVisibility(View.VISIBLE);
+            } else {
+                binding.versionInfo.setVisibility(View.GONE);
+            }
 
             new VersionIconUtils(version).start(binding.versionIcon);
             binding.managerProfileButton.setVisibility(View.VISIBLE);
+
+            // BUG 7 FIX: Only show "Ready" tag when a version is actually selected
+            if (binding.versionTagReady != null) {
+                binding.versionTagReady.setVisibility(View.VISIBLE);
+            }
+
         } else {
+            // No version installed — show placeholder, hide ready tag
             binding.versionName.setText(R.string.version_no_versions);
+            binding.versionInfo.setVisibility(View.GONE);
             binding.managerProfileButton.setVisibility(View.GONE);
-            versionInfoVisibility = View.GONE;
+
+            // BUG 7 FIX: Hide "Ready" tag when no version is installed
+            if (binding.versionTagReady != null) {
+                binding.versionTagReady.setVisibility(View.GONE);
+            }
         }
-        binding.versionInfo.setVisibility(versionInfoVisibility);
+    }
+
+    // BUG 5 FIX: Populate RAM / JRE / Renderer stats from actual settings
+    private void refreshStatusPanel() {
+        try {
+            // RAM
+            if (binding.statRamValue != null) {
+                int ram = AllSettings.ramAllocation.getValue().getValue();
+                binding.statRamValue.setText(ram + " MB alloc");
+            }
+
+            // Active JRE
+            if (binding.statJreValue != null) {
+                try {
+                    String jreName = MultiRTUtils.forceReread()
+                            .stream()
+                            .filter(rt -> rt.name != null)
+                            .findFirst()
+                            .map(rt -> rt.name)
+                            .orElse("Unknown");
+                    binding.statJreValue.setText(jreName);
+                } catch (Exception e) {
+                    binding.statJreValue.setText("Java");
+                }
+            }
+
+            // Renderer
+            if (binding.statRendererValue != null) {
+                try {
+                    String renderer = AllSettings.renderer.getValue();
+                    binding.statRendererValue.setText(renderer != null ? renderer : "GL4ES");
+                } catch (Exception e) {
+                    binding.statRendererValue.setText("GL4ES");
+                }
+            }
+
+        } catch (Exception e) {
+            // Silently fail — stats are non-critical UI
+        }
+    }
+
+    private void showTaskRunningToast() {
+        TaskExecutors.runInUIThread(() ->
+                Toast.makeText(requireContext(), R.string.version_manager_task_in_progress, Toast.LENGTH_SHORT).show());
+    }
+
+    private boolean isTaskRunning() {
+        return ProgressKeeper.getTaskCount() != 0;
     }
 
     @Subscribe()
@@ -170,3 +298,4 @@ public class MainMenuFragment extends FragmentWithAnim {
                 .apply(new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceShrink));
     }
 }
+
