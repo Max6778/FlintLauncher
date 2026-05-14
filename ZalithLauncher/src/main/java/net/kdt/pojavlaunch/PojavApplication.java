@@ -8,7 +8,6 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.util.Log;
 
@@ -31,7 +30,6 @@ import java.io.File;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.util.Date;
-import java.util.Objects;
 
 public class PojavApplication extends Application {
 	public static final String CRASH_REPORT_TAG = "ZalithCrashReport";
@@ -44,7 +42,6 @@ public class PojavApplication extends Application {
 			boolean storagePermAllowed = (Build.VERSION.SDK_INT >= 29 || ActivityCompat.checkSelfPermission(PojavApplication.this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) && Tools.checkStorageRoot();
 			File crashFile = new File(storagePermAllowed ? PathManager.DIR_LAUNCHER_LOG : PathManager.DIR_DATA, "latestcrash.txt");
 			try {
-				// Write to file, since some devices may not able to show error
 				FileUtils.ensureParentDirectory(crashFile);
 				PrintStream crashStream = new PrintStream(crashFile);
 				crashStream.append(InfoDistributor.APP_NAME + " crash report\n");
@@ -70,12 +67,11 @@ public class PojavApplication extends Application {
 			PathManager.DIR_CACHE = getCacheDir();
 			PathManager.DIR_ACCOUNT_NEW = PathManager.DIR_DATA + "/accounts";
 			Tools.DEVICE_ARCHITECTURE = Architecture.getDeviceArchitecture();
-			//Force x86 lib directory for Asus x86 based zenfones
 			if(Architecture.isx86Device() && Architecture.is32BitsDevice()){
 				String originalJNIDirectory = getApplicationInfo().nativeLibraryDir;
 				getApplicationInfo().nativeLibraryDir = originalJNIDirectory.substring(0,
-												originalJNIDirectory.lastIndexOf("/"))
-												.concat("/x86");
+								originalJNIDirectory.lastIndexOf("/"))
+								.concat("/x86");
 			}
 		} catch (Throwable throwable) {
 			Intent ferrorIntent = new Intent(this, ErrorActivity.class);
@@ -84,18 +80,9 @@ public class PojavApplication extends Application {
 			startActivity(ferrorIntent);
 		}
 
-		//设置主题
-		String launcherTheme = AllSettings.getLauncherTheme().getValue();
-		if (!Objects.equals(launcherTheme, "system")) {
-			switch (launcherTheme) {
-				case "light" :
-					AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-					break;
-				case "dark" :
-					AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-					break;
-			}
-		}
+		// BUG 8 FIX: FlintLauncher ALWAYS forces dark mode — ignore user setting
+		// This makes the dark theme apply across ALL screens and fragments
+		AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
 	}
 
 	@Override
@@ -109,11 +96,5 @@ public class PojavApplication extends Application {
 		ContextExecutor.setApplication(this);
         super.attachBaseContext(LocaleHelper.Companion.setLocale(base));
     }
-
-    @Override
-    public void onConfigurationChanged(@NonNull Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-		ContextExecutor.setApplication(this);
-		LocaleHelper.Companion.setLocale(this);
-    }
 }
+
