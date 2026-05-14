@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     FlintLauncher styles.xml
-    Place at: ZalithLauncher/src/main/res/values/styles.xml
-    Also copy to: ZalithLauncher/src/main/res/values-night/styles.xml
+    Place at BOTH:
+      ZalithLauncher/src/main/res/values/styles.xml
+      ZalithLauncher/src/main/res/values-night/styles.xml
 
-    IMPORTANT: Keeps all original ZalithLauncher styles so nothing breaks.
-    Only AppTheme, CustomDialogStyle and CustomAlertDialogTheme are updated.
+    BUG 2 & 8 FIX:
+    Parent changed to DayNight.NoActionBar. Combined with
+    AppCompatDelegate.MODE_NIGHT_YES in PojavApplication.java,
+    this forces ALL screens into dark mode globally.
 -->
 <resources>
 
-    <!-- ── Main App Theme (Dark always) ── -->
-    <style name="AppTheme" parent="@style/Theme.AppCompat.NoActionBar">
+    <style name="AppTheme" parent="@style/Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>
@@ -25,7 +27,6 @@
         <item name="android:fontFamily">@font/exo2</item>
     </style>
 
-    <!-- ── Splash Screen Theme ── -->
     <style name="SplashTheme" parent="@style/Theme.AppCompat.NoActionBar">
         <item name="windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
@@ -37,22 +38,21 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
-    <!-- ── Dialogs ── -->
-    <style name="CustomDialogStyle" parent="Theme.AppCompat.Dialog">
+    <style name="CustomDialogStyle" parent="Theme.AppCompat.DayNight.Dialog">
         <item name="android:windowBackground">@drawable/flint_bg_dialog</item>
         <item name="android:scrollbarThumbHorizontal">@color/flint_accent</item>
         <item name="android:scrollbarThumbVertical">@color/flint_accent</item>
         <item name="android:textColor">@color/flint_text</item>
     </style>
 
-    <style name="CustomAlertDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+    <style name="CustomAlertDialogTheme" parent="Theme.AppCompat.DayNight.Dialog.Alert">
         <item name="android:windowBackground">@drawable/flint_bg_dialog</item>
         <item name="android:scrollbarThumbHorizontal">@color/flint_accent</item>
         <item name="android:scrollbarThumbVertical">@color/flint_accent</item>
         <item name="android:textColor">@color/flint_text</item>
     </style>
 
-    <!-- ── KEEP ORIGINAL — required by existing layouts ── -->
+    <!-- KEEP — required by existing layouts -->
     <style name="RoundedCornersImageView">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">4%</item>
