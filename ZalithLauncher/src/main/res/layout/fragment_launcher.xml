@@ -68,7 +68,7 @@
                         android:layout_width="@dimen/_16sdp"
                         android:layout_height="@dimen/_16sdp"
                         android:layout_centerVertical="true"
-                        android:src="@drawable/ic_home"
+                        android:src="@drawable/ic_launcher"
                         android:tint="@color/flint_accent"
                         tools:ignore="ContentDescription" />
                     <TextView
@@ -96,7 +96,7 @@
                         android:layout_width="@dimen/_16sdp"
                         android:layout_height="@dimen/_16sdp"
                         android:layout_centerVertical="true"
-                        android:src="@drawable/ic_versions"
+                        android:src="@drawable/ic_version"
                         android:tint="@color/flint_text_dim"
                         tools:ignore="ContentDescription" />
                     <TextView
@@ -369,7 +369,7 @@
                     android:background="@drawable/flint_bg_icon"
                     android:padding="@dimen/_6sdp"
                     android:scaleType="centerInside"
-                    android:src="@drawable/ic_minecraft"
+                    android:src="@drawable/ic_old_grass_block"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     tools:ignore="ContentDescription" />
@@ -545,7 +545,7 @@
                         android:id="@+id/qi_versions_icon"
                         android:layout_width="@dimen/_30sdp" android:layout_height="@dimen/_30sdp"
                         android:background="@drawable/flint_bg_icon"
-                        android:src="@drawable/ic_versions"
+                        android:src="@drawable/ic_version"
                         android:scaleType="centerInside"
                         android:padding="@dimen/_6sdp"
                         android:tint="@color/flint_text_dim"
