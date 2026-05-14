@@ -48,7 +48,7 @@
         <activity
             android:name="com.movtery.zalithlauncher.ui.activity.FlintSplashActivity"
             android:exported="true"
-            android:theme="@style/SplashTheme"
+            android:theme="@style/AppTheme"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
             android:screenOrientation="sensorLandscape">
             <intent-filter>
