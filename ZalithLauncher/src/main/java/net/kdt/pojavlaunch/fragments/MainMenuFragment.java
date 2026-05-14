@@ -204,11 +204,11 @@ public class MainMenuFragment extends FragmentWithAnim {
         try {
 
             // RAM
-            // AllSettings.ramAllocation is a Kotlin lazy<IntSettingUnit>.
-            // From Java: .getValue() unwraps the Lazy, then .getValue() reads the int.
+            // getRamAllocation() returns the Kotlin Lazy; first .getValue() forces it to IntSettingUnit,
+            // second .getValue() reads the int.
             if (binding.statRamValue != null) {
                 try {
-                    int ram = AllSettings.ramAllocation.getValue().getValue();
+                    int ram = AllSettings.getRamAllocation().getValue().getValue();
                     binding.statRamValue.setText(ram + " MB alloc");
                 } catch (Exception e) {
                     binding.statRamValue.setText("RAM");
@@ -219,7 +219,7 @@ public class MainMenuFragment extends FragmentWithAnim {
             // AllSettings.defaultRuntime is a @JvmStatic val StringSettingUnit — access as a field, not a method.
             if (binding.statJreValue != null) {
                 try {
-                    String defaultRuntime = AllSettings.defaultRuntime.getValue();
+                    String defaultRuntime = AllSettings.getDefaultRuntime().getValue();
 
                     if (defaultRuntime != null && !defaultRuntime.isEmpty()) {
                         net.kdt.pojavlaunch.multirt.Runtime rt =
@@ -241,7 +241,7 @@ public class MainMenuFragment extends FragmentWithAnim {
             // AllSettings.renderer is a @JvmStatic val StringSettingUnit.
             if (binding.statRendererValue != null) {
                 try {
-                    String renderer = AllSettings.renderer.getValue();
+                    String renderer = AllSettings.getRenderer().getValue();
 
                     binding.statRendererValue.setText(
                             renderer != null ? renderer : "GL4ES"
