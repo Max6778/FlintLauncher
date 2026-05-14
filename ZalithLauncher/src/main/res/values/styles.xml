@@ -1,48 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    FlintLauncher styles.xml
+    Place at BOTH:
+      ZalithLauncher/src/main/res/values/styles.xml
+      ZalithLauncher/src/main/res/values-night/styles.xml
+    (Same file in both folders — dark mode is always on)
+-->
 <resources>
-    <style name="AppTheme" parent="@style/Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme" parent="@style/Theme.AppCompat.NoActionBar">
         <item name="windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:statusBarColor">@color/background_status_bar</item>
-        <item name="android:navigationBarColor">@color/background_app</item>
-        <item name="android:scrollbarThumbHorizontal">@color/background_menu_element</item>
-        <item name="android:scrollbarThumbVertical">@color/background_menu_element</item>
+        <item name="android:statusBarColor">@color/flint_bg</item>
+        <item name="android:navigationBarColor">@color/flint_bg</item>
+        <item name="android:windowBackground">@color/flint_bg</item>
+        <item name="android:scrollbarThumbHorizontal">@color/flint_accent</item>
+        <item name="android:scrollbarThumbVertical">@color/flint_accent</item>
         <item name="android:textSize">@dimen/_12ssp</item>
+        <item name="android:textColor">@color/flint_text</item>
+        <item name="android:fontFamily">@font/exo2</item>
+        <!-- Force dark mode regardless of system setting -->
+        <item name="android:forceDarkAllowed" tools:ignore="NewApi">false</item>
     </style>
 
-    <!-- Splash screen theme — solid light blue, no flicker -->
-    <style name="SplashTheme" parent="@style/Theme.AppCompat.NoActionBar">
-        <item name="windowNoTitle">true</item>
-        <item name="windowActionBar">false</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:statusBarColor">#1565C0</item>
-        <item name="android:navigationBarColor">#1565C0</item>
-        <item name="android:windowBackground">#1565C0</item>
-        <item name="android:windowNoTitle">true</item>
+    <style name="CustomDialogStyle" parent="Theme.AppCompat.Dialog">
+        <item name="android:windowBackground">@drawable/flint_bg_dialog</item>
+        <item name="android:scrollbarThumbHorizontal">@color/flint_accent</item>
+        <item name="android:scrollbarThumbVertical">@color/flint_accent</item>
+        <item name="android:textColor">@color/flint_text</item>
     </style>
 
-    <style name="CustomDialogStyle" parent="Theme.AppCompat.Light.Dialog">
-        <item name="android:windowBackground">@drawable/dialog_background</item>
-        <item name="android:scrollbarThumbHorizontal">@color/background_menu_element</item>
-        <item name="android:scrollbarThumbVertical">@color/background_menu_element</item>
+    <style name="CustomAlertDialogTheme" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/flint_bg_dialog</item>
+        <item name="android:scrollbarThumbHorizontal">@color/flint_accent</item>
+        <item name="android:scrollbarThumbVertical">@color/flint_accent</item>
+        <item name="android:textColor">@color/flint_text</item>
     </style>
 
-    <style name="CustomAlertDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
-        <item name="android:windowBackground">@drawable/dialog_background</item>
-        <item name="android:scrollbarThumbHorizontal">@color/background_menu_element</item>
-        <item name="android:scrollbarThumbVertical">@color/background_menu_element</item>
+    <!-- Button style -->
+    <style name="FlintButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/flint_btn_play</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/exo2</item>
+        <item name="android:textAllCaps">true</item>
     </style>
 
-    <style name="RoundedCornersImageView">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">4%</item>
-    </style>
-
-    <style name="RoundImageView">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">50%</item>
+    <!-- Toolbar style -->
+    <style name="FlintTopBar" parent="Widget.AppCompat.Toolbar">
+        <item name="android:background">@color/flint_surface</item>
+        <item name="android:elevation">4dp</item>
     </style>
 </resources>
