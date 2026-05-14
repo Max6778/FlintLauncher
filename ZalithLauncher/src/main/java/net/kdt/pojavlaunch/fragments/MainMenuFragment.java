@@ -39,6 +39,7 @@ import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.multirt.MultiRTUtils;
+import net.kdt.pojavlaunch.prefs.LauncherPreferences;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -93,7 +94,7 @@ public class MainMenuFragment extends FragmentWithAnim {
         // BUG 4 FIX: Left sidebar — Versions button
         if (binding.navItemVersions != null) {
             binding.navItemVersions.setOnClickListener(v -> {
-                if (!isTaskRunning()) {
+                if (!checkTaskRunning()) {
                     ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
                 } else {
                     ViewAnimUtils.setViewAnim(binding.navItemVersions, Animations.Shake);
@@ -110,7 +111,7 @@ public class MainMenuFragment extends FragmentWithAnim {
 
         // ── Version card (center) ──
         binding.version.setOnClickListener(v -> {
-            if (!isTaskRunning()) {
+            if (!checkTaskRunning()) {
                 ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
             } else {
                 ViewAnimUtils.setViewAnim(binding.version, Animations.Shake);
@@ -119,7 +120,7 @@ public class MainMenuFragment extends FragmentWithAnim {
         });
 
         binding.managerProfileButton.setOnClickListener(v -> {
-            if (!isTaskRunning()) {
+            if (!checkTaskRunning()) {
                 ViewAnimUtils.setViewAnim(binding.managerProfileButton, Animations.Pulse);
                 ZHTools.swapFragmentWithAnim(this, VersionManagerFragment.class, VersionManagerFragment.TAG, null);
             } else {
@@ -135,7 +136,7 @@ public class MainMenuFragment extends FragmentWithAnim {
         // BUG 6 FIX: Quick action buttons
         if (binding.quickVersionsButton != null) {
             binding.quickVersionsButton.setOnClickListener(v -> {
-                if (!isTaskRunning()) {
+                if (!checkTaskRunning()) {
                     ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
                 } else {
                     showTaskRunningToast();
@@ -208,28 +209,34 @@ public class MainMenuFragment extends FragmentWithAnim {
     // BUG 5 FIX: Populate RAM / JRE / Renderer stats from actual settings
     private void refreshStatusPanel() {
         try {
-            // RAM
+            // RAM — read directly from SharedPreferences since ramAllocation is Kotlin lazy
             if (binding.statRamValue != null) {
-                int ram = AllSettings.ramAllocation.getValue().getValue();
-                binding.statRamValue.setText(ram + " MB alloc");
+                try {
+                    int ram = com.movtery.zalithlauncher.setting.Settings.Manager
+                            .getInt("allocation",
+                                    LauncherPreferences.findBestRAMAllocation(requireContext()));
+                    binding.statRamValue.setText(ram + " MB alloc");
+                } catch (Exception e) {
+                    binding.statRamValue.setText("RAM");
+                }
             }
 
-            // Active JRE
+            // Active JRE — read from settings, then forceReread(name)
             if (binding.statJreValue != null) {
                 try {
-                    String jreName = MultiRTUtils.forceReread()
-                            .stream()
-                            .filter(rt -> rt.name != null)
-                            .findFirst()
-                            .map(rt -> rt.name)
-                            .orElse("Unknown");
-                    binding.statJreValue.setText(jreName);
+                    String defaultRuntime = AllSettings.getDefaultRuntime().getValue();
+                    if (defaultRuntime != null && !defaultRuntime.isEmpty()) {
+                        net.kdt.pojavlaunch.multirt.Runtime rt = MultiRTUtils.forceReread(defaultRuntime);
+                        binding.statJreValue.setText(rt != null ? rt.name : defaultRuntime);
+                    } else {
+                        binding.statJreValue.setText("Java");
+                    }
                 } catch (Exception e) {
                     binding.statJreValue.setText("Java");
                 }
             }
 
-            // Renderer
+            // Renderer — AllSettings.renderer is @JvmStatic StringSettingUnit
             if (binding.statRendererValue != null) {
                 try {
                     String renderer = AllSettings.renderer.getValue();
@@ -249,7 +256,8 @@ public class MainMenuFragment extends FragmentWithAnim {
                 Toast.makeText(requireContext(), R.string.version_manager_task_in_progress, Toast.LENGTH_SHORT).show());
     }
 
-    private boolean isTaskRunning() {
+    // BUG FIX: isTaskRunning() is final in BaseFragment — removed override, use directly
+    private boolean checkTaskRunning() {
         return ProgressKeeper.getTaskCount() != 0;
     }
 
