@@ -695,5 +695,74 @@
     <string name="newbie_guide_game_menu">You can drag the game menu floating window to any position on the screen.</string>
     <!-- Sponsorship Related -->
     <string name="request_sponsorship_title">Support FlintLauncher Development</string>
-    <string name="request_sponsorship_message">FlintLauncher is a free, open-source project. If you find it helpful and are in a position to do so, please consider sponsoring development to help keep the project alive and improving. Thank you for your support!</string>
+    <string name="request_sponsorship_message">FlintLauncher is a free, open-source project. If you find it helpful and are in a position to do so, please consider sponsoring development to help keep the project alive and improving. Thank you for your support!</string
+    <!-- ── App info ── -->
+    <string name="flint_launcher_version">v1.0.0</string>
+    <!-- ── Section labels ── -->
+    <string name="flint_section_version">Selected Version</string>
+    <string name="flint_section_actions">Quick Actions</string>
+    <string name="flint_section_install">Install</string>
+    <string name="flint_section_status">Device Status</string>
+    <string name="flint_section_performance">Performance</string>
+
+    <!-- ── Version card ── -->
+    <string name="flint_version_label">Minecraft Java</string>
+    <string name="flint_tag_ready">● Ready</string>
+    <string name="flint_tag_not_ready">● Not Ready</string>
+
+    <!-- ── Quick action subtitles ── -->
+    <string name="flint_quick_manage">Manage</string>
+    <string name="flint_quick_customize">Customize</string>
+    <string name="flint_quick_game_dir">Game dir</string>
+    <string name="flint_quick_share">Share</string>
+
+    <!-- ── Install row ── -->
+    <string name="flint_install_sub">Forge · Fabric · NeoForge · OptiFine</string>
+
+    <!-- ── Navigation ── -->
+    <string name="flint_nav_home">Home</string>
+    <string name="flint_nav_versions">Versions</string>
+    <string name="flint_nav_download">Download</string>
+    <string name="flint_nav_settings">Settings</string>
+    <string name="flint_nav_about">About</string>
+
+    <!-- ── Status panel ── -->
+    <string name="flint_status_ram">RAM</string>
+    <string name="flint_status_jre">JRE</string>
+    <string name="flint_status_renderer">Renderer</string>
+    <string name="flint_perf_profile">Profile: %1$s</string>
+
+    <!-- ── Customization screen ── -->
+    <string name="flint_custom_title">Customizations</string>
+    <string name="flint_custom_accent">Accent Color</string>
+    <string name="flint_custom_theme">Theme</string>
+    <string name="flint_custom_dark_mode">Dark Mode</string>
+    <string name="flint_custom_dark_mode_desc">Default dark theme</string>
+    <string name="flint_custom_amoled">AMOLED Black</string>
+    <string name="flint_custom_amoled_desc">Pure black for OLED screens</string>
+    <string name="flint_custom_font">Font</string>
+    <string name="flint_custom_font_exo2">Exo 2 (Default)</string>
+    <string name="flint_custom_font_system">System Default</string>
+    <string name="flint_custom_background">Background</string>
+    <string name="flint_custom_bg_none">None</string>
+    <string name="flint_custom_bg_space">Space</string>
+    <string name="flint_custom_bg_deep">Deep</string>
+    <string name="flint_custom_bg_mesh">Mesh</string>
+    <string name="flint_custom_ui">UI Options</string>
+    <string name="flint_custom_animations">Animations</string>
+    <string name="flint_custom_animations_desc">Screen transition effects</string>
+    <string name="flint_custom_blur">Blur Effects</string>
+    <string name="flint_custom_blur_desc">Background blur on dialogs</string>
+    <string name="flint_custom_preview">Live Preview</string>
+    <string name="flint_custom_preview_hint">Changes apply instantly</string>
+
+    <!-- ── Versions screen ── -->
+    <string name="flint_versions_search">Search versions…</string>
+    <string name="flint_versions_filter_all">All</string>
+    <string name="flint_versions_filter_release">Release</string>
+    <string name="flint_versions_filter_snapshot">Snapshot</string>
+    <string name="flint_versions_add">+ New Version</string>
+    <string name="flint_tag_snapshot">Snapshot</string>
+    <string name="flint_tag_vanilla">Vanilla</string>
+
 </resources>
