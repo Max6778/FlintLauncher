@@ -1,39 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    FlintLauncher colors_night.xml
+    Place at: ZalithLauncher/src/main/res/values-night/colors_night.xml
+    Night mode = same as day since FlintLauncher is always dark.
+-->
 <resources>
     <color name="black_or_white">#FFFFFF</color>
 
-    <color name="background_app">#181818</color>
-    <color name="background_app_error">#431A1A</color>
-    <color name="background_overlay">#464646</color>
-    <color name="background_status_bar">#242424</color>
-    <color name="background_menu_top">#232323</color>
-    <color name="background_menu_top_error">#E62E0909</color>
-    <color name="background_menu_element">#1F7281</color>
-    <color name="background_ripple_effect">#DCDCDC</color>
+    <color name="background_app">#0A0A0C</color>
+    <color name="background_app_error">#2D1A1A</color>
+    <color name="background_overlay">#18181E</color>
+    <color name="background_status_bar">#0A0A0C</color>
+    <color name="background_menu_top">#111115</color>
+    <color name="background_menu_top_error">#2D1A1A</color>
+    <color name="background_menu_element">#3B82F6</color>
+    <color name="background_ripple_effect">#3B82F6</color>
 
-    <color name="button_background">#3C3C3C</color>
-    <color name="button_background_selected">#5B5B5B</color>
-    <color name="dialog_background">#232323</color>
+    <color name="button_background">#18181E</color>
+    <color name="button_background_selected">#23232E</color>
+    <color name="dialog_background">#111115</color>
 
-    <color name="menu_bar">#555555</color>
-    <color name="menu_overlay">#BE232323</color>
-    <color name="menu_progress">#888888</color>
+    <color name="menu_bar">#111115</color>
+    <color name="menu_bar_text">#EEEDF5</color>
+    <color name="menu_overlay">#E0111115</color>
+    <color name="menu_progress">#3B82F6</color>
 
-    <color name="background_item">#BF2E2E2E</color>
-    <color name="background_item_selected">#D8373737</color>
-    <color name="background_item_disabled">#D8452828</color>
-    <color name="background_sponsor_intermediate">#80BD6C2D</color>
-    <color name="background_sponsor_advanced">#80B83C1F</color>
+    <color name="background_item">#BF18181E</color>
+    <color name="background_item_selected">#D823232E</color>
+    <color name="background_item_disabled">#D82D1A1A</color>
+    <color name="background_sponsor_intermediate">#CC2E4A7E</color>
+    <color name="background_sponsor_advanced">#CC1E3A6E</color>
 
-    <color name="edit_box_fill">#4C4C4C</color>
-    <color name="edit_box_fill_selected">#636363</color>
+    <color name="edit_box_fill">#18181E</color>
+    <color name="edit_box_fill_selected">#23232E</color>
 
-    <color name="mod_category_fill">#804C4C4C</color>
-    <color name="text_background_fill">#B3434343</color>
+    <color name="mod_category_fill">#801A1A2E</color>
+    <color name="text_background_fill">#B318181E</color>
 
-    <color name="settings_category">#31E2D4</color>
-
-    <color name="icon_color">#FFFFFF</color>
-
-    <color name="primary_text">#FFFFFF</color>
+    <color name="settings_category">#3B82F6</color>
+    <color name="icon_color">#93C5FD</color>
+    <color name="primary_text">#EEEDF5</color>
 </resources>
