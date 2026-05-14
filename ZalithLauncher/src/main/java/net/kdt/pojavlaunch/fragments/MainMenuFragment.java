@@ -91,7 +91,7 @@ public class MainMenuFragment extends FragmentWithAnim {
         // ── Share Logs ──
         binding.shareLogsButton.setOnClickListener(v -> ZHTools.shareLogs(requireActivity()));
 
-        // BUG 4 FIX: Left sidebar — Versions button
+        // Left sidebar — Versions button
         if (binding.navItemVersions != null) {
             binding.navItemVersions.setOnClickListener(v -> {
                 if (!checkTaskRunning()) {
@@ -103,13 +103,13 @@ public class MainMenuFragment extends FragmentWithAnim {
             });
         }
 
-        // BUG 4 FIX: Left sidebar — Download button
+        // Left sidebar — Download button
         if (binding.navItemDownload != null) {
             binding.navItemDownload.setOnClickListener(v ->
                     ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null));
         }
 
-        // ── Version card (center) ──
+        // Version card
         binding.version.setOnClickListener(v -> {
             if (!checkTaskRunning()) {
                 ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
@@ -129,11 +129,11 @@ public class MainMenuFragment extends FragmentWithAnim {
             }
         });
 
-        // BUG 3 FIX: Play button — background set to flint_btn_play (blue) in XML
-        // EventBus fires the launch
-        binding.playButton.setOnClickListener(v -> EventBus.getDefault().post(new LaunchGameEvent()));
+        // Play button
+        binding.playButton.setOnClickListener(v ->
+                EventBus.getDefault().post(new LaunchGameEvent()));
 
-        // BUG 6 FIX: Quick action buttons
+        // Quick buttons
         if (binding.quickVersionsButton != null) {
             binding.quickVersionsButton.setOnClickListener(v -> {
                 if (!checkTaskRunning()) {
@@ -158,19 +158,17 @@ public class MainMenuFragment extends FragmentWithAnim {
         }
 
         if (binding.quickLogsButton != null) {
-            binding.quickLogsButton.setOnClickListener(v -> ZHTools.shareLogs(requireActivity()));
+            binding.quickLogsButton.setOnClickListener(v ->
+                    ZHTools.shareLogs(requireActivity()));
         }
 
         binding.versionName.setSelected(true);
         binding.versionInfo.setSelected(true);
 
         refreshCurrentVersion();
-
-        // BUG 5 FIX: Populate RAM and Renderer stats in right panel
         refreshStatusPanel();
     }
 
-    // BUG 7 + BUG 5 FIX: Refresh version info and ready tag properly
     private void refreshCurrentVersion() {
         Version version = VersionsManager.INSTANCE.getCurrentVersion();
 
@@ -188,75 +186,82 @@ public class MainMenuFragment extends FragmentWithAnim {
             new VersionIconUtils(version).start(binding.versionIcon);
             binding.managerProfileButton.setVisibility(View.VISIBLE);
 
-            // BUG 7 FIX: Only show "Ready" tag when a version is actually selected
             if (binding.versionTagReady != null) {
                 binding.versionTagReady.setVisibility(View.VISIBLE);
             }
 
         } else {
-            // No version installed — show placeholder, hide ready tag
             binding.versionName.setText(R.string.version_no_versions);
             binding.versionInfo.setVisibility(View.GONE);
             binding.managerProfileButton.setVisibility(View.GONE);
 
-            // BUG 7 FIX: Hide "Ready" tag when no version is installed
             if (binding.versionTagReady != null) {
                 binding.versionTagReady.setVisibility(View.GONE);
             }
         }
     }
 
-    // BUG 5 FIX: Populate RAM / JRE / Renderer stats from actual settings
     private void refreshStatusPanel() {
         try {
-            // RAM — read directly from SharedPreferences since ramAllocation is Kotlin lazy
+
+            // RAM
             if (binding.statRamValue != null) {
                 try {
-                    int ram = com.movtery.zalithlauncher.setting.Settings.Manager
-                            .getInt("allocation",
-                                    LauncherPreferences.findBestRAMAllocation(requireContext()));
+                    int ram = LauncherPreferences.PREF_RAM_ALLOCATION;
                     binding.statRamValue.setText(ram + " MB alloc");
                 } catch (Exception e) {
                     binding.statRamValue.setText("RAM");
                 }
             }
 
-            // Active JRE — read from settings, then forceReread(name)
+            // Active JRE
             if (binding.statJreValue != null) {
                 try {
                     String defaultRuntime = AllSettings.getDefaultRuntime().getValue();
+
                     if (defaultRuntime != null && !defaultRuntime.isEmpty()) {
-                        net.kdt.pojavlaunch.multirt.Runtime rt = MultiRTUtils.forceReread(defaultRuntime);
-                        binding.statJreValue.setText(rt != null ? rt.name : defaultRuntime);
+                        net.kdt.pojavlaunch.multirt.Runtime rt =
+                                MultiRTUtils.forceReread(defaultRuntime);
+
+                        binding.statJreValue.setText(
+                                rt != null ? rt.name : defaultRuntime
+                        );
                     } else {
                         binding.statJreValue.setText("Java");
                     }
+
                 } catch (Exception e) {
                     binding.statJreValue.setText("Java");
                 }
             }
 
-            // Renderer — AllSettings.renderer is @JvmStatic StringSettingUnit
+            // Renderer
             if (binding.statRendererValue != null) {
                 try {
-                    String renderer = AllSettings.renderer.getValue();
-                    binding.statRendererValue.setText(renderer != null ? renderer : "GL4ES");
+                    String renderer = LauncherPreferences.PREF_RENDERER;
+
+                    binding.statRendererValue.setText(
+                            renderer != null ? renderer : "GL4ES"
+                    );
+
                 } catch (Exception e) {
                     binding.statRendererValue.setText("GL4ES");
                 }
             }
 
-        } catch (Exception e) {
-            // Silently fail — stats are non-critical UI
+        } catch (Exception ignored) {
         }
     }
 
     private void showTaskRunningToast() {
         TaskExecutors.runInUIThread(() ->
-                Toast.makeText(requireContext(), R.string.version_manager_task_in_progress, Toast.LENGTH_SHORT).show());
+                Toast.makeText(
+                        requireContext(),
+                        R.string.version_manager_task_in_progress,
+                        Toast.LENGTH_SHORT
+                ).show());
     }
 
-    // BUG FIX: isTaskRunning() is final in BaseFragment — removed override, use directly
     private boolean checkTaskRunning() {
         return ProgressKeeper.getTaskCount() != 0;
     }
@@ -270,7 +275,9 @@ public class MainMenuFragment extends FragmentWithAnim {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void event(AccountUpdateEvent event) {
-        if (accountViewWrapper != null) accountViewWrapper.refreshAccountInfo();
+        if (accountViewWrapper != null) {
+            accountViewWrapper.refreshAccountInfo();
+        }
     }
 
     @Override
@@ -286,24 +293,36 @@ public class MainMenuFragment extends FragmentWithAnim {
     }
 
     private void runInstallerWithConfirmation(boolean isCustomArgs) {
-        if (ProgressKeeper.getTaskCount() == 0)
+        if (ProgressKeeper.getTaskCount() == 0) {
             Tools.installMod(requireActivity(), isCustomArgs);
-        else
-            Toast.makeText(requireContext(), R.string.tasks_ongoing, Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(
+                    requireContext(),
+                    R.string.tasks_ongoing,
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
     @Override
     public void slideIn(AnimPlayer animPlayer) {
-        animPlayer.apply(new AnimPlayer.Entry(binding.launcherMenu, Animations.BounceInDown))
-                .apply(new AnimPlayer.Entry(binding.playLayout, Animations.BounceInLeft))
-                .apply(new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceEnlarge));
+        animPlayer.apply(
+                new AnimPlayer.Entry(binding.launcherMenu, Animations.BounceInDown)
+        ).apply(
+                new AnimPlayer.Entry(binding.playLayout, Animations.BounceInLeft)
+        ).apply(
+                new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceEnlarge)
+        );
     }
 
     @Override
     public void slideOut(AnimPlayer animPlayer) {
-        animPlayer.apply(new AnimPlayer.Entry(binding.launcherMenu, Animations.FadeOutUp))
-                .apply(new AnimPlayer.Entry(binding.playLayout, Animations.FadeOutRight))
-                .apply(new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceShrink));
+        animPlayer.apply(
+                new AnimPlayer.Entry(binding.launcherMenu, Animations.FadeOutUp)
+        ).apply(
+                new AnimPlayer.Entry(binding.playLayout, Animations.FadeOutRight)
+        ).apply(
+                new AnimPlayer.Entry(binding.playButtonsLayout, Animations.BounceShrink)
+        );
     }
-}
-
+                }
