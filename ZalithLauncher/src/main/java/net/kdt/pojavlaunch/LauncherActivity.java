@@ -231,14 +231,14 @@ public class LauncherActivity extends BaseActivity {
         }
 
         // Silent override: Force OpenGL setting is on — skip the dialog entirely.
-        if (AllSettings.forceOpenGlForNewVersions.getValue()) {
+        if (AllSettings.getForceOpenGlForNewVersions().getValue()) {
             applyOpenGlOverride(version);
             launchGame(version);
             return;
         }
 
         // User previously dismissed the warning and chose "Don't show again".
-        if (AllSettings.ignoreVulkanWarning.getValue()) {
+        if (AllSettings.getIgnoreVulkanWarning().getValue()) {
             launchGame(version);
             return;
         }
@@ -319,7 +319,7 @@ public class LauncherActivity extends BaseActivity {
                 .setConfirmClickListener(checked -> {
                     // Save "don't show again" if the checkbox was ticked.
                     if (checked) {
-                        AllSettings.ignoreVulkanWarning.put(true).save();
+                        AllSettings.getIgnoreVulkanWarning().put(true).save();
                     }
                     // Open the checker URL — do NOT launch the game yet.
                     try {
@@ -424,7 +424,7 @@ public class LauncherActivity extends BaseActivity {
                             }
                         }
                         return null;
-                    }).beforeStart(TaskExecutors.getAndroidUI(), () -> ProgressLayout.setProgress(ProgressLayout.INSTALL_RESOURCE, 0, R.string.generic_waiting)).ended(filePair -> {
+                    }).beforeStart(TaskExecutors.getOriginalIO(), () -> ProgressLayout.setProgress(ProgressLayout.INSTALL_RESOURCE, 0, R.string.generic_waiting)).ended(filePair -> {
                         if (filePair != null) {
                             try {
                                 ModPackUtils.startModLoaderInstall(filePair.getFirst(), LauncherActivity.this, filePair.getSecond(), customName);
@@ -817,4 +817,3 @@ public class LauncherActivity extends BaseActivity {
         binding.topLayout.setAlpha(adjustedOpacity.floatValue());
     }
 }
-
