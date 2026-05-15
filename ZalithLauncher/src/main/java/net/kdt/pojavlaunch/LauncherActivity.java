@@ -6,8 +6,10 @@ import static net.kdt.pojavlaunch.Tools.currentDisplayMetrics;
 import android.Manifest;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.method.LinkMovementMethod;
@@ -195,19 +197,147 @@ public class LauncherActivity extends BaseActivity {
                     new StoragePermissionsUtils.PermissionGranted() {
                         @Override
                         public void granted() {
-                            launchGame(version);
+                            checkVulkanCompatAndLaunch(version);
                         }
 
                         @Override
                         public void cancelled() {
-                            launchGame(version);
+                            checkVulkanCompatAndLaunch(version);
                         }
                     }
             );
             return;
         }
 
-        launchGame(version);
+        checkVulkanCompatAndLaunch(version);
+    }
+
+    /**
+     * Checks if the selected Minecraft version is 26.2 or newer.
+     *
+     * Decision tree:
+     *  1. Version < 26.2 → launch normally, no checks needed.
+     *  2. Version ≥ 26.2 AND forceOpenGlForNewVersions is ON → silently override
+     *     the renderer to GL4ES ("opengles2") and launch without showing a dialog.
+     *  3. Version ≥ 26.2 AND ignoreVulkanWarning is ON → skip the dialog and
+     *     launch with whatever renderer the user has configured.
+     *  4. Otherwise → show the Vulkan warning dialog so the user can test first.
+     */
+    private void checkVulkanCompatAndLaunch(Version version) {
+        String versionName = version.getVersionName();
+        if (!isVersionAtLeast26_2(versionName)) {
+            launchGame(version);
+            return;
+        }
+
+        // Silent override: Force OpenGL setting is on — skip the dialog entirely.
+        if (AllSettings.forceOpenGlForNewVersions.getValue()) {
+            applyOpenGlOverride(version);
+            launchGame(version);
+            return;
+        }
+
+        // User previously dismissed the warning and chose "Don't show again".
+        if (AllSettings.ignoreVulkanWarning.getValue()) {
+            launchGame(version);
+            return;
+        }
+
+        // Show the Vulkan warning so the user can decide or test.
+        showVulkanWarningDialog(version, versionName);
+    }
+
+    /**
+     * Overrides the given version's renderer to GL4ES ("opengles2") for this launch.
+     *
+     * "opengles2" is the renderer key defined in AllSettings.renderer — it maps to
+     * GL4ES, the OpenGL translation layer. We deliberately do NOT call
+     * version.save() here, so the user's persisted renderer choice is untouched;
+     * the override only applies to the current in-memory Version object.
+     */
+    private void applyOpenGlOverride(Version version) {
+        final String GL4ES_RENDERER_ID = "opengles2"; // matches AllSettings.renderer default
+
+        try {
+            String current = version.getRenderer();
+            if (!GL4ES_RENDERER_ID.equals(current)) {
+                version.setRenderer(GL4ES_RENDERER_ID);
+                Logging.i("LauncherActivity",
+                        "Force-OpenGL override: " + version.getVersionName()
+                        + " (was: " + current + " → now: " + GL4ES_RENDERER_ID + ")");
+            }
+            Toast.makeText(this,
+                    getString(R.string.setting_force_opengl_active_toast, version.getVersionName()),
+                    Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Logging.e("LauncherActivity", "Failed to apply OpenGL renderer override", e);
+        }
+    }
+
+    /**
+     * Returns true if the given version string represents Minecraft 26.2 or higher.
+     * Handles formats like "26.2", "26.2.0", "26.2-snapshot", "26.3", "27.0", etc.
+     */
+    private boolean isVersionAtLeast26_2(String versionName) {
+        if (versionName == null || versionName.isEmpty()) return false;
+        try {
+            // Strip any trailing non-numeric suffix (e.g. "-snapshot", "-pre1")
+            // by taking only the leading "digits and dots" portion.
+            String numeric = versionName.split("[^0-9.]")[0];
+            String[] parts = numeric.split("\\.");
+            if (parts.length < 2) return false;
+
+            int major = Integer.parseInt(parts[0]);
+            int minor = Integer.parseInt(parts[1]);
+
+            return (major > 26) || (major == 26 && minor >= 2);
+        } catch (NumberFormatException e) {
+            // Version name is not a numeric format (e.g. "1.21.4") — not affected.
+            return false;
+        }
+    }
+
+    /**
+     * Shows the Vulkan compatibility warning dialog for versions 26.2+.
+     *
+     * Buttons:
+     *  • "Test Vulkan"   → opens the checker URL in the browser (does NOT launch).
+     *  • "Launch Anyway" → optionally saves "don't show again" then launches.
+     *
+     * The TipDialog checkbox (if supported) is wired to ignoreVulkanWarning so the
+     * user only sees this once per decision. If TipDialog has no checkbox, the dialog
+     * still works — the ignore pref is simply never written from here (the user can
+     * toggle it manually in Settings → Game).
+     */
+    private void showVulkanWarningDialog(Version version, String versionName) {
+        new TipDialog.Builder(this)
+                .setTitle(R.string.vulkan_compat_warning_title)
+                .setMessage(getString(R.string.vulkan_compat_warning_message, versionName))
+                .setCheckBoxText(R.string.generic_no_more_reminders)
+                .setConfirmText(R.string.vulkan_compat_test_button)
+                .setConfirmClickListener(checked -> {
+                    // Save "don't show again" if the checkbox was ticked.
+                    if (checked) {
+                        AllSettings.ignoreVulkanWarning.put(true).save();
+                    }
+                    // Open the checker URL — do NOT launch the game yet.
+                    try {
+                        String url = getString(R.string.vulkan_compat_checker_url);
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception e) {
+                        Logging.e("LauncherActivity", "Failed to open Vulkan checker URL", e);
+                        Toast.makeText(this, R.string.generic_wrong_tip, Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setCancelText(R.string.vulkan_compat_launch_anyway)
+                .setCancelClickListener(checked -> {
+                    // Save "don't show again" if the checkbox was ticked.
+                    if (checked) {
+                        AllSettings.ignoreVulkanWarning.put(true).save();
+                    }
+                    launchGame(version);
+                })
+                .showDialog();
     }
 
     @Subscribe()
@@ -689,3 +819,4 @@ public class LauncherActivity extends BaseActivity {
         binding.topLayout.setAlpha(adjustedOpacity.floatValue());
     }
 }
+
