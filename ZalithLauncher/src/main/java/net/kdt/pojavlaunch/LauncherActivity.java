@@ -261,7 +261,7 @@ public class LauncherActivity extends BaseActivity {
         try {
             String current = version.getRenderer();
             if (!GL4ES_RENDERER_ID.equals(current)) {
-                version.setRenderer(GL4ES_RENDERER_ID);
+                version.getVersionConfig().setRenderer(GL4ES_RENDERER_ID);
                 Logging.i("LauncherActivity",
                         "Force-OpenGL override: " + version.getVersionName()
                         + " (was: " + current + " → now: " + GL4ES_RENDERER_ID + ")");
@@ -313,8 +313,9 @@ public class LauncherActivity extends BaseActivity {
         new TipDialog.Builder(this)
                 .setTitle(R.string.vulkan_compat_warning_title)
                 .setMessage(getString(R.string.vulkan_compat_warning_message, versionName))
-                .setCheckBoxText(R.string.generic_no_more_reminders)
-                .setConfirmText(R.string.vulkan_compat_test_button)
+                .setCheckBox(R.string.generic_no_more_reminders)
+                .setShowCheckBox(true)
+                .setConfirm(R.string.vulkan_compat_test_button)
                 .setConfirmClickListener(checked -> {
                     // Save "don't show again" if the checkbox was ticked.
                     if (checked) {
@@ -329,12 +330,9 @@ public class LauncherActivity extends BaseActivity {
                         Toast.makeText(this, R.string.generic_wrong_tip, Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setCancelText(R.string.vulkan_compat_launch_anyway)
-                .setCancelClickListener(checked -> {
-                    // Save "don't show again" if the checkbox was ticked.
-                    if (checked) {
-                        AllSettings.ignoreVulkanWarning.put(true).save();
-                    }
+                .setCancel(R.string.vulkan_compat_launch_anyway)
+                .setCancelClickListener(() -> {
+                    // OnCancelClickListener takes no parameter, checkbox cannot be checked from here.
                     launchGame(version);
                 })
                 .showDialog();
