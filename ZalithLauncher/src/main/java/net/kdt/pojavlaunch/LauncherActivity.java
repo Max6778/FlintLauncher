@@ -420,7 +420,7 @@ public class LauncherActivity extends BaseActivity {
                             }
                         }
                         return null;
-                    }).beforeStart(TaskExecutors.getOriginalIO(), () -> ProgressLayout.setProgress(ProgressLayout.INSTALL_RESOURCE, 0, R.string.generic_waiting)).ended(filePair -> {
+                    }).beforeStart(TaskExecutors.getDefault(), () -> ProgressLayout.setProgress(ProgressLayout.INSTALL_RESOURCE, 0, R.string.generic_waiting)).ended(filePair -> {
                         if (filePair != null) {
                             try {
                                 ModPackUtils.startModLoaderInstall(filePair.getFirst(), LauncherActivity.this, filePair.getSecond(), customName);
@@ -813,4 +813,3 @@ public class LauncherActivity extends BaseActivity {
         binding.topLayout.setAlpha(adjustedOpacity.floatValue());
     }
 }
-
