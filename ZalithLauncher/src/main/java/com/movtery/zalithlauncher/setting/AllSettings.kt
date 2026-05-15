@@ -145,8 +145,10 @@ class AllSettings {
          * Minecraft 26.2 and newer versions before launch. Recommended for devices
          * that fail the Vulkan compatibility test.
          */
+        private val _forceOpenGlForNewVersions = BooleanSettingUnit("forceOpenGlForNewVersions", false)
+
         @JvmStatic
-        val forceOpenGlForNewVersions = BooleanSettingUnit("forceOpenGlForNewVersions", false)
+        fun getForceOpenGlForNewVersions() = _forceOpenGlForNewVersions
 
         // Launcher
         @JvmStatic
@@ -258,8 +260,10 @@ class AllSettings {
          * When true, suppress the Vulkan compatibility warning that is shown
          * before launching Minecraft 26.2+.
          */
+        private val _ignoreVulkanWarning = BooleanSettingUnit("ignoreVulkanWarning", false)
+
         @JvmStatic
-        val ignoreVulkanWarning = BooleanSettingUnit("ignoreVulkanWarning", false)
+        fun getIgnoreVulkanWarning() = _ignoreVulkanWarning
     }
 }
 
