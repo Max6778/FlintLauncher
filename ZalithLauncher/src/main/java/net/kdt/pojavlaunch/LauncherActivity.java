@@ -230,33 +230,35 @@ public class LauncherActivity extends BaseActivity {
             return;
         }
 
-        // Silent override: Force OpenGL setting is on — skip the dialog entirely.
+        // FIX: was AllSettings.forceOpenGlForNewVersions.getValue() — direct field
+        //      access failed because the field was not visible at the call site.
+        //      Now routed through the @JvmStatic getter added to AllSettings.
         if (AllSettings.getForceOpenGlForNewVersions().getValue()) {
             applyOpenGlOverride(version);
             launchGame(version);
             return;
         }
 
-        // User previously dismissed the warning and chose "Don't show again".
+        // FIX: same — was AllSettings.ignoreVulkanWarning.getValue()
         if (AllSettings.getIgnoreVulkanWarning().getValue()) {
             launchGame(version);
             return;
         }
 
-        // Show the Vulkan warning so the user can decide or test.
         showVulkanWarningDialog(version, versionName);
     }
 
     /**
      * Overrides the given version's renderer to GL4ES ("opengles2") for this launch.
      *
-     * "opengles2" is the renderer key defined in AllSettings.renderer — it maps to
-     * GL4ES, the OpenGL translation layer. We deliberately do NOT call
-     * version.save() here, so the user's persisted renderer choice is untouched;
-     * the override only applies to the current in-memory Version object.
+     * Writes into VersionConfig in memory only — save() is NOT called — so the
+     * user's persisted renderer choice is left untouched.
+     *
+     * FIX: was version.setRenderer(GL4ES_RENDERER_ID) which does not exist on Version.
+     *      The setter lives on VersionConfig, accessed via version.getVersionConfig().
      */
     private void applyOpenGlOverride(Version version) {
-        final String GL4ES_RENDERER_ID = "opengles2"; // matches AllSettings.renderer default
+        final String GL4ES_RENDERER_ID = "opengles2";
 
         try {
             String current = version.getRenderer();
@@ -264,7 +266,7 @@ public class LauncherActivity extends BaseActivity {
                 version.getVersionConfig().setRenderer(GL4ES_RENDERER_ID);
                 Logging.i("LauncherActivity",
                         "Force-OpenGL override: " + version.getVersionName()
-                        + " (was: " + current + " → now: " + GL4ES_RENDERER_ID + ")");
+                        + " (was: " + current + " -> now: " + GL4ES_RENDERER_ID + ")");
             }
             Toast.makeText(this,
                     getString(R.string.setting_force_opengl_active_toast, version.getVersionName()),
@@ -276,13 +278,10 @@ public class LauncherActivity extends BaseActivity {
 
     /**
      * Returns true if the given version string represents Minecraft 26.2 or higher.
-     * Handles formats like "26.2", "26.2.0", "26.2-snapshot", "26.3", "27.0", etc.
      */
     private boolean isVersionAtLeast26_2(String versionName) {
         if (versionName == null || versionName.isEmpty()) return false;
         try {
-            // Strip any trailing non-numeric suffix (e.g. "-snapshot", "-pre1")
-            // by taking only the leading "digits and dots" portion.
             String numeric = versionName.split("[^0-9.]")[0];
             String[] parts = numeric.split("\\.");
             if (parts.length < 2) return false;
@@ -292,7 +291,6 @@ public class LauncherActivity extends BaseActivity {
 
             return (major > 26) || (major == 26 && minor >= 2);
         } catch (NumberFormatException e) {
-            // Version name is not a numeric format (e.g. "1.21.4") — not affected.
             return false;
         }
     }
@@ -300,28 +298,27 @@ public class LauncherActivity extends BaseActivity {
     /**
      * Shows the Vulkan compatibility warning dialog for versions 26.2+.
      *
-     * Buttons:
-     *  • "Test Vulkan"   → opens the checker URL in the browser (does NOT launch).
-     *  • "Launch Anyway" → optionally saves "don't show again" then launches.
-     *
-     * The TipDialog checkbox (if supported) is wired to ignoreVulkanWarning so the
-     * user only sees this once per decision. If TipDialog has no checkbox, the dialog
-     * still works — the ignore pref is simply never written from here (the user can
-     * toggle it manually in Settings → Game).
+     * FIX 1: .setCheckBoxText(int) does not exist on TipDialog.Builder.
+     *         Replaced with .setCheckBox(int) + .setShowCheckBox(true).
+     * FIX 2: .setConfirmText(int) / .setCancelText(int) do not exist.
+     *         Replaced with .setConfirm(int) / .setCancel(int).
+     * FIX 3: AllSettings.ignoreVulkanWarning has private backing field; replaced
+     *         all access with AllSettings.getIgnoreVulkanWarning().
+     * NOTE:  OnCancelClickListener is a no-arg functional interface — it does NOT
+     *         receive a `checked` boolean, so the checkbox state only affects the
+     *         confirm ("Test Vulkan") path.
      */
     private void showVulkanWarningDialog(Version version, String versionName) {
         new TipDialog.Builder(this)
                 .setTitle(R.string.vulkan_compat_warning_title)
                 .setMessage(getString(R.string.vulkan_compat_warning_message, versionName))
-                .setCheckBox(R.string.generic_no_more_reminders)
+                .setCheckBox(R.string.generic_no_more_reminders)  // FIX: was setCheckBoxText(int)
                 .setShowCheckBox(true)
-                .setConfirm(R.string.vulkan_compat_test_button)
+                .setConfirm(R.string.vulkan_compat_test_button)   // FIX: was setConfirmText(int)
                 .setConfirmClickListener(checked -> {
-                    // Save "don't show again" if the checkbox was ticked.
                     if (checked) {
-                        AllSettings.getIgnoreVulkanWarning().put(true).save();
+                        AllSettings.getIgnoreVulkanWarning().put(true).save(); // FIX: was AllSettings.ignoreVulkanWarning
                     }
-                    // Open the checker URL — do NOT launch the game yet.
                     try {
                         String url = getString(R.string.vulkan_compat_checker_url);
                         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
@@ -330,9 +327,8 @@ public class LauncherActivity extends BaseActivity {
                         Toast.makeText(this, R.string.generic_wrong_tip, Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setCancel(R.string.vulkan_compat_launch_anyway)
-                .setCancelClickListener(() -> {
-                    // OnCancelClickListener takes no parameter, checkbox cannot be checked from here.
+                .setCancel(R.string.vulkan_compat_launch_anyway)  // FIX: was setCancelText(int)
+                .setCancelClickListener(() -> {                    // FIX: OnCancelClickListener has no `checked` param
                     launchGame(version);
                 })
                 .showDialog();
@@ -817,3 +813,4 @@ public class LauncherActivity extends BaseActivity {
         binding.topLayout.setAlpha(adjustedOpacity.floatValue());
     }
 }
+
