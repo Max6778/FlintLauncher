@@ -140,6 +140,14 @@ class AllSettings {
         @JvmStatic
         val gameMenuAlpha = IntSettingUnit("gameMenuAlpha", 100)
 
+        /**
+         * When enabled, the launcher overrides the renderer to GL4ES (OpenGL) for
+         * Minecraft 26.2 and newer versions before launch. Recommended for devices
+         * that fail the Vulkan compatibility test.
+         */
+        @JvmStatic
+        val forceOpenGlForNewVersions = BooleanSettingUnit("forceOpenGlForNewVersions", false)
+
         // Launcher
         @JvmStatic
         val checkLibraries = BooleanSettingUnit("checkLibraries", true)
@@ -248,7 +256,7 @@ class AllSettings {
 
         /**
          * When true, suppress the Vulkan compatibility warning that is shown
-         * before launching Minecraft 1.21.2+ (renderer pipeline 26.2+).
+         * before launching Minecraft 26.2+.
          */
         @JvmStatic
         val ignoreVulkanWarning = BooleanSettingUnit("ignoreVulkanWarning", false)
