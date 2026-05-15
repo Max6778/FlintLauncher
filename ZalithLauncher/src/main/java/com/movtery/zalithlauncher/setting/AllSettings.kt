@@ -245,6 +245,13 @@ class AllSettings {
         val hotbarHeight = lazy {
             IntSettingUnit("hotbarHeight", Tools.currentDisplayMetrics.heightPixels / 4)
         }
+
+        /**
+         * When true, suppress the Vulkan compatibility warning that is shown
+         * before launching Minecraft 1.21.2+ (renderer pipeline 26.2+).
+         */
+        @JvmStatic
+        val ignoreVulkanWarning = BooleanSettingUnit("ignoreVulkanWarning", false)
     }
 }
 
