@@ -764,5 +764,16 @@
     <string name="flint_versions_add">+ New Version</string>
     <string name="flint_tag_snapshot">Snapshot</string>
     <string name="flint_tag_vanilla">Vanilla</string>
+ <!-- ── Vulkan Compatibility Warning ── (add inside <resources> before closing tag) -->
+    <string name="vulkan_compat_warning_title">Vulkan Compatibility Warning</string>
+    <string name="vulkan_compat_warning_message">Minecraft %s uses Vulkan by default. Your device may not support it, which can cause crashes.\n\nTest compatibility first:\n\n  ● PASSED → Vulkan works on your device. Launch away!\n  ● FAILED → Enable \"Force OpenGL on 26.2+\" in Settings → Game, then relaunch.\n\nTap \"Test Vulkan\" to run the checker, or \"Launch Anyway\" to skip.</string>
+    <string name="vulkan_compat_test_button">Test Vulkan</string>
+    <string name="vulkan_compat_launch_anyway">Launch Anyway</string>
+    <string name="vulkan_compat_checker_url" translatable="false">https://drive.google.com/file/d/1Gnpq_ndy3Qz916Y6i9KeA3qaHJKGVsbW/view</string>
 
+    <!-- ── Force OpenGL for Minecraft 26.2+ setting ── -->
+    <string name="setting_force_opengl_new_versions_title">Force OpenGL on 26.2+</string>
+    <string name="setting_force_opengl_new_versions_desc">Automatically overrides the renderer to GL4ES (OpenGL) for Minecraft 26.2 and newer. Use this if your device fails the Vulkan compatibility test.</string>
+    <string name="setting_force_opengl_active_toast">Renderer overridden to OpenGL for version %s</string>
+    
 </resources>
