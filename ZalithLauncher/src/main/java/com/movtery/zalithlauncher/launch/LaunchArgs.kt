@@ -47,6 +47,16 @@ class LaunchArgs(
         return argsList
     }
 
+    /**
+     * Returns the writable, per-version directory used to hold extracted native
+     * libraries (LWJGL/JNA/Netty natives, etc). This must NEVER point at
+     * context.applicationInfo.nativeLibraryDir (PathManager.DIR_NATIVE_LIB),
+     * since that directory is read-only at runtime on Android and libraries
+     * that try to mkdir/extract into it will crash with AccessDeniedException.
+     */
+    private fun getVersionSpecificNativesDir(): File =
+        File(PathManager.DIR_CACHE, "natives/${minecraftVersion.getVersionName()}")
+
     private fun getJavaArgs(): List<String> {
         val argsList: MutableList<String> = ArrayList()
 
@@ -65,7 +75,7 @@ class LaunchArgs(
         val configFilePath = if (is7) LibPath.LOG4J_XML_1_7 else LibPath.LOG4J_XML_1_12
         argsList.add("-Dlog4j.configurationFile=${configFilePath.absolutePath}")
 
-        val versionSpecificNativesDir = File(PathManager.DIR_CACHE, "natives/${minecraftVersion.getVersionName()}")
+        val versionSpecificNativesDir = getVersionSpecificNativesDir()
         if (versionSpecificNativesDir.exists()) {
             val dirPath = versionSpecificNativesDir.absolutePath
             argsList.add("-Djava.library.path=$dirPath:${PathManager.DIR_NATIVE_LIB}")
@@ -83,11 +93,21 @@ class LaunchArgs(
 //            return emptyArray()
 //        }
 
+        // FIX: use the writable, version-specific natives cache dir here instead of
+        // PathManager.DIR_NATIVE_LIB. Newer version JSONs (e.g. 26.x) embed JVM args
+        // like -Djna.tmpdir=${natives_directory},
+        // -Dorg.lwjgl.system.SharedLibraryExtractPath=${natives_directory}, and
+        // -Dio.netty.native.workdir=${natives_directory}. Substituting those
+        // placeholders with the read-only APK native lib dir causes LWJGL/JNA/Netty
+        // to crash with AccessDeniedException when they try to extract/mkdir there.
+        val versionSpecificNativesDir = getVersionSpecificNativesDir()
+        versionSpecificNativesDir.mkdirs()
+
         val varArgMap: MutableMap<String, String?> = android.util.ArrayMap()
         varArgMap["classpath_separator"] = ":"
         varArgMap["library_directory"] = getLibrariesHome()
         varArgMap["version_name"] = versionInfo.id
-        varArgMap["natives_directory"] = PathManager.DIR_NATIVE_LIB
+        varArgMap["natives_directory"] = versionSpecificNativesDir.absolutePath
 
         val minecraftArgs: MutableList<String> = java.util.ArrayList()
         versionInfo.arguments?.let {
@@ -202,3 +222,4 @@ class LaunchArgs(
         }
     }
 }
+
