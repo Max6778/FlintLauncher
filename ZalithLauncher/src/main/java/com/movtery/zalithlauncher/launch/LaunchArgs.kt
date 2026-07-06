@@ -30,8 +30,14 @@ class LaunchArgs(
     fun getAllArgs(): List<String> {
         val argsList: MutableList<String> = ArrayList()
 
-        argsList.addAll(getJavaArgs())
+        // NOTE: getMinecraftJVMArgs() is added first and getJavaArgs() last, on purpose.
+        // The downloaded version manifest (e.g. 26.x) can define its own
+        // -Djava.library.path=${natives_directory}/java, which points at a subfolder
+        // that doesn't actually exist (natives are extracted flat into natives_directory).
+        // Since the JVM keeps the LAST -D for a given key, our own correctly-computed
+        // path from getJavaArgs() must come after the manifest's args so it always wins.
         argsList.addAll(getMinecraftJVMArgs())
+        argsList.addAll(getJavaArgs())
         argsList.add("-cp")
         argsList.add("${Tools.getLWJGL3ClassPath()}:$launchClassPath")
 
