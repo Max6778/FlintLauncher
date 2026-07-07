@@ -894,6 +894,16 @@ public class GLFW
         return 1L;
     }
 
+    /**
+     * Android has no real concept of a "monitor name", so return a fixed
+     * placeholder. Added because Minecraft 26.x's Monitor.queryMonitorName()
+     * calls this method, which did not exist in this GLFW shim before and
+     * caused a NoSuchMethodError crash on startup.
+     */
+    public static String glfwGetMonitorName(@NativeType("GLFWmonitor *") long monitor) {
+        return "Android Display";
+    }
+
     public static void glfwGetMonitorPos(@NativeType("GLFWmonitor *") long monitor, @Nullable @NativeType("int *") IntBuffer xpos, @Nullable @NativeType("int *") IntBuffer ypos) {
         if (CHECKS) {
             checkSafe(xpos, 1);
