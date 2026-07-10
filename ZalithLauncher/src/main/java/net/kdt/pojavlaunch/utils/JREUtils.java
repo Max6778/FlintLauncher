@@ -167,6 +167,17 @@ public final class JREUtils {
 
     }
 
+    /**
+     * Directory used to hold glibc-compat shim libraries (libpthread.so.0,
+     * libm.so.6, etc). Must be a directory the app can actually WRITE to at
+     * runtime -- unlike DIR_NATIVE_LIB, which is the APK's installed native
+     * library folder and is read-only for the app process (owned by the
+     * system package manager). Writing there fails silently.
+     */
+    private static File getGlibcShimDir() {
+        return new File(PathManager.DIR_DATA, "glibc_shims");
+    }
+
     public static void relocateLibPath(Runtime runtime, String jreHome) {
         String JRE_ARCHITECTURE = runtime.arch;
         if (Architecture.archAsInt(JRE_ARCHITECTURE) == ARCH_X86){
@@ -200,6 +211,10 @@ public final class JREUtils {
         if (runtimeModDir != null) {
             ldLibraryPath.append(runtimeModDir.getAbsolutePath()).append(":");
         }
+        // Writable directory holding glibc-compat shim libraries, so the
+        // linker can find them when resolving DT_NEEDED deps like
+        // libpthread.so.0 / libm.so.6 for desktop-Linux-built mod natives.
+        ldLibraryPath.append(getGlibcShimDir().getAbsolutePath()).append(":");
         ldLibraryPath.append(DIR_NATIVE_LIB);
         LD_LIBRARY_PATH = ldLibraryPath.toString();
     }
@@ -220,22 +235,21 @@ public final class JREUtils {
      * DT_NEEDED dependencies but that don't exist on Android, since
      * Bionic libc already contains those symbols directly.
      * <p>
-     * The shims are copied into DIR_NATIVE_LIB, which is already part
-     * of LD_LIBRARY_PATH (see relocateLibPath), so dlopen() will find
-     * them there. Because they are empty stub libraries, the actual
-     * function calls resolve against libc.so/libm.so which are already
-     * loaded by the process.
+     * IMPORTANT: these must be written to a WRITABLE directory that is
+     * also present in LD_LIBRARY_PATH (see relocateLibPath) -- NOT
+     * DIR_NATIVE_LIB, which is the read-only APK-installed native lib
+     * folder and cannot be written to by the app at runtime.
      */
     private static void installGlibcShims(Context context) {
         String[] shimNames = {"libpthread.so.0", "libm.so.6", "libdl.so.2", "librt.so.1"};
-        File nativeDir = new File(DIR_NATIVE_LIB);
-        if (!nativeDir.exists() && !nativeDir.mkdirs()) {
-            Logging.e("GlibcShim", "Failed to create native lib dir: " + nativeDir);
+        File shimDir = getGlibcShimDir();
+        if (!shimDir.exists() && !shimDir.mkdirs()) {
+            Logging.e("GlibcShim", "Failed to create shim dir: " + shimDir);
             return;
         }
         for (String name : shimNames) {
-            File dest = new File(nativeDir, name);
-            if (dest.exists()) continue;
+            File dest = new File(shimDir, name);
+            if (dest.exists() && dest.length() > 0) continue;
             try (InputStream in = context.getAssets().open("components/glibc-shims/arm64-v8a/" + name);
                  FileOutputStream out = new FileOutputStream(dest)) {
                 byte[] buf = new byte[4096];
@@ -243,7 +257,7 @@ public final class JREUtils {
                 while ((len = in.read(buf)) != -1) {
                     out.write(buf, 0, len);
                 }
-                Logging.i("GlibcShim", "Installed shim: " + name);
+                Logging.i("GlibcShim", "Installed shim: " + dest.getAbsolutePath());
             } catch (Exception e) {
                 Logging.e("GlibcShim", "Failed to install shim " + name + ": " + e);
             }
@@ -470,11 +484,11 @@ public final class JREUtils {
     ) throws Throwable {
         String runtimeHome = MultiRTUtils.getRuntimeHome(runtime.name).getAbsolutePath();
 
+        installGlibcShims(activity);
+
         relocateLibPath(runtime, runtimeHome);
 
         initLdLibraryPath(runtimeHome);
-
-        installGlibcShims(activity);
 
         setEnv(runtimeHome, runtime, gameVersion);
 
