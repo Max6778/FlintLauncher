@@ -47,7 +47,9 @@ import org.lwjgl.glfw.CallbackBridge;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -208,6 +210,44 @@ public final class JREUtils {
         Logging.d("DynamicLoader","Base LD_LIBRARY_PATH: " + LD_LIBRARY_PATH);
         Logging.d("DynamicLoader","Internal LD_LIBRARY_PATH: "+jvmLibraryPath + ":" + LD_LIBRARY_PATH);
         setLdLibraryPath(jvmLibraryPath + ":" + LD_LIBRARY_PATH);
+    }
+
+    /**
+     * Installs empty "shim" native libraries for glibc-only SONAMEs
+     * (libpthread.so.0, libm.so.6, libdl.so.2, librt.so.1) that some
+     * desktop-Linux-built mod natives (e.g. Distant Horizons' zstd-jni,
+     * Simple Voice Chat's opus/rnnoise/speex/lame natives) declare as
+     * DT_NEEDED dependencies but that don't exist on Android, since
+     * Bionic libc already contains those symbols directly.
+     * <p>
+     * The shims are copied into DIR_NATIVE_LIB, which is already part
+     * of LD_LIBRARY_PATH (see relocateLibPath), so dlopen() will find
+     * them there. Because they are empty stub libraries, the actual
+     * function calls resolve against libc.so/libm.so which are already
+     * loaded by the process.
+     */
+    private static void installGlibcShims(Context context) {
+        String[] shimNames = {"libpthread.so.0", "libm.so.6", "libdl.so.2", "librt.so.1"};
+        File nativeDir = new File(DIR_NATIVE_LIB);
+        if (!nativeDir.exists() && !nativeDir.mkdirs()) {
+            Logging.e("GlibcShim", "Failed to create native lib dir: " + nativeDir);
+            return;
+        }
+        for (String name : shimNames) {
+            File dest = new File(nativeDir, name);
+            if (dest.exists()) continue;
+            try (InputStream in = context.getAssets().open("components/glibc-shims/arm64-v8a/" + name);
+                 FileOutputStream out = new FileOutputStream(dest)) {
+                byte[] buf = new byte[4096];
+                int len;
+                while ((len = in.read(buf)) != -1) {
+                    out.write(buf, 0, len);
+                }
+                Logging.i("GlibcShim", "Installed shim: " + name);
+            } catch (Exception e) {
+                Logging.e("GlibcShim", "Failed to install shim " + name + ": " + e);
+            }
+        }
     }
 
     private static void setJavaEnv(Map<String, String> envMap, String jreHome) {
@@ -433,6 +473,8 @@ public final class JREUtils {
         relocateLibPath(runtime, runtimeHome);
 
         initLdLibraryPath(runtimeHome);
+
+        installGlibcShims(activity);
 
         setEnv(runtimeHome, runtime, gameVersion);
 
