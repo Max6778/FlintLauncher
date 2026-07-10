@@ -1,0 +1,31 @@
+name: Build glibc shim libraries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-shims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+
+      - name: Compile shim for arm64-v8a
+        run: |
+          mkdir -p out/arm64-v8a
+          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang \
+            -shared -fPIC -o out/arm64-v8a/libpthread.so.0 app/src/main/cpp/glibc_shim.c
+          cp out/arm64-v8a/libpthread.so.0 out/arm64-v8a/libm.so.6
+          cp out/arm64-v8a/libpthread.so.0 out/arm64-v8a/libdl.so.2
+          cp out/arm64-v8a/libpthread.so.0 out/arm64-v8a/librt.so.1
+
+      - name: Upload shims
+        uses: actions/upload-artifact@v4
+        with:
+          name: glibc-shims-arm64
+          path: out/arm64-v8a/
