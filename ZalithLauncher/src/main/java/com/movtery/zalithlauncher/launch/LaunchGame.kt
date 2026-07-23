@@ -24,6 +24,7 @@ import com.movtery.zalithlauncher.utils.ZHTools
 import com.movtery.zalithlauncher.utils.http.NetworkUtils
 import com.movtery.zalithlauncher.utils.stringutils.StringUtils
 import net.kdt.pojavlaunch.Architecture
+import androidx.lifecycle.LifecycleOwner
 import net.kdt.pojavlaunch.JMinecraftVersionList
 import net.kdt.pojavlaunch.Logger
 import net.kdt.pojavlaunch.Tools
@@ -119,7 +120,7 @@ class LaunchGame {
 
         @Throws(Throwable::class)
         @JvmStatic
-        fun runGame(activity: AppCompatActivity, minecraftVersion: Version, version: JMinecraftVersionList.Version) {
+        fun runGame(activity: Activity, minecraftVersion: Version, version: JMinecraftVersionList.Version) {
             if (!Renderers.isCurrentRendererValid()) {
                 Renderers.setCurrentRenderer(activity, AllSettings.renderer.getValue())
             }
@@ -214,7 +215,7 @@ class LaunchGame {
         @Throws(Throwable::class)
         @JvmStatic
         private fun launch(
-            activity: AppCompatActivity,
+            activity: Activity,
             account: MinecraftAccount,
             minecraftVersion: Version,
             javaRuntime: String,
@@ -246,7 +247,7 @@ class LaunchGame {
             JREUtils.launchWithUtils(activity, runtime, minecraftVersion, launchArgs, customArgs)
         }
 
-        private fun checkMemory(activity: AppCompatActivity) {
+        private fun checkMemory(activity: Activity) {
             var freeDeviceMemory = Tools.getFreeDeviceMemory(activity)
             val freeAddressSpace =
                 if (Architecture.is32BitsDevice())
@@ -267,7 +268,14 @@ class LaunchGame {
                     .setWarning()
                     .setCenterMessage(false)
                     .setShowCancel(false)
-                if (LifecycleAwareTipDialog.haltOnDialog(activity.lifecycle, builder)) return
+                val lifecycleOwner = activity as? LifecycleOwner
+                if (lifecycleOwner != null) {
+                    if (LifecycleAwareTipDialog.haltOnDialog(lifecycleOwner.lifecycle, builder)) return
+                } else {
+                    // SDLGameActivity (SDL3 path) has no Lifecycle — just show the warning,
+                    // no "wait for a good moment" guard.
+                    builder.showDialog()
+                }
                 // If the dialog's lifecycle has ended, return without
                 // actually launching the game, thus giving us the opportunity
                 // to start after the activity is shown again
