@@ -3,6 +3,9 @@ package net.kdt.pojavlaunch;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.SurfaceHolder;
+
+import com.movtery.zalithlauncher.tools.Tools;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
@@ -11,35 +14,48 @@ import org.libsdl.app.SDLSurface;
  * Hosts Minecraft when the launched version needs the SDL3 backend
  * (26.3-snapshot-4 and later) instead of GLFW.
  *
- * This is a SEPARATE Activity from MainActivity/GameActivity on purpose:
- * SDLActivity assumes it owns the whole Activity lifecycle (it creates its
- * own surface and sets its own singleton in onCreate), so rather than
- * patching SDL's internals to embed inside our existing GLFW-based
- * GameActivity, we let SDL own this Activity outright and pick which
- * Activity to launch based on the target Minecraft version.
+ * Separate Activity from MainActivity on purpose — see the note in the
+ * previous draft: SDLActivity owns its own Activity lifecycle, so rather
+ * than patching SDL internals we let it own this Activity outright.
  *
- * STATUS: skeleton only. Still needed before this actually launches Minecraft:
- *   - Kick off the actual JVM/game process (mirror whatever MainActivity /
- *     LaunchGame currently does), once we've decided where that hook goes.
- *   - Wire touch controls into this surface once CallbackBridge has SDL3
- *     branching (the "step 2" we talked about doing next).
- *   - Pull in BaseActivity's shared setup (theming etc.) manually, since we
- *     can't extend both SDLActivity and BaseActivity.
+ * STILL UNVERIFIED / needs real on-device testing:
+ *   - Whether Renderers.setCurrentRenderer(...) / DriverPluginManager still
+ *     apply the same way here. Those exist for your GLFW/EGL pipeline
+ *     (egl_bridge.c) — SDL3 creates and owns its own native window/GL
+ *     context internally, so it may not need (or may conflict with) that
+ *     renderer-selection step. This needs to be tested on a device, not
+ *     guessed at from source alone.
+ *   - CallbackBridge.nativeSetUseInputStackQueue(...) — this is GLFW/
+ *     CallbackBridge-specific bookkeeping; almost certainly NOT needed here
+ *     since SDL3 doesn't route through CallbackBridge at all. Left out
+ *     below on purpose — flagging in case something downstream assumes
+ *     it's always been called.
+ *   - Touch controls overlay is not wired up yet — that's the
+ *     CallbackBridge SDL3-branching step we talked about doing next.
  */
 public class SDLGameActivity extends SDLActivity {
 
     private static final String TAG = "SDLGameActivity";
 
+    private Version minecraftVersion;
+    private boolean hasLaunched = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "onCreate: launching with SDL3 backend");
+        minecraftVersion = getIntent().getParcelableExtra(MainActivity.INTENT_VERSION);
+        if (minecraftVersion == null) {
+            Log.e(TAG, "onCreate: no Version passed via MainActivity.INTENT_VERSION, cannot launch");
+            finish();
+            return;
+        }
+        Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
         super.onCreate(savedInstanceState);
     }
 
     /**
      * SDL calls this itself during its onCreate to build the surface it
      * will render into. Returning our own subclass here is the supported
-     * extension point instead of us touching SDLActivity internals.
+     * extension point instead of touching SDLActivity internals.
      */
     @Override
     protected SDLSurface createSDLSurface(Context context) {
@@ -48,16 +64,33 @@ public class SDLGameActivity extends SDLActivity {
     }
 
     /**
-     * Minimal subclass for now — just proves the surface is being created
-     * and lets us log surface lifecycle events while we build this out.
-     * Once CallbackBridge has SDL3 branching, FlintLauncher-specific touch
-     * handling will likely live here too, alongside what SDLSurface already
-     * does for us (it already forwards touch/mouse/resize to
-     * SDLActivity.onNativeXxx on its own — see SDLSurface.java).
+     * Fires once the SDL3 surface reports it's actually ready to render
+     * into — the same "wait for surface, then launch" pattern MainActivity
+     * uses via mainGameRenderView.setSurfaceReadyListener(...).
      */
-    public static class MinecraftSDLSurface extends SDLSurface {
+    private void onSdlSurfaceReady() {
+        if (hasLaunched || minecraftVersion == null) return;
+        hasLaunched = true;
+        try {
+            JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(minecraftVersion);
+            LaunchGame.runGame(this, minecraftVersion, versionInfo);
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to launch Minecraft on SDL3 backend", e);
+            Tools.showErrorRemote(e);
+        }
+    }
+
+    public class MinecraftSDLSurface extends SDLSurface {
         protected MinecraftSDLSurface(Context context) {
             super(context);
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            super.surfaceChanged(holder, format, width, height);
+            if (mIsSurfaceReady) {
+                onSdlSurfaceReady();
+            }
         }
     }
 }
