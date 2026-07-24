@@ -6,7 +6,11 @@ import android.view.Choreographer;
 
 import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
+import android.view.MotionEvent;
 
+import org.libsdl.app.SDLActivity;
+
+import net.kdt.pojavlaunch.EfficientAndroidLWJGLKeycode;
 import net.kdt.pojavlaunch.GrabListener;
 import net.kdt.pojavlaunch.LwjglGlfwKeycode;
 import net.kdt.pojavlaunch.MainActivity;
@@ -17,6 +21,9 @@ import dalvik.annotation.optimization.CriticalNative;
 
 public class CallbackBridge {
     public static final Choreographer sChoreographer = Choreographer.getInstance();
+    /** Set once at launch by SDLGameActivity. When true, every send*
+     *  method below routes to SDL3 instead of the native GLFW bridge. */
+    public static volatile boolean usingSdl3 = false;
     private static boolean isGrabbing = false;
     private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
     
@@ -44,17 +51,31 @@ public class CallbackBridge {
     public static void sendCursorPos(float x, float y) {
         mouseX = x;
         mouseY = y;
-        nativeSendCursorPos(mouseX, mouseY);
-    }
-
-    public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
-        // TODO CHECK: This may cause input issue, not receive input!
-        if(keycode != 0)  nativeSendKey(keycode,scancode,isDown ? 1 : 0, modifiers);
-        if(isDown && keychar != '\u0000') {
-            nativeSendCharMods(keychar,modifiers);
-            nativeSendChar(keychar);
+        if (usingSdl3) {
+            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, mouseX, mouseY, true);
+        } else {
+            nativeSendCursorPos(mouseX, mouseY);
         }
-    }
+            }
+public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
+        if (usingSdl3) {
+            // NOTE: text input (typing in chat/signs) is NOT handled here —
+            // stock SDL routes typed text through SDLInputConnection separately.
+            // This only covers physical key press/release for gameplay controls.
+            if (keycode != 0) {
+                int androidKeycode = EfficientAndroidLWJGLKeycode.getAndroidKeycode(keycode);
+                if (isDown) SDLActivity.onNativeKeyDown(androidKeycode);
+                else SDLActivity.onNativeKeyUp(androidKeycode);
+            }
+        } else {
+            // TODO CHECK: This may cause input issue, not receive input!
+            if(keycode != 0)  nativeSendKey(keycode,scancode,isDown ? 1 : 0, modifiers);
+            if(isDown && keychar != '\\u0000') {
+                nativeSendCharMods(keychar,modifiers);
+                nativeSendChar(keychar);
+            }
+        }
+}
 
     public static void sendChar(char keychar, int modifiers){
         nativeSendCharMods(keychar,modifiers);
@@ -83,8 +104,20 @@ public class CallbackBridge {
     }
 
     public static void sendMouseKeycode(int button, int modifiers, boolean isDown) {
-        // if (isGrabbing()) DEBUG_STRING.append("MouseGrabStrace: " + android.util.Log.getStackTraceString(new Throwable()) + "\n");
-        nativeSendMouseButton(button, isDown ? 1 : 0, modifiers);
+        if (usingSdl3) {
+            // GLFW button index (0=left,1=right,2=middle) -> Android MotionEvent button mask
+            int androidButton;
+            switch (button) {
+                case 1: androidButton = MotionEvent.BUTTON_SECONDARY; break;
+                case 2: androidButton = MotionEvent.BUTTON_TERTIARY; break;
+                default: androidButton = MotionEvent.BUTTON_PRIMARY; break;
+            }
+            SDLActivity.onNativeMouse(androidButton,
+                    isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
+                    mouseX, mouseY, true);
+        } else {
+            nativeSendMouseButton(button, isDown ? 1 : 0, modifiers);
+        }
     }
 
     public static void sendMouseKeycode(int keycode) {
