@@ -16,6 +16,7 @@ import com.movtery.zalithlauncher.feature.mod.parser.ModInfo;
 import com.movtery.zalithlauncher.feature.mod.parser.ModParser;
 import com.movtery.zalithlauncher.feature.mod.parser.ModParserListener;
 import com.movtery.zalithlauncher.feature.version.Version;
+import com.movtery.zalithlauncher.feature.log.Logging;
 import com.movtery.zalithlauncher.setting.AllSettings;
 
 import net.kdt.pojavlaunch.MainActivity;
