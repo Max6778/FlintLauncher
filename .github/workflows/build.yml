@@ -2,9 +2,9 @@ name: Build FlintLauncher APK
 
 on:
   push:
-    branches: [ main, master, dev ]
+    branches: [ Official, master, dev ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ Official, master ]
   workflow_dispatch:
 
 env:
