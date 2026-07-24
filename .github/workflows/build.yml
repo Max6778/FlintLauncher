@@ -54,6 +54,7 @@ jobs:
         run: ./gradlew :ZalithLauncher:assembleDebug --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
