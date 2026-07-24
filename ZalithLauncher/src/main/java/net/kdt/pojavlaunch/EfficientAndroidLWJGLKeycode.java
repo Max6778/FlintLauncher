@@ -14,6 +14,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class EfficientAndroidLWJGLKeycode {
+    
+    /** Reverse of the android->lwjgl table above. Linear scan is fine —
+     *  key events aren't a hot path like mouse move is. Returns
+     *  KeyEvent.KEYCODE_UNKNOWN if no mapping exists. */
+    public static int getAndroidKeycode(int lwjglKeycode) {
+        for (int i = 0; i < sLwjglKeycodes.length; i++) {
+            if (sLwjglKeycodes[i] == lwjglKeycode) return sAndroidKeycodes[i];
+        }
+        return KeyEvent.KEYCODE_UNKNOWN;
+    }
 
     //This old version of this class was using an ArrayMap, a generic Key -> Value data structure.
     //The key being the android keycode from a KeyEvent
