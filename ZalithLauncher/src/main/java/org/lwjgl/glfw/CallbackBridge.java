@@ -1,4 +1,5 @@
 package org.lwjgl.glfw;
+import org.libsdl.app.SDLInputConnection;
 
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -59,14 +60,14 @@ public class CallbackBridge {
             }
 public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
         if (usingSdl3) {
-            // NOTE: text input (typing in chat/signs) is NOT handled here —
-            // stock SDL routes typed text through SDLInputConnection separately.
-            // This only covers physical key press/release for gameplay controls.
             if (keycode != 0) {
                 int androidKeycode = EfficientAndroidLWJGLKeycode.getAndroidKeycode(keycode);
                 if (isDown) SDLActivity.onNativeKeyDown(androidKeycode);
                 else SDLActivity.onNativeKeyUp(androidKeycode);
             }
+            if (isDown && keychar != '\u0000') {
+                SDLInputConnection.nativeCommitText(String.valueOf(keychar), 1);
+                }
         } else {
             // TODO CHECK: This may cause input issue, not receive input!
             if(keycode != 0)  nativeSendKey(keycode,scancode,isDown ? 1 : 0, modifiers);
@@ -126,9 +127,12 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     }
     
     public static void sendScroll(double xoffset, double yoffset) {
-        nativeSendScroll(xoffset, yoffset);
-    }
-
+        if (usingSdl3) {
+            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_SCROLL, (float) xoffset, (float) yoffset, false);
+        } else {
+            nativeSendScroll(xoffset, yoffset);
+        }
+                                  }
     public static void sendUpdateWindowSize(int w, int h) {
         nativeSendScreenSize(w, h);
     }
