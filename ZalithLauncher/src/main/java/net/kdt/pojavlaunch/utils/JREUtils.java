@@ -5,6 +5,7 @@ import static net.kdt.pojavlaunch.Architecture.ARCH_X86;
 import static net.kdt.pojavlaunch.Architecture.is64BitsDevice;
 import static net.kdt.pojavlaunch.Tools.currentDisplayMetrics;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
 import android.system.ErrnoException;
@@ -12,8 +13,6 @@ import android.system.Os;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.widget.Toast;
-
-import androidx.appcompat.app.AppCompatActivity;
 
 import com.movtery.zalithlauncher.InfoDistributor;
 import com.movtery.zalithlauncher.R;
@@ -414,8 +413,16 @@ public final class JREUtils {
         }
     }
 
+    /**
+     * NOTE: parameter widened from AppCompatActivity to Activity so this also
+     * works with the SDL3 launch path, which runs on a plain Activity rather
+     * than an AppCompatActivity. Nothing below uses AppCompat-specific APIs
+     * (supportFragmentManager, getSupportActionBar, etc) -- only
+     * runOnUiThread / getApplication() / getString(), which are all on the
+     * base Activity/Context, so this is a safe widening.
+     */
     private static void launchJavaVM(
-            final AppCompatActivity activity,
+            final Activity activity,
             String runtimeHome,
             Version gameVersion,
             final List<String> JVMArgs,
@@ -475,8 +482,14 @@ public final class JREUtils {
         EventBus.getDefault().post(new JvmExitEvent(exitCode));
     }
 
+    /**
+     * NOTE: parameter widened from AppCompatActivity to Activity -- see the
+     * comment on launchJavaVM above. This lets the SDL3 launch path (which
+     * hosts the game on a plain Activity) call into the same launch
+     * pipeline as the existing AppCompat-based path.
+     */
     public static void launchWithUtils(
-            final AppCompatActivity activity,
+            final Activity activity,
             final Runtime runtime,
             Version gameVersion,
             final List<String> JVMArgs,
@@ -730,4 +743,4 @@ public final class JREUtils {
         System.loadLibrary("pojavexec");
         System.loadLibrary("pojavexec_awt");
     }
-}
+    }
