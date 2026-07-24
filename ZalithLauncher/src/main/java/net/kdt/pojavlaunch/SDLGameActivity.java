@@ -9,6 +9,10 @@ import com.movtery.zalithlauncher.tools.Tools;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
+import org.lwjgl.glfw.CallbackBridge;
+
+import com.movtery.zalithlauncher.renderer.Renderers;
+import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
 
 /**
  * Hosts Minecraft when the launched version needs the SDL3 backend
@@ -19,19 +23,21 @@ import org.libsdl.app.SDLSurface;
  * than patching SDL internals we let it own this Activity outright.
  *
  * STILL UNVERIFIED / needs real on-device testing:
- *   - Whether Renderers.setCurrentRenderer(...) / DriverPluginManager still
- *     apply the same way here. Those exist for your GLFW/EGL pipeline
- *     (egl_bridge.c) — SDL3 creates and owns its own native window/GL
- *     context internally, so it may not need (or may conflict with) that
- *     renderer-selection step. This needs to be tested on a device, not
- *     guessed at from source alone.
- *   - CallbackBridge.nativeSetUseInputStackQueue(...) — this is GLFW/
- *     CallbackBridge-specific bookkeeping; almost certainly NOT needed here
- *     since SDL3 doesn't route through CallbackBridge at all. Left out
- *     below on purpose — flagging in case something downstream assumes
- *     it's always been called.
- *   - Touch controls overlay is not wired up yet — that's the
- *     CallbackBridge SDL3-branching step we talked about doing next.
+ *   - The ONE real open risk: SDL's own native code creates its own EGL/GL
+ *     context on the surface internally. JREUtils.setupBridgeWindow() (called
+ *     in MinecraftSDLSurface.surfaceChanged below) asks FlintLauncher's native
+ *     bridge to ALSO create a context on the same Surface. Might conflict —
+ *     genuinely unknown without a device test. See the comment at that call
+ *     site if Minecraft launches but renders nothing.
+ *
+ * Resolved already (kept here as a log of what's been checked):
+ *   - Renderer/driver selection (Renderers.setCurrentRenderer, DriverPluginManager)
+ *     is backend-agnostic — same calls as MainActivity, done in onCreate above.
+ *   - CallbackBridge.nativeSetUseInputStackQueue(...) intentionally NOT called —
+ *     it's GLFW-native-queue bookkeeping that SDL3-mode Minecraft never reads.
+ *   - Touch controls: CallbackBridge.usingSdl3 flag (set above) routes all
+ *     existing touch-control code through SDL3 automatically — no separate
+ *     wiring needed here.
  */
 public class SDLGameActivity extends SDLActivity {
 
@@ -49,6 +55,15 @@ public class SDLGameActivity extends SDLActivity {
             return;
         }
         Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
+
+        // Same renderer/driver selection MainActivity does — backend-agnostic,
+        // just picks which GL driver library gets loaded.
+        Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
+        DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
+        Tools.getDisplayMetrics(this); // sets CallbackBridge.physicalWidth/Height, used by touch controls regardless of backend
+
+        CallbackBridge.usingSdl3 = true;
+
         super.onCreate(savedInstanceState);
     }
 
@@ -89,6 +104,14 @@ public class SDLGameActivity extends SDLActivity {
         public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             super.surfaceChanged(holder, format, width, height);
             if (mIsSurfaceReady) {
+                // UNVERIFIED / real risk: SDL's own native code already creates its
+                // own EGL/GL context on this same Surface internally. Calling
+                // JREUtils.setupBridgeWindow() here asks FlintLauncher's native
+                // bridge to ALSO create an EGL context on it. This may conflict —
+                // untested, needs a real device run to see what actually happens.
+                // If Minecraft fails to render (black screen / EGL errors in logcat)
+                // after launch actually starts, this line is the first suspect.
+                JREUtils.setupBridgeWindow(holder.getSurface());
                 onSdlSurfaceReady();
             }
         }
