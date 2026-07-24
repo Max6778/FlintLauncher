@@ -1,43 +1,44 @@
 package net.kdt.pojavlaunch;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
-import com.movtery.zalithlauncher.tools.Tools;
+import com.movtery.zalithlauncher.feature.version.Version;
+import com.movtery.zalithlauncher.launch.LaunchGame;
+import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
+import com.movtery.zalithlauncher.renderer.Renderers;
+
+import net.kdt.pojavlaunch.utils.JREUtils;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
 import org.lwjgl.glfw.CallbackBridge;
 
-import com.movtery.zalithlauncher.renderer.Renderers;
-import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
-
 /**
  * Hosts Minecraft when the launched version needs the SDL3 backend
  * (26.3-snapshot-4 and later) instead of GLFW.
  *
- * Separate Activity from MainActivity on purpose — see the note in the
- * previous draft: SDLActivity owns its own Activity lifecycle, so rather
- * than patching SDL internals we let it own this Activity outright.
+ * Separate Activity from MainActivity on purpose — SDLActivity owns its
+ * own Activity lifecycle, so rather than patching SDL internals we let
+ * it own this Activity outright.
  *
  * STILL UNVERIFIED / needs real on-device testing:
  *   - The ONE real open risk: SDL's own native code creates its own EGL/GL
  *     context on the surface internally. JREUtils.setupBridgeWindow() (called
  *     in MinecraftSDLSurface.surfaceChanged below) asks FlintLauncher's native
  *     bridge to ALSO create a context on the same Surface. Might conflict —
- *     genuinely unknown without a device test. See the comment at that call
- *     site if Minecraft launches but renders nothing.
+ *     genuinely unknown without a device test.
  *
- * Resolved already (kept here as a log of what's been checked):
- *   - Renderer/driver selection (Renderers.setCurrentRenderer, DriverPluginManager)
- *     is backend-agnostic — same calls as MainActivity, done in onCreate above.
- *   - CallbackBridge.nativeSetUseInputStackQueue(...) intentionally NOT called —
- *     it's GLFW-native-queue bookkeeping that SDL3-mode Minecraft never reads.
- *   - Touch controls: CallbackBridge.usingSdl3 flag (set above) routes all
- *     existing touch-control code through SDL3 automatically — no separate
- *     wiring needed here.
+ * Known simplification: the display-metrics setup below is a reduced version
+ * of Tools.updateWindowSize()/getDisplayMetrics() — those require BaseActivity
+ * specifically (they call activity.shouldIgnoreNotch(), a custom BaseActivity
+ * method), which SDLGameActivity can never satisfy. This skips notch-cropping
+ * and multi-window-mode sizing that the GLFW path has. Fine for a first test;
+ * revisit if display sizing looks wrong on a notched or split-screen device.
  */
 public class SDLGameActivity extends SDLActivity {
 
@@ -60,7 +61,17 @@ public class SDLGameActivity extends SDLActivity {
         // just picks which GL driver library gets loaded.
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
-        Tools.getDisplayMetrics(this); // sets CallbackBridge.physicalWidth/Height, used by touch controls regardless of backend
+
+        // Reduced stand-in for Tools.updateWindowSize() — see class javadoc.
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getDisplay().getRealMetrics(displayMetrics);
+        } else {
+            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
+        }
+        Tools.currentDisplayMetrics = displayMetrics;
+        CallbackBridge.physicalWidth = displayMetrics.widthPixels;
+        CallbackBridge.physicalHeight = displayMetrics.heightPixels;
 
         CallbackBridge.usingSdl3 = true;
 
@@ -104,16 +115,11 @@ public class SDLGameActivity extends SDLActivity {
         public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             super.surfaceChanged(holder, format, width, height);
             if (mIsSurfaceReady) {
-                // UNVERIFIED / real risk: SDL's own native code already creates its
-                // own EGL/GL context on this same Surface internally. Calling
-                // JREUtils.setupBridgeWindow() here asks FlintLauncher's native
-                // bridge to ALSO create an EGL context on it. This may conflict —
-                // untested, needs a real device run to see what actually happens.
-                // If Minecraft fails to render (black screen / EGL errors in logcat)
-                // after launch actually starts, this line is the first suspect.
+                // UNVERIFIED / real risk — see class javadoc above.
                 JREUtils.setupBridgeWindow(holder.getSurface());
                 onSdlSurfaceReady();
             }
         }
     }
 }
+
