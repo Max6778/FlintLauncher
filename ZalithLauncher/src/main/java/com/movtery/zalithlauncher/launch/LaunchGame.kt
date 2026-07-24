@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LifecycleOwner
 import com.kdt.mcgui.ProgressLayout
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.event.single.AccountUpdateEvent
@@ -24,7 +25,6 @@ import com.movtery.zalithlauncher.utils.ZHTools
 import com.movtery.zalithlauncher.utils.http.NetworkUtils
 import com.movtery.zalithlauncher.utils.stringutils.StringUtils
 import net.kdt.pojavlaunch.Architecture
-import androidx.lifecycle.LifecycleOwner
 import net.kdt.pojavlaunch.JMinecraftVersionList
 import net.kdt.pojavlaunch.Logger
 import net.kdt.pojavlaunch.Tools
@@ -147,8 +147,12 @@ class LaunchGame {
             minecraftVersion.modCheckResult?.let { modCheckResult ->
                 if (modCheckResult.hasTouchController) {
                     Logger.appendToLog("Mod Perception: TouchController Mod found, attempting to automatically enable control proxy!")
-                    ControllerProxy.startProxy(activity)
-                    AllStaticSettings.useControllerProxy = true
+                    if (activity is AppCompatActivity) {
+                        ControllerProxy.startProxy(activity)
+                        AllStaticSettings.useControllerProxy = true
+                    } else {
+                        Logger.appendToLog("ControllerProxy skipped — not available on the SDL3 launch path yet.")
+                    }
                 }
 
                 if (modCheckResult.hasSodiumOrEmbeddium) {
@@ -242,7 +246,11 @@ class LaunchGame {
                 launchClassPath
             ).getAllArgs()
 
-            FFmpegPlugin.discover(activity)
+            if (activity is AppCompatActivity) {
+                FFmpegPlugin.discover(activity)
+            } else {
+                Logger.appendToLog("FFmpegPlugin.discover skipped — not available on the SDL3 launch path yet.")
+            }
 
             JREUtils.launchWithUtils(activity, runtime, minecraftVersion, launchArgs, customArgs)
         }
@@ -272,8 +280,6 @@ class LaunchGame {
                 if (lifecycleOwner != null) {
                     if (LifecycleAwareTipDialog.haltOnDialog(lifecycleOwner.lifecycle, builder)) return
                 } else {
-                    // SDLGameActivity (SDL3 path) has no Lifecycle — just show the warning,
-                    // no "wait for a good moment" guard.
                     builder.showDialog()
                 }
                 // If the dialog's lifecycle has ended, return without
