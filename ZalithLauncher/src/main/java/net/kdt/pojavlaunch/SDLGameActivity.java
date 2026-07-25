@@ -5,7 +5,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.SurfaceHolder;
 
 import com.movtery.zalithlauncher.feature.version.Version;
 import com.movtery.zalithlauncher.launch.LaunchGame;
@@ -19,34 +18,54 @@ import org.lwjgl.glfw.CallbackBridge;
 
 /**
  * Hosts Minecraft when the launched version needs the SDL3 backend
- * (26.3-snapshot-4 and later) instead of GLFW.
+ * (26.3-snapshot-5 and later, currently) instead of GLFW.
  *
  * Separate Activity from MainActivity on purpose — SDLActivity owns its
  * own Activity lifecycle, so rather than patching SDL internals we let
  * it own this Activity outright.
  *
- * RESOLVED — the EGL context question flagged in earlier drafts: SDL's own
- * native code creates its own EGL surface internally via SDLActivity's
- * onNativeSurfaceChanged (confirmed from SDL's own source/issue tracker).
- * Android only allows one EGL producer per Surface at a time, so
- * JREUtils.setupBridgeWindow() (the GLFW path's EGL setup call) must NOT be
- * called here — it would conflict with SDL's own context instead of
- * cooperating with it. See the comment in MinecraftSDLSurface.surfaceChanged
- * below.
+ * EGL context: SDL's own native code creates its own EGL surface
+ * internally via SDLActivity's onNativeSurfaceChanged (confirmed from
+ * SDL's own source/issue tracker). Android only allows one EGL producer
+ * per Surface at a time, so JREUtils.setupBridgeWindow() (the GLFW path's
+ * EGL setup call) must NEVER be called here.
  *
- * Known simplification: the display-metrics setup below is a reduced version
- * of Tools.updateWindowSize()/getDisplayMetrics() — those require BaseActivity
- * specifically (they call activity.shouldIgnoreNotch(), a custom BaseActivity
- * method), which SDLGameActivity can never satisfy. This skips notch-cropping
- * and multi-window-mode sizing that the GLFW path has. Fine for a first test;
- * revisit if display sizing looks wrong on a notched or split-screen device.
+ * main()/getLibraries() override: stock SDLActivity assumes it's hosting
+ * a native C game — it tries to dlopen "libmain.so" (via getLibraries())
+ * and run a native "SDL_main" entry point (via main()), then calls
+ * finish() on the Activity the moment main() returns. Minecraft is a
+ * Java program run inside a separately-launched JVM (LaunchGame.runGame
+ * -> JREUtils.launchWithUtils -> VMLauncher.launchJVM), not a native SDL
+ * program, so:
+ *   - getLibraries() drops "main" from the default {"SDL3","main"} list,
+ *     since there's no libmain.so to load. SDL3 stays, since that's the
+ *     actual System.loadLibrary("SDL3", ...) call.
+ *   - main() is overridden to call LaunchGame.runGame(...) directly
+ *     instead of the default nativeRunMain()/SDL_main behavior.
+ *     LaunchGame.runGame() already blocks until the JVM exits, so this
+ *     lines up exactly with SDL's own "block in main(), finish() when it
+ *     returns" behavior -- when Minecraft exits, the Activity correctly
+ *     closes, same as it would for a real native SDL game.
+ *   - main() runs on SDL's own "SDLThread", which SDL itself only spawns
+ *     once the surface is ready AND the Activity is resumed AND has
+ *     focus (see SDLActivity.handleNativeState()) -- this is actually
+ *     MORE correct than the previous manual surfaceChanged()-based
+ *     "wait for surface" hook, which didn't check resume/focus state.
+ *
+ * Known simplification: the display-metrics setup below is a reduced
+ * version of Tools.updateWindowSize()/getDisplayMetrics() -- those
+ * require BaseActivity specifically (they call
+ * activity.shouldIgnoreNotch(), a custom BaseActivity method), which
+ * SDLGameActivity can never satisfy. This skips notch-cropping and
+ * multi-window-mode sizing that the GLFW path has. Fine for a first
+ * test; revisit if display sizing looks wrong on a notched or
+ * split-screen device.
  */
 public class SDLGameActivity extends SDLActivity {
 
     private static final String TAG = "SDLGameActivity";
 
     private Version minecraftVersion;
-    private boolean hasLaunched = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,9 +77,9 @@ public class SDLGameActivity extends SDLActivity {
         }
         Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
 
-        // These two match what MainActivity.initLayout() does before launch —
-        // found by reading MainActivity's actual onCreate rather than waiting
-        // for another crash to reveal them one at a time.
+        // These match what MainActivity.initLayout() does before launch --
+        // found by reading MainActivity's actual onCreate rather than
+        // waiting for each one to crash separately.
         try {
             java.io.File latestLogFile = new java.io.File(PathManager.DIR_GAME_HOME, "latestlog.txt");
             if (!latestLogFile.exists() && !latestLogFile.createNewFile()) {
@@ -72,22 +91,19 @@ public class SDLGameActivity extends SDLActivity {
         }
         MainActivity.GLOBAL_CLIPBOARD = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
-        // MCOptions has a lateinit var that's only set by this call — same
-        // "used before init" risk category as the Logger/Renderers/DriverPluginManager
-        // fixes above, so setting it up proactively here.
+        // MCOptions has a lateinit var that's only set by this call.
         com.movtery.zalithlauncher.feature.MCOptions.INSTANCE.setup(this, () -> minecraftVersion);
 
-        // Same renderer/driver selection MainActivity does — backend-agnostic,
-        // just picks which GL driver library gets loaded. init() must run first
-        // to populate the available-renderers list (MainActivity calls this too,
-        // but SDLGameActivity is a fresh process/activity that never went through
-        // MainActivity's onCreate, so it has to do this itself).
+        // Renderer/driver selection -- backend-agnostic, same calls MainActivity
+        // makes. init()/initDriver() populate the available lists; MainActivity
+        // calls those too, but SDLGameActivity is a fresh process/activity that
+        // never went through MainActivity's onCreate, so it has to do this itself.
         Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
         DriverPluginManager.INSTANCE.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
-        // Reduced stand-in for Tools.updateWindowSize() — see class javadoc.
+        // Reduced stand-in for Tools.updateWindowSize() -- see class javadoc.
         DisplayMetrics displayMetrics = new DisplayMetrics();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             getDisplay().getRealMetrics(displayMetrics);
@@ -111,17 +127,30 @@ public class SDLGameActivity extends SDLActivity {
     @Override
     protected SDLSurface createSDLSurface(Context context) {
         Log.i(TAG, "createSDLSurface: creating FlintLauncher SDL3 surface");
-        return new MinecraftSDLSurface(context);
+        return new SDLSurface(context);
     }
 
     /**
-     * Fires once the SDL3 surface reports it's actually ready to render
-     * into — the same "wait for surface, then launch" pattern MainActivity
-     * uses via mainGameRenderView.setSurfaceReadyListener(...).
+     * SDL only ships the actual "SDL3" native library -- there's no
+     * libmain.so, since Minecraft isn't a native SDL C program. Dropping
+     * "main" from the default {"SDL3","main"} list.
      */
-    private void onSdlSurfaceReady() {
-        if (hasLaunched || minecraftVersion == null) return;
-        hasLaunched = true;
+    @Override
+    protected String[] getLibraries() {
+        return new String[] { "SDL3" };
+    }
+
+    /**
+     * Runs on SDL's own "SDLThread", which SDL spawns once the surface is
+     * ready, the Activity is resumed, and has focus (see
+     * SDLActivity.handleNativeState()). Replaces the default
+     * nativeRunMain()/SDL_main behavior with actually launching Minecraft.
+     * LaunchGame.runGame() blocks until the JVM exits, so returning from
+     * this method (and SDL's own finish() call right after) lines up
+     * correctly with "Minecraft exited, close the Activity."
+     */
+    @Override
+    protected void main() {
         try {
             JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(minecraftVersion);
             LaunchGame.runGame(this, minecraftVersion, versionInfo);
@@ -130,25 +159,4 @@ public class SDLGameActivity extends SDLActivity {
             Tools.showErrorRemote(e);
         }
     }
-
-    public class MinecraftSDLSurface extends SDLSurface {
-        protected MinecraftSDLSurface(Context context) {
-            super(context);
-        }
-
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-            super.surfaceChanged(holder, format, width, height);
-            if (mIsSurfaceReady) {
-                // Do NOT call JREUtils.setupBridgeWindow() here. SDL's own native
-                // code already creates its own EGL surface on this Surface via
-                // SDLActivity's native onNativeSurfaceChanged, which super.surfaceChanged()
-                // above already triggered. Android only allows one EGL producer per
-                // Surface at a time, so calling setupBridgeWindow() too would conflict
-                // with SDL's own context instead of cooperating with it.
-                onSdlSurfaceReady();
-            }
-        }
-    }
 }
-
