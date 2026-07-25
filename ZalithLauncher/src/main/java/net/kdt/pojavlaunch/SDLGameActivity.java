@@ -127,7 +127,18 @@ public class SDLGameActivity extends SDLActivity {
     @Override
     protected SDLSurface createSDLSurface(Context context) {
         Log.i(TAG, "createSDLSurface: creating FlintLauncher SDL3 surface");
-        return new SDLSurface(context);
+        return new MinecraftSDLSurface(context);
+    }
+
+    /**
+     * SDLSurface's constructor is protected -- can't call `new SDLSurface(context)`
+     * directly from outside org.libsdl.app, even from createSDLSurface() here.
+     * This subclass exists only to satisfy that; no behavior is overridden.
+     */
+    public static class MinecraftSDLSurface extends SDLSurface {
+        protected MinecraftSDLSurface(Context context) {
+            super(context);
+        }
     }
 
     /**
