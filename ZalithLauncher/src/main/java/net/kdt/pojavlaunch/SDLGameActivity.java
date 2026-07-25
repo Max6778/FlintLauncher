@@ -58,7 +58,11 @@ public class SDLGameActivity extends SDLActivity {
         Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
 
         // Same renderer/driver selection MainActivity does — backend-agnostic,
-        // just picks which GL driver library gets loaded.
+        // just picks which GL driver library gets loaded. init() must run first
+        // to populate the available-renderers list (MainActivity calls this too,
+        // but SDLGameActivity is a fresh process/activity that never went through
+        // MainActivity's onCreate, so it has to do this itself).
+        Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
