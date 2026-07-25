@@ -12,8 +12,6 @@ import com.movtery.zalithlauncher.launch.LaunchGame;
 import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
 import com.movtery.zalithlauncher.renderer.Renderers;
 
-import net.kdt.pojavlaunch.utils.JREUtils;
-
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
 import org.lwjgl.glfw.CallbackBridge;
@@ -26,12 +24,14 @@ import org.lwjgl.glfw.CallbackBridge;
  * own Activity lifecycle, so rather than patching SDL internals we let
  * it own this Activity outright.
  *
- * STILL UNVERIFIED / needs real on-device testing:
- *   - The ONE real open risk: SDL's own native code creates its own EGL/GL
- *     context on the surface internally. JREUtils.setupBridgeWindow() (called
- *     in MinecraftSDLSurface.surfaceChanged below) asks FlintLauncher's native
- *     bridge to ALSO create a context on the same Surface. Might conflict —
- *     genuinely unknown without a device test.
+ * RESOLVED — the EGL context question flagged in earlier drafts: SDL's own
+ * native code creates its own EGL surface internally via SDLActivity's
+ * onNativeSurfaceChanged (confirmed from SDL's own source/issue tracker).
+ * Android only allows one EGL producer per Surface at a time, so
+ * JREUtils.setupBridgeWindow() (the GLFW path's EGL setup call) must NOT be
+ * called here — it would conflict with SDL's own context instead of
+ * cooperating with it. See the comment in MinecraftSDLSurface.surfaceChanged
+ * below.
  *
  * Known simplification: the display-metrics setup below is a reduced version
  * of Tools.updateWindowSize()/getDisplayMetrics() — those require BaseActivity
@@ -115,11 +115,14 @@ public class SDLGameActivity extends SDLActivity {
         public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             super.surfaceChanged(holder, format, width, height);
             if (mIsSurfaceReady) {
-                // UNVERIFIED / real risk — see class javadoc above.
-                JREUtils.setupBridgeWindow(holder.getSurface());
+                // Do NOT call JREUtils.setupBridgeWindow() here. SDL's own native
+                // code already creates its own EGL surface on this Surface via
+                // SDLActivity's native onNativeSurfaceChanged, which super.surfaceChanged()
+                // above already triggered. Android only allows one EGL producer per
+                // Surface at a time, so calling setupBridgeWindow() too would conflict
+                // with SDL's own context instead of cooperating with it.
                 onSdlSurfaceReady();
             }
         }
     }
 }
-
