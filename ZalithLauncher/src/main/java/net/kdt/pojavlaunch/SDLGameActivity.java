@@ -91,6 +91,13 @@ public class SDLGameActivity extends SDLActivity {
         }
         MainActivity.GLOBAL_CLIPBOARD = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
+        // AccountsManager.currentAccount is a computed getter that falls back to
+        // accounts.firstOrNull() if the persisted UUID lookup fails -- but
+        // `accounts` is empty until reload() scans the accounts folder. Same
+        // "used before init" pattern as Renderers/DriverPluginManager/MCOptions
+        // above; without this, LaunchGame.runGame()'s `currentAccount!!` NPEs.
+        com.movtery.zalithlauncher.feature.accounts.AccountsManager.INSTANCE.reload();
+
         // MCOptions has a lateinit var that's only set by this call.
         com.movtery.zalithlauncher.feature.MCOptions.INSTANCE.setup(this, () -> minecraftVersion);
 
@@ -171,3 +178,4 @@ public class SDLGameActivity extends SDLActivity {
         }
     }
 }
+
