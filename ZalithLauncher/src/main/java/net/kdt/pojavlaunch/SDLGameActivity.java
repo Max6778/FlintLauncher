@@ -64,6 +64,7 @@ public class SDLGameActivity extends SDLActivity {
         // MainActivity's onCreate, so it has to do this itself).
         Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
+        DriverPluginManager.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
         // Reduced stand-in for Tools.updateWindowSize() — see class javadoc.
@@ -130,3 +131,4 @@ public class SDLGameActivity extends SDLActivity {
         }
     }
 }
+
