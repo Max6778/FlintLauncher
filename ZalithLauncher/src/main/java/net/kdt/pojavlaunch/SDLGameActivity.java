@@ -11,6 +11,7 @@ import com.movtery.zalithlauncher.feature.version.Version;
 import com.movtery.zalithlauncher.launch.LaunchGame;
 import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
 import com.movtery.zalithlauncher.renderer.Renderers;
+import com.movtery.zalithlauncher.utils.path.PathManager;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
@@ -57,6 +58,25 @@ public class SDLGameActivity extends SDLActivity {
         }
         Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
 
+        // These two match what MainActivity.initLayout() does before launch —
+        // found by reading MainActivity's actual onCreate rather than waiting
+        // for another crash to reveal them one at a time.
+        try {
+            java.io.File latestLogFile = new java.io.File(PathManager.DIR_GAME_HOME, "latestlog.txt");
+            if (!latestLogFile.exists() && !latestLogFile.createNewFile()) {
+                throw new java.io.IOException("Failed to create a new log file");
+            }
+            Logger.begin(latestLogFile.getAbsolutePath());
+        } catch (java.io.IOException e) {
+            Log.e(TAG, "Failed to start Logger", e);
+        }
+        MainActivity.GLOBAL_CLIPBOARD = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+
+        // MCOptions has a lateinit var that's only set by this call — same
+        // "used before init" risk category as the Logger/Renderers/DriverPluginManager
+        // fixes above, so setting it up proactively here.
+        com.movtery.zalithlauncher.feature.MCOptions.INSTANCE.setup(this, () -> minecraftVersion);
+
         // Same renderer/driver selection MainActivity does — backend-agnostic,
         // just picks which GL driver library gets loaded. init() must run first
         // to populate the available-renderers list (MainActivity calls this too,
@@ -64,7 +84,7 @@ public class SDLGameActivity extends SDLActivity {
         // MainActivity's onCreate, so it has to do this itself).
         Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
-        DriverPluginManager.initDriver(this, false);
+        DriverPluginManager.INSTANCE.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
         // Reduced stand-in for Tools.updateWindowSize() — see class javadoc.
