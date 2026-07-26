@@ -125,13 +125,6 @@ class LaunchGame {
                 Renderers.setCurrentRenderer(activity, AllSettings.renderer.getValue())
             }
 
-            Logging.i("SDL3Debug", "AllSettings.currentAccount UUID = '${AllSettings.currentAccount.getValue()}'")
-            Logging.i("SDL3Debug", "PathManager.DIR_ACCOUNT_NEW = '${com.movtery.zalithlauncher.utils.path.PathManager.DIR_ACCOUNT_NEW}'")
-            val accDir = java.io.File(com.movtery.zalithlauncher.utils.path.PathManager.DIR_ACCOUNT_NEW)
-            Logging.i("SDL3Debug", "accDir.exists() = ${accDir.exists()}, isDirectory = ${accDir.isDirectory}")
-            Logging.i("SDL3Debug", "accDir contents = ${accDir.listFiles()?.map { it.name }}")
-            Logging.i("SDL3Debug", "AccountsManager.allAccounts.size = ${AccountsManager.allAccounts.size}")
-            AccountsManager.allAccounts.forEach { Logging.i("SDL3Debug", "  account: ${it.uniqueUUID} / ${it.username}") }
             var account = AccountsManager.currentAccount!!
             if (minecraftVersion.offlineAccountLogin) {
                 account = MinecraftAccount().apply {
