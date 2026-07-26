@@ -125,7 +125,141 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // Renderers after this scan runs. Without it, setCurrentRenderer() below
         // won't recognize a plugin renderer ID and silently falls back to the
         // first built-in one (GL4ES) instead of what was actually selected.
-        com.movtery.zalithlauncher.plugins.PluginLoader.loadAllPlugins(this);
+        com.movtery.zalithlauncher.plugins.PluginLoader.loadAllPlugins(this, false);
+
+        Renderers.INSTANCE.init(false);
+        Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
+        DriverPluginManager.INSTANCE.initDriver(this, false);
+        DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
+
+        // Reduced stand-in for Tools.updateWindowSize() -- see class javadoc.
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getDisplay().getRealMetrics(displayMetrics);
+        } else {
+            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
+        }
+        Tools.currentDisplayMetrics = displayMetrics;
+        CallbackBridge.physicalWidth = displayMetrics.widthPixels;
+        CallbackBridge.physicalHeight = displayMetrics.heightPixels;
+
+        CallbackBridge.usingSdl3 = true;
+
+        super.onCreate(savedInstanceState);
+
+        // MainActivity's layout (activity_game.xml) wraps its render surface
+        // AND the touch controls inside the same ControlLayout. SDLActivity's
+        // own onCreate() already set up its own minimal content view with
+        // just the SDL surface -- we're adding a ControlLayout as an ADDITIONAL
+        // overlay on top (via android.R.id.content), rather than nesting the
+        // SDL surface inside it like MainActivity does, since SDL's surface
+        // needs to stay inside SDL's own managed view hierarchy for its native
+        // surface callbacks to keep firing correctly.
+        //
+        // UNVERIFIED: ControlLayout normally has MinecraftGLSurface as a
+        // direct XML child in activity_game.xml. Using it standalone (no
+        // render-surface child) here is untested -- if buttons don't render
+        // or touches don't route correctly, this is the first thing to
+        // revisit.
+        controlLayout = new ControlLayout(this);
+        controlLayout.setModifiable(false);
+        controlLayout.setMenuListener(this);
+        controlLayout.loadLayout(minecraftVersion.getControl());
+        controlLayout.toggleControlVisible();
+        ((ViewGroup) findViewById(android.R.id.content)).addView(
+                controlLayout,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        );
+    }
+
+    /**
+     * Fired when the in-game menu/pause button is tapped. MainActivity has a
+     * full pause menu (GameMenuViewWrapper etc.) -- this is a minimal stand-in
+     * that just exits the game, not a full port of that menu. Revisit if a
+     * proper in-game menu is wanted for the SDL3 path.
+     */
+    @Override
+    public void onClickedMenu() {
+        finish();
+    }
+
+    /**
+     * SDL calls this itself during its onCreate to build the surface it
+     * will render into. Returning our own subclass here is the supported
+     * extension point instead of touching SDLActivity internals.
+     */
+    @Override
+    protected SDLSurface createSDLSurface(Context context) {
+        Log.i(TAG, "createSDLSurface: creating FlintLauncher SDL3 surface");
+        return new MinecraftSDLSurface(context);
+    }
+
+    /**
+     * SDLSurface's constructor is protected -- can't call `new SDLSurface(context)`
+     * directly from outside org.libsdl.app, even from createSDLSurface() here.
+     * This subclass exists only to satisfy that; no behavior is overridden.
+     */
+    public static class MinecraftSDLSurface extends SDLSurface {
+        protected MinecraftSDLSurface(Context context) {
+            super(context);
+        }
+    }
+
+    /**
+     * SDL only ships the actual "SDL3" native library -- there's no
+     * libmain.so, since Minecraft isn't a native SDL C program. Dropping
+     * "main" from the default {"SDL3","main"} list.
+     */
+    @Override
+    protected String[] getLibraries() {
+        return new String[] { "SDL3" };
+    }
+
+    /**
+     * Runs on SDL's own "SDLThread", which SDL spawns once the surface is
+     * ready, the Activity is resumed, and has focus (see
+     * SDLActivity.handleNativeState()). Replaces the default
+     * nativeRunMain()/SDL_main behavior with actually launching Minecraft.
+     * LaunchGame.runGame() blocks until the JVM exits, so returning from
+     * this method (and SDL's own finish() call right after) lines up
+     * correctly with "Minecraft exited, close the Activity."
+     */
+    @Override
+    protected void main() {
+        try {
+            JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(minecraftVersion);
+            LaunchGame.runGame(this, minecraftVersion, versionInfo);
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to launch Minecraft on SDL3 backend", e);
+            Tools.showErrorRemote(e);
+        }
+    }
+}
+            Logger.begin(latestLogFile.getAbsolutePath());
+        } catch (java.io.IOException e) {
+            Log.e(TAG, "Failed to start Logger", e);
+        }
+        MainActivity.GLOBAL_CLIPBOARD = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+
+        // AccountsManager.currentAccount is a computed getter that falls back to
+        // accounts.firstOrNull() if the persisted UUID lookup fails -- but
+        // `accounts` is empty until reload() scans the accounts folder. Same
+        // "used before init" pattern as Renderers/DriverPluginManager/MCOptions
+        // above; without this, LaunchGame.runGame()'s `currentAccount!!` NPEs.
+        com.movtery.zalithlauncher.feature.accounts.AccountsManager.INSTANCE.reload();
+
+        // MCOptions has a lateinit var that's only set by this call.
+        com.movtery.zalithlauncher.feature.MCOptions.INSTANCE.setup(this, () -> minecraftVersion);
+
+        // Renderer/driver selection -- backend-agnostic, same calls MainActivity
+        // makes. init()/initDriver() populate the available lists; MainActivity
+        // calls those too, but SDLGameActivity is a fresh process/activity that
+        // never went through MainActivity's onCreate, so it has to do this itself.
+        // Plugin renderers (MobileGlues, Krypton Wrapper, etc.) are only known to
+        // Renderers after this scan runs. Without it, setCurrentRenderer() below
+        // won't recognize a plugin renderer ID and silently falls back to the
+        // first built-in one (GL4ES) instead of what was actually selected.
+        com.movtery.zalithlauncher.plugins.PluginLoader.loadAllPlugins(this, false);
 
         Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
