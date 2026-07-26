@@ -125,6 +125,9 @@ class LaunchGame {
                 Renderers.setCurrentRenderer(activity, AllSettings.renderer.getValue())
             }
 
+            Logging.i("SDL3Debug", "AllSettings.currentAccount UUID = '${AllSettings.currentAccount.getValue()}'")
+            Logging.i("SDL3Debug", "AccountsManager.allAccounts.size = ${AccountsManager.allAccounts.size}")
+            AccountsManager.allAccounts.forEach { Logging.i("SDL3Debug", "  account: ${it.uniqueUUID} / ${it.username}") }
             var account = AccountsManager.currentAccount!!
             if (minecraftVersion.offlineAccountLogin) {
                 account = MinecraftAccount().apply {
