@@ -69,6 +69,17 @@ public class SDLGameActivity extends SDLActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // BaseActivity (which MainActivity extends) fixes up PathManager's path
+        // constants via attachBaseContext() -> LocaleUtils.setLocale() ->
+        // PathManager.initContextConstants(). SDLGameActivity extends SDLActivity
+        // extends plain Activity, so it never goes through that path at all --
+        // PathManager.DIR_ACCOUNT_NEW (and potentially others) stay stuck at
+        // whatever PojavApplication.onCreate() set them to, which uses a
+        // DIFFERENT (wrong) formula than initContextConstants() does. Confirmed
+        // via diagnostic logging: this was the actual root cause of the
+        // AccountsManager NPE, not anything about AccountsManager itself.
+        PathManager.initContextConstants(this);
+
         minecraftVersion = getIntent().getParcelableExtra(MainActivity.INTENT_VERSION);
         if (minecraftVersion == null) {
             Log.e(TAG, "onCreate: no Version passed via MainActivity.INTENT_VERSION, cannot launch");
@@ -178,4 +189,3 @@ public class SDLGameActivity extends SDLActivity {
         }
     }
 }
-
