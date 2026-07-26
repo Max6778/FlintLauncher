@@ -164,7 +164,16 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         controlLayout = new ControlLayout(this);
         controlLayout.setModifiable(false);
         controlLayout.setMenuListener(this);
-        controlLayout.loadLayout(minecraftVersion.getControl());
+        try {
+            controlLayout.loadLayout(minecraftVersion.getControl());
+        } catch (java.io.IOException e) {
+            Log.e(TAG, "Failed to load control layout, falling back to default", e);
+            try {
+                controlLayout.loadLayout((String) null);
+            } catch (java.io.IOException e2) {
+                Log.e(TAG, "Failed to load default control layout too", e2);
+            }
+        }
         controlLayout.toggleControlVisible();
         ((ViewGroup) findViewById(android.R.id.content)).addView(
                 controlLayout,
