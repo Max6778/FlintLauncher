@@ -5,12 +5,16 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.ViewGroup;
 
 import com.movtery.zalithlauncher.feature.version.Version;
 import com.movtery.zalithlauncher.launch.LaunchGame;
 import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
 import com.movtery.zalithlauncher.renderer.Renderers;
 import com.movtery.zalithlauncher.utils.path.PathManager;
+
+import net.kdt.pojavlaunch.customcontrols.ControlButtonMenuListener;
+import net.kdt.pojavlaunch.customcontrols.ControlLayout;
 
 import org.libsdl.app.SDLActivity;
 import org.libsdl.app.SDLSurface;
@@ -61,11 +65,12 @@ import org.lwjgl.glfw.CallbackBridge;
  * test; revisit if display sizing looks wrong on a notched or
  * split-screen device.
  */
-public class SDLGameActivity extends SDLActivity {
+public class SDLGameActivity extends SDLActivity implements ControlButtonMenuListener {
 
     private static final String TAG = "SDLGameActivity";
 
     private Version minecraftVersion;
+    private ControlLayout controlLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,6 +121,12 @@ public class SDLGameActivity extends SDLActivity {
         // makes. init()/initDriver() populate the available lists; MainActivity
         // calls those too, but SDLGameActivity is a fresh process/activity that
         // never went through MainActivity's onCreate, so it has to do this itself.
+        // Plugin renderers (MobileGlues, Krypton Wrapper, etc.) are only known to
+        // Renderers after this scan runs. Without it, setCurrentRenderer() below
+        // won't recognize a plugin renderer ID and silently falls back to the
+        // first built-in one (GL4ES) instead of what was actually selected.
+        com.movtery.zalithlauncher.plugins.PluginLoader.loadAllPlugins(this);
+
         Renderers.INSTANCE.init(false);
         Renderers.INSTANCE.setCurrentRenderer(this, minecraftVersion.getRenderer(), false);
         DriverPluginManager.INSTANCE.initDriver(this, false);
@@ -135,6 +146,41 @@ public class SDLGameActivity extends SDLActivity {
         CallbackBridge.usingSdl3 = true;
 
         super.onCreate(savedInstanceState);
+
+        // MainActivity's layout (activity_game.xml) wraps its render surface
+        // AND the touch controls inside the same ControlLayout. SDLActivity's
+        // own onCreate() already set up its own minimal content view with
+        // just the SDL surface -- we're adding a ControlLayout as an ADDITIONAL
+        // overlay on top (via android.R.id.content), rather than nesting the
+        // SDL surface inside it like MainActivity does, since SDL's surface
+        // needs to stay inside SDL's own managed view hierarchy for its native
+        // surface callbacks to keep firing correctly.
+        //
+        // UNVERIFIED: ControlLayout normally has MinecraftGLSurface as a
+        // direct XML child in activity_game.xml. Using it standalone (no
+        // render-surface child) here is untested -- if buttons don't render
+        // or touches don't route correctly, this is the first thing to
+        // revisit.
+        controlLayout = new ControlLayout(this);
+        controlLayout.setModifiable(false);
+        controlLayout.setMenuListener(this);
+        controlLayout.loadLayout(minecraftVersion.getControl());
+        controlLayout.toggleControlVisible();
+        ((ViewGroup) findViewById(android.R.id.content)).addView(
+                controlLayout,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        );
+    }
+
+    /**
+     * Fired when the in-game menu/pause button is tapped. MainActivity has a
+     * full pause menu (GameMenuViewWrapper etc.) -- this is a minimal stand-in
+     * that just exits the game, not a full port of that menu. Revisit if a
+     * proper in-game menu is wanted for the SDL3 path.
+     */
+    @Override
+    public void onClickedMenu() {
+        finish();
     }
 
     /**
