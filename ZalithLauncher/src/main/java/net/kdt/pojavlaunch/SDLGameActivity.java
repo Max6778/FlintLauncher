@@ -5,12 +5,19 @@ import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ViewGroup;
+import android.widget.SeekBar;
 
+import com.movtery.zalithlauncher.databinding.ViewGameMenuBinding;
 import com.movtery.zalithlauncher.feature.version.Version;
 import com.movtery.zalithlauncher.launch.LaunchGame;
 import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager;
 import com.movtery.zalithlauncher.renderer.Renderers;
+import com.movtery.zalithlauncher.setting.AllSettings;
+import com.movtery.zalithlauncher.setting.AllStaticSettings;
+import com.movtery.zalithlauncher.ui.fragment.settings.VideoSettingsFragment;
+import com.movtery.zalithlauncher.ui.subassembly.menu.MenuUtils;
 import com.movtery.zalithlauncher.utils.path.PathManager;
+import com.movtery.zalithlauncher.utils.ZHTools;
 
 import net.kdt.pojavlaunch.customcontrols.ControlButtonMenuListener;
 import net.kdt.pojavlaunch.customcontrols.ControlLayout;
@@ -70,6 +77,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
 
     private Version minecraftVersion;
     private ControlLayout controlLayout;
+    private ViewGameMenuBinding gameMenuBinding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,6 +91,27 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // via diagnostic logging: this was the actual root cause of the
         // AccountsManager NPE, not anything about AccountsManager itself.
         PathManager.initContextConstants(this);
+
+        // BaseActivity.onCreate()/onResume() does all of this for every other
+        // Activity in the app -- SDLGameActivity skips BaseActivity entirely
+        // (same reason as the PathManager fix above), so it has to do this
+        // itself too. Tools.setFullscreen() is the actual real immersive-mode
+        // call (hides nav bar/status bar) -- its absence here was the real
+        // cause of the misplaced controls, not just the display-metrics
+        // mismatch fixed separately below: MainActivity's window is genuinely
+        // a different (larger, system-bars-hidden) size than what
+        // SDLGameActivity was rendering into before this fix.
+        Tools.setFullscreen(this);
+        com.movtery.zalithlauncher.context.ContextExecutor.setActivity(this);
+        com.movtery.zalithlauncher.utils.StoragePermissionsUtils.checkPermissions(this);
+        com.movtery.zalithlauncher.feature.customprofilepath.ProfilePathManager.INSTANCE.refreshPath();
+
+        // Tools.ignoreNotch()/Tools.updateWindowSize() intentionally NOT called --
+        // both require BaseActivity specifically (shouldIgnoreNotch() is a custom
+        // BaseActivity method), which SDLGameActivity can never satisfy. Notch
+        // cropping is skipped; display-metrics equivalent is handled manually
+        // below via getResources().getDisplayMetrics(), matching what
+        // updateWindowSize() does internally.
 
         minecraftVersion = getIntent().getParcelableExtra(MainActivity.INTENT_VERSION);
         if (minecraftVersion == null) {
@@ -183,17 +212,72 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                 controlLayout,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
+
+        // Real pause/settings menu, same layout + logic MainActivity uses --
+        // scoped to the 3 things actually asked for (force close, FPS toggle,
+        // resolution scaler). The XML also has log output, custom key, memory
+        // toggle, gesture/mouse-speed settings, and custom-control-replacement --
+        // those are present in the inflated view but NOT wired up here, so
+        // tapping them currently does nothing. Separate follow-up if wanted.
+        gameMenuBinding = ViewGameMenuBinding.inflate(getLayoutInflater());
+        gameMenuBinding.getRoot().setVisibility(android.view.View.GONE);
+
+        gameMenuBinding.forceClose.setOnClickListener(v -> ZHTools.dialogForceClose(this));
+
+        gameMenuBinding.openFpsInfo.setChecked(AllSettings.getGameMenuShowFPS().getValue());
+        gameMenuBinding.openFpsInfoLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.openFpsInfo));
+        gameMenuBinding.openFpsInfo.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            AllSettings.getGameMenuShowFPS().put(isChecked).save();
+            // NOTE: MainActivity also calls mGameMenuWrapper.refreshSettingsState()
+            // here to update a floating FPS/memory badge -- that widget isn't
+            // ported for the SDL3 path, so the setting saves correctly but
+            // there's no floating badge to refresh yet.
+        });
+
+        MenuUtils.initSeekBarValue(gameMenuBinding.resolutionScaler, AllSettings.getResolutionRatio().getValue(), gameMenuBinding.resolutionScalerValue, "%");
+        gameMenuBinding.resolutionScalerPreview.setText(VideoSettingsFragment.getResolutionRatioPreview(getResources(), AllSettings.getResolutionRatio().getValue()));
+        gameMenuBinding.resolutionScalerRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.resolutionScaler, -1));
+        gameMenuBinding.resolutionScalerAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.resolutionScaler, 1));
+        gameMenuBinding.resolutionScaler.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.resolutionScalerValue, "%");
+                gameMenuBinding.resolutionScalerPreview.setText(VideoSettingsFragment.getResolutionRatioPreview(getResources(), progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int progress = seekBar.getProgress();
+                AllSettings.getResolutionRatio().put(progress).save();
+                AllStaticSettings.scaleFactor = progress / 100f;
+                // NOTE: MainActivity also calls mainGameRenderView.refreshSize()
+                // here to apply the new resolution live, without restarting.
+                // There's no SDL-side equivalent hook confirmed yet -- the
+                // setting saves correctly and will take effect on next launch,
+                // but may not resize live during this session. Flagging rather
+                // than guessing at a live-resize call that might not exist.
+            }
+        });
+
+        ((ViewGroup) findViewById(android.R.id.content)).addView(
+                gameMenuBinding.getRoot(),
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        );
     }
 
     /**
-     * Fired when the in-game menu/pause button is tapped. MainActivity has a
-     * full pause menu (GameMenuViewWrapper etc.) -- this is a minimal stand-in
-     * that just exits the game, not a full port of that menu. Revisit if a
-     * proper in-game menu is wanted for the SDL3 path.
+     * Fired when the in-game menu/pause button is tapped. Toggles the real
+     * settings menu (force close, FPS toggle, resolution scaler) on/off,
+     * same layout MainActivity uses.
      */
     @Override
     public void onClickedMenu() {
-        finish();
+        if (gameMenuBinding == null) return;
+        boolean isVisible = gameMenuBinding.getRoot().getVisibility() == android.view.View.VISIBLE;
+        gameMenuBinding.getRoot().setVisibility(isVisible ? android.view.View.GONE : android.view.View.VISIBLE);
     }
 
     /**
@@ -263,3 +347,4 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         android.os.Looper.loop();
     }
 }
+
