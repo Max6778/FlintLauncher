@@ -1,7 +1,6 @@
 package net.kdt.pojavlaunch;
 
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -132,13 +131,18 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         DriverPluginManager.INSTANCE.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
-        // Reduced stand-in for Tools.updateWindowSize() -- see class javadoc.
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getDisplay().getRealMetrics(displayMetrics);
-        } else {
-            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
-        }
+        // Matches Tools.getDisplayMetrics()/updateWindowSize()'s real implementation
+        // exactly: getResources().getDisplayMetrics(), NOT getRealMetrics(). These
+        // genuinely differ -- getRealMetrics() includes system bars/navigation
+        // regardless of what's actually usable, getResources().getDisplayMetrics()
+        // reflects the app's actual window area. The control-button positioning
+        // formulas (ControlButton's dynamicX/dynamicY, using ${screen_width}/
+        // ${screen_height} resolved from CallbackBridge.physicalWidth/Height) were
+        // built against the real implementation's metrics, so using the wrong one
+        // here was producing incorrectly-placed buttons, especially right/bottom-
+        // anchored ones. See class javadoc -- this replaces the earlier
+        // "known simplification" that used getRealMetrics().
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
         Tools.currentDisplayMetrics = displayMetrics;
         CallbackBridge.physicalWidth = displayMetrics.widthPixels;
         CallbackBridge.physicalHeight = displayMetrics.heightPixels;
@@ -229,19 +233,33 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
      * ready, the Activity is resumed, and has focus (see
      * SDLActivity.handleNativeState()). Replaces the default
      * nativeRunMain()/SDL_main behavior with actually launching Minecraft.
-     * LaunchGame.runGame() blocks until the JVM exits, so returning from
-     * this method (and SDL's own finish() call right after) lines up
-     * correctly with "Minecraft exited, close the Activity."
+     *
+     * SDLThread has no Android Looper by default. LaunchGame.runGame() ->
+     * checkMemory() can construct a real Dialog (the low-RAM warning), and
+     * Dialog/Handler construction requires a Looper on the calling thread --
+     * confirmed via a real crash: "Can't create handler inside thread
+     * Thread[SDLThread] that has not called Looper.prepare()". MainActivity's
+     * own launch flow runs on a thread that already has one; SDLThread
+     * doesn't. Fix: give this thread a real Looper, post the actual launch
+     * work to it, and quit the looper only once that work finishes -- this
+     * keeps main() blocking for the whole Minecraft session (so SDL's own
+     * finish()-after-main() behavior still fires at the right time) while
+     * making Dialog/Handler construction during that session actually work.
      */
     @Override
     protected void main() {
-        try {
-            JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(minecraftVersion);
-            LaunchGame.runGame(this, minecraftVersion, versionInfo);
-        } catch (Throwable e) {
-            Log.e(TAG, "Failed to launch Minecraft on SDL3 backend", e);
-            Tools.showErrorRemote(e);
-        }
+        android.os.Looper.prepare();
+        new android.os.Handler(android.os.Looper.myLooper()).post(() -> {
+            try {
+                JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(minecraftVersion);
+                LaunchGame.runGame(this, minecraftVersion, versionInfo);
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to launch Minecraft on SDL3 backend", e);
+                Tools.showErrorRemote(e);
+            } finally {
+                android.os.Looper.myLooper().quitSafely();
+            }
+        });
+        android.os.Looper.loop();
     }
 }
-
