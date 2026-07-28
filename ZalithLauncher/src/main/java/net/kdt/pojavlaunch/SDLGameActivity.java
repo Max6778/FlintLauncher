@@ -78,6 +78,8 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     private Version minecraftVersion;
     private ControlLayout controlLayout;
     private ViewGameMenuBinding gameMenuBinding;
+    private androidx.drawerlayout.widget.DrawerLayout gameMenuDrawer;
+    private com.kdt.LoggerView loggerView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -220,7 +222,6 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // those are present in the inflated view but NOT wired up here, so
         // tapping them currently does nothing. Separate follow-up if wanted.
         gameMenuBinding = ViewGameMenuBinding.inflate(getLayoutInflater());
-        gameMenuBinding.getRoot().setVisibility(android.view.View.GONE);
 
         gameMenuBinding.forceClose.setOnClickListener(v -> ZHTools.dialogForceClose(this));
 
@@ -262,10 +263,45 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
             }
         });
 
+        // Real log output view + button, same as MainActivity's
+        // binding.logOutput -> MainActivity.binding.mainLoggerView.toggleViewWithAnim()
+        loggerView = new com.kdt.LoggerView(this);
+        loggerView.setVisibility(android.view.View.GONE);
+        gameMenuBinding.logOutput.setOnClickListener(v -> loggerView.toggleViewWithAnim());
         ((ViewGroup) findViewById(android.R.id.content)).addView(
-                gameMenuBinding.getRoot(),
+                loggerView,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
+
+        // Real DrawerLayout, same slide-in-from-side mechanism MainActivity uses
+        // (mainDrawerOptions.openDrawer/closeDrawer with GravityCompat.START) --
+        // not a flat show/hide toggle.
+        gameMenuDrawer = new androidx.drawerlayout.widget.DrawerLayout(this);
+        android.view.View dummyMainContent = new android.view.View(this);
+        gameMenuDrawer.addView(dummyMainContent, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        androidx.drawerlayout.widget.DrawerLayout.LayoutParams drawerParams =
+                new androidx.drawerlayout.widget.DrawerLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        drawerParams.gravity = android.view.Gravity.START;
+        gameMenuDrawer.addView(gameMenuBinding.getRoot(), drawerParams);
+
+        ((ViewGroup) findViewById(android.R.id.content)).addView(
+                gameMenuDrawer,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        );
+    }
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        Tools.setFullscreen(this);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) Tools.setFullscreen(this);
     }
 
     /**
@@ -275,9 +311,12 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
      */
     @Override
     public void onClickedMenu() {
-        if (gameMenuBinding == null) return;
-        boolean isVisible = gameMenuBinding.getRoot().getVisibility() == android.view.View.VISIBLE;
-        gameMenuBinding.getRoot().setVisibility(isVisible ? android.view.View.GONE : android.view.View.VISIBLE);
+        if (gameMenuDrawer == null) return;
+        if (gameMenuDrawer.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
+            gameMenuDrawer.closeDrawer(androidx.core.view.GravityCompat.START);
+        } else {
+            gameMenuDrawer.openDrawer(androidx.core.view.GravityCompat.START);
+        }
     }
 
     /**
@@ -347,4 +386,3 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         android.os.Looper.loop();
     }
 }
-
