@@ -79,6 +79,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     private ControlLayout controlLayout;
     private ViewGameMenuBinding gameMenuBinding;
     private androidx.drawerlayout.widget.DrawerLayout gameMenuDrawer;
+    private com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper gameMenuWrapper;
     private com.kdt.LoggerView loggerView;
     private com.movtery.zalithlauncher.ui.dialog.KeyboardDialog keyboardDialog;
 
@@ -216,6 +217,13 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
 
+        // The actual floating menu-open button MainActivity uses -- ControlLayout's
+        // default buttons don't include a menu trigger; this small floating
+        // memory/FPS badge IS the real trigger (v -> onClickedMenu()). Missing
+        // this is why the menu never opened before -- nothing was calling
+        // onClickedMenu() at all.
+        gameMenuWrapper = new com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper(this, v -> onClickedMenu(), true);
+
         // Real pause/settings menu, same layout + logic MainActivity uses --
         // scoped to the 3 things actually asked for (force close, FPS toggle,
         // resolution scaler). The XML also has log output, custom key, memory
@@ -286,6 +294,11 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
         drawerParams.gravity = android.view.Gravity.START;
         gameMenuDrawer.addView(gameMenuBinding.getRoot(), drawerParams);
+        // DrawerLayout claims all touch events across its full bounds by default
+        // (to detect edge-swipe-to-open), even while closed -- this was very
+        // likely swallowing every touch meant for controlLayout's buttons
+        // underneath. Locking it closed until actually opened stops that.
+        gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
 
         gameMenuBinding.openMemoryInfo.setChecked(AllSettings.getGameMenuShowMemory().getValue());
         gameMenuBinding.openMemoryInfoLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.openMemoryInfo));
@@ -483,7 +496,9 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         if (gameMenuDrawer == null) return;
         if (gameMenuDrawer.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
             gameMenuDrawer.closeDrawer(androidx.core.view.GravityCompat.START);
+            gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
         } else {
+            gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED);
             gameMenuDrawer.openDrawer(androidx.core.view.GravityCompat.START);
         }
     }
