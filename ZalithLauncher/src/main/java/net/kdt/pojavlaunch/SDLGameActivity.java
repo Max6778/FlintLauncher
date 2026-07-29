@@ -80,6 +80,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     private ViewGameMenuBinding gameMenuBinding;
     private androidx.drawerlayout.widget.DrawerLayout gameMenuDrawer;
     private com.kdt.LoggerView loggerView;
+    private com.movtery.zalithlauncher.ui.dialog.KeyboardDialog keyboardDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -286,6 +287,174 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         drawerParams.gravity = android.view.Gravity.START;
         gameMenuDrawer.addView(gameMenuBinding.getRoot(), drawerParams);
 
+        gameMenuBinding.openMemoryInfo.setChecked(AllSettings.getGameMenuShowMemory().getValue());
+        gameMenuBinding.openMemoryInfoLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.openMemoryInfo));
+        gameMenuBinding.openMemoryInfo.setOnCheckedChangeListener((b, isChecked) -> AllSettings.getGameMenuShowMemory().put(isChecked).save());
+
+        gameMenuBinding.disableGestures.setChecked(AllSettings.getDisableGestures().getValue());
+        gameMenuBinding.disableGesturesLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.disableGestures));
+        gameMenuBinding.disableGestures.setOnCheckedChangeListener((b, isChecked) -> {
+            gameMenuBinding.timeLongPressTriggerLayout.setVisibility(isChecked ? android.view.View.GONE : android.view.View.VISIBLE);
+            AllSettings.getDisableGestures().put(isChecked).save();
+        });
+
+        gameMenuBinding.disableDoubleTap.setChecked(AllSettings.getDisableDoubleTap().getValue());
+        gameMenuBinding.disableDoubleTapLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.disableDoubleTap));
+        gameMenuBinding.disableDoubleTap.setOnCheckedChangeListener((b, isChecked) -> {
+            AllSettings.getDisableDoubleTap().put(isChecked).save();
+            AllStaticSettings.disableDoubleTap = isChecked;
+        });
+
+        // NOTE: enableGyro/gyroInvertX/gyroInvertY save settings correctly, but
+        // skip mGyroControl.updateOrientation()/enable()/disable() -- that object
+        // is MainActivity-specific and not ported. Gyro control itself may not
+        // actually turn on/off live even though the setting saves.
+        gameMenuBinding.enableGyro.setChecked(AllSettings.getEnableGyro().getValue());
+        gameMenuBinding.enableGyroLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.enableGyro));
+        gameMenuBinding.enableGyro.setOnCheckedChangeListener((b, isChecked) -> {
+            gameMenuBinding.gyroLayout.setVisibility(isChecked ? android.view.View.VISIBLE : android.view.View.GONE);
+            AllSettings.getEnableGyro().put(isChecked).save();
+            AllStaticSettings.enableGyro = isChecked;
+        });
+        gameMenuBinding.gyroInvertX.setChecked(AllSettings.getGyroInvertX().getValue());
+        gameMenuBinding.gyroInvertXLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.gyroInvertX));
+        gameMenuBinding.gyroInvertX.setOnCheckedChangeListener((b, isChecked) -> {
+            AllSettings.getGyroInvertX().put(isChecked).save();
+            AllStaticSettings.gyroInvertX = isChecked;
+        });
+        gameMenuBinding.gyroInvertY.setChecked(AllSettings.getGyroInvertY().getValue());
+        gameMenuBinding.gyroInvertYLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.gyroInvertY));
+        gameMenuBinding.gyroInvertY.setOnCheckedChangeListener((b, isChecked) -> {
+            AllSettings.getGyroInvertY().put(isChecked).save();
+            AllStaticSettings.gyroInvertY = isChecked;
+        });
+
+        gameMenuBinding.timeLongPressTriggerRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.timeLongPressTrigger, -1));
+        gameMenuBinding.timeLongPressTriggerAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.timeLongPressTrigger, 1));
+        gameMenuBinding.timeLongPressTrigger.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.timeLongPressTriggerValue, "ms");
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                int progress = s.getProgress();
+                AllSettings.getTimeLongPressTrigger().put(progress).save();
+                AllStaticSettings.timeLongPressTrigger = progress;
+            }
+        });
+
+        gameMenuBinding.mouseSpeedRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.mouseSpeed, -1));
+        gameMenuBinding.mouseSpeedAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.mouseSpeed, 1));
+        gameMenuBinding.mouseSpeed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.mouseSpeedValue, "%");
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                AllSettings.getMouseSpeed().put(s.getProgress()).save();
+            }
+        });
+
+        gameMenuBinding.gyroSensitivityRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.gyroSensitivity, -1));
+        gameMenuBinding.gyroSensitivityAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.gyroSensitivity, 1));
+        gameMenuBinding.gyroSensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.gyroSensitivityValue, "%");
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                int progress = s.getProgress();
+                AllSettings.getGyroSensitivity().put(progress).save();
+                AllStaticSettings.gyroSensitivity = progress;
+            }
+        });
+
+        // NOTE: hotbarWidth/Height save correctly and post the real HotbarChangeEvent
+        // (same as MainActivity), so anything listening for that event (e.g. the
+        // hotbar UI itself, if present) still updates live.
+        gameMenuBinding.hotbarWidthRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.hotbarWidth, -1));
+        gameMenuBinding.hotbarWidthAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.hotbarWidth, 1));
+        gameMenuBinding.hotbarWidth.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.hotbarWidthValue, "px");
+                org.greenrobot.eventbus.EventBus.getDefault().post(new com.movtery.zalithlauncher.event.value.HotbarChangeEvent(progress, gameMenuBinding.hotbarHeight.getProgress()));
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                AllSettings.getHotbarWidth().getValue().put(s.getProgress()).save();
+            }
+        });
+        gameMenuBinding.hotbarHeightRemove.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.hotbarHeight, -1));
+        gameMenuBinding.hotbarHeightAdd.setOnClickListener(v -> MenuUtils.adjustSeekbar(gameMenuBinding.hotbarHeight, 1));
+        gameMenuBinding.hotbarHeight.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                MenuUtils.updateSeekbarValue(progress, gameMenuBinding.hotbarHeightValue, "px");
+                org.greenrobot.eventbus.EventBus.getDefault().post(new com.movtery.zalithlauncher.event.value.HotbarChangeEvent(gameMenuBinding.hotbarWidth.getProgress(), progress));
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                AllSettings.getHotbarHeight().getValue().put(s.getProgress()).save();
+            }
+        });
+
+        // Still NOT wired (need extra dialog classes not yet verified for this
+        // path): sendCustomKey (dialogSendCustomKey), customMouse (SelectMouseDialog),
+        // replacementCustomcontrol/editControl (control-scheme editor), hotbarType
+        // spinner. Tapping these still does nothing.
+
+        // Custom key input -- same real logic as MainActivity's dialogSendCustomKey()/
+        // sendKeyPress(): CallbackBridge already branches on usingSdl3 internally
+        // (from earlier work), so this routes to SDL3 correctly with no extra code.
+        keyboardDialog = new com.movtery.zalithlauncher.ui.dialog.KeyboardDialog(this).setShowSpecialButtons(false);
+        gameMenuBinding.sendCustomKey.setOnClickListener(v -> keyboardDialog.setOnMultiKeycodeSelectListener(selectedKeycodes -> {
+            com.movtery.zalithlauncher.task.Task.runTask(() -> {
+                selectedKeycodes.forEach(keycode -> {
+                    int lwjglKeycode = EfficientAndroidLWJGLKeycode.getValueByIndex(keycode);
+                    if (keycode >= LwjglGlfwKeycode.GLFW_KEY_UNKNOWN) {
+                        CallbackBridge.sendKeyPress(lwjglKeycode, CallbackBridge.getCurrentMods(), true);
+                        CallbackBridge.setModifiers(lwjglKeycode, true);
+                    }
+                });
+                return null;
+            }).ended(a -> {
+                try { Thread.sleep(50); } catch (InterruptedException ignore) {}
+                selectedKeycodes.forEach(keycode -> {
+                    int lwjglKeycode = EfficientAndroidLWJGLKeycode.getValueByIndex(keycode);
+                    if (keycode >= LwjglGlfwKeycode.GLFW_KEY_UNKNOWN) {
+                        CallbackBridge.sendKeyPress(lwjglKeycode, CallbackBridge.getCurrentMods(), false);
+                        CallbackBridge.setModifiers(lwjglKeycode, false);
+                    }
+                });
+            }).execute();
+        }).show());
+
+        // Mouse cursor picker -- same real dialog MainActivity uses. NOTE: the
+        // refresh callback is a no-op here (MainActivity refreshes its Touchpad
+        // view's cursor drawable; we don't have that view in the SDL3 overlay),
+        // so the chosen cursor is saved but won't visually refresh until next launch.
+        gameMenuBinding.customMouse.setOnClickListener(v ->
+                new com.movtery.zalithlauncher.ui.dialog.SelectMouseDialog(this, () -> {}).show());
+
+        // Control-scheme replacement -- same real dialog, applied to our own
+        // controlLayout instead of MainActivity's mainControlLayout.
+        gameMenuBinding.replacementCustomcontrol.setOnClickListener(v -> {
+            com.movtery.zalithlauncher.ui.dialog.SelectControlsDialog dialog =
+                    new com.movtery.zalithlauncher.ui.dialog.SelectControlsDialog(this, file -> {
+                        try {
+                            controlLayout.loadLayout(file.getAbsolutePath());
+                        } catch (java.io.IOException ignored) {}
+                    });
+            dialog.setTitleText(com.movtery.zalithlauncher.R.string.replacement_customcontrol);
+            dialog.show();
+        });
+
+        // Control-scheme editor -- minimal version: enables drag-to-edit mode on
+        // our existing controlLayout overlay directly, rather than MainActivity's
+        // full navigation-drawer-content-swap flow (mControlSettingsBinding etc,
+        // not ported). Tapping editControl again does NOT exit edit mode yet --
+        // only entry is wired.
+        gameMenuBinding.editControl.setOnClickListener(v -> controlLayout.setModifiable(true));
+
         ((ViewGroup) findViewById(android.R.id.content)).addView(
                 gameMenuDrawer,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -386,3 +555,4 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         android.os.Looper.loop();
     }
 }
+
