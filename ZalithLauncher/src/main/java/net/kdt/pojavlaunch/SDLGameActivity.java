@@ -28,7 +28,7 @@ import org.lwjgl.glfw.CallbackBridge;
 
 /**
  * Hosts Minecraft when the launched version needs the SDL3 backend
- * (26.3-snapshot-5 and later, currently) instead of GLFW.
+ * (26.3-snapshot-4 and later, currently) instead of GLFW.
  *
  * Separate Activity from MainActivity on purpose — SDLActivity owns its
  * own Activity lifecycle, so rather than patching SDL internals we let
@@ -70,6 +70,19 @@ import org.lwjgl.glfw.CallbackBridge;
  * multi-window-mode sizing that the GLFW path has. Fine for a first
  * test; revisit if display sizing looks wrong on a notched or
  * split-screen device.
+ *
+ * Touch-input fix: controlLayout/loggerView are now nested INSIDE
+ * gameMenuDrawer as its "main content" child, instead of being added
+ * to android.R.id.content separately with gameMenuDrawer stacked on
+ * top as its own full-screen sibling. A DrawerLayout unconditionally
+ * claims the entire touch gesture on ACTION_DOWN so it can track a
+ * possible edge-swipe -- lock mode only gates whether the drawer
+ * *opens*, not whether it eats the touch. As a floating full-screen
+ * overlay on top of everything, it was swallowing 100% of input before
+ * controlLayout ever saw it (buttons/joystick completely dead). This
+ * matches MainActivity's real activity_game.xml structure, where the
+ * DrawerLayout wraps the controls as its actual content child rather
+ * than floating on top of them.
  */
 public class SDLGameActivity extends SDLActivity implements ControlButtonMenuListener {
 
@@ -192,12 +205,6 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // SDL surface inside it like MainActivity does, since SDL's surface
         // needs to stay inside SDL's own managed view hierarchy for its native
         // surface callbacks to keep firing correctly.
-        //
-        // UNVERIFIED: ControlLayout normally has MinecraftGLSurface as a
-        // direct XML child in activity_game.xml. Using it standalone (no
-        // render-surface child) here is untested -- if buttons don't render
-        // or touches don't route correctly, this is the first thing to
-        // revisit.
         controlLayout = new ControlLayout(this);
         controlLayout.setModifiable(false);
         controlLayout.setMenuListener(this);
@@ -212,17 +219,17 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
             }
         }
         controlLayout.toggleControlVisible();
-        ((ViewGroup) findViewById(android.R.id.content)).addView(
-                controlLayout,
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        );
 
         // The actual floating menu-open button MainActivity uses -- ControlLayout's
         // default buttons don't include a menu trigger; this small floating
-        // memory/FPS badge IS the real trigger (v -> onClickedMenu()). Missing
-        // this is why the menu never opened before -- nothing was calling
-        // onClickedMenu() at all.
+        // memory/FPS badge IS the real trigger (v -> onClickedMenu()).
         gameMenuWrapper = new com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper(this, v -> onClickedMenu(), true);
+        // GameMenuViewWrapper's constructor only calls refreshState() (reads the
+        // FPS/memory settings) -- it never calls thinkForVisibility() on its own,
+        // so the floating window was never actually being created. MainActivity
+        // calls this same line right after construction; without it the toggle
+        // button (and FPS/memory badge) simply never appears.
+        gameMenuWrapper.setVisibility(!controlLayout.hasMenuButton());
 
         // Real pause/settings menu, same layout + logic MainActivity uses --
         // scoped to the 3 things actually asked for (force close, FPS toggle,
@@ -238,10 +245,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         gameMenuBinding.openFpsInfoLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.openFpsInfo));
         gameMenuBinding.openFpsInfo.setOnCheckedChangeListener((buttonView, isChecked) -> {
             AllSettings.getGameMenuShowFPS().put(isChecked).save();
-            // NOTE: MainActivity also calls mGameMenuWrapper.refreshSettingsState()
-            // here to update a floating FPS/memory badge -- that widget isn't
-            // ported for the SDL3 path, so the setting saves correctly but
-            // there's no floating badge to refresh yet.
+            gameMenuWrapper.refreshSettingsState();
         });
 
         MenuUtils.initSeekBarValue(gameMenuBinding.resolutionScaler, AllSettings.getResolutionRatio().getValue(), gameMenuBinding.resolutionScalerValue, "%");
@@ -277,32 +281,51 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         loggerView = new com.kdt.LoggerView(this);
         loggerView.setVisibility(android.view.View.GONE);
         gameMenuBinding.logOutput.setOnClickListener(v -> loggerView.toggleViewWithAnim());
-        ((ViewGroup) findViewById(android.R.id.content)).addView(
-                loggerView,
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        );
 
         // Real DrawerLayout, same slide-in-from-side mechanism MainActivity uses
         // (mainDrawerOptions.openDrawer/closeDrawer with GravityCompat.START) --
         // not a flat show/hide toggle.
+        //
+        // controlLayout/loggerView are nested INSIDE gameMenuDrawer as its
+        // "main content" child here, instead of being added directly to
+        // android.R.id.content with gameMenuDrawer added separately on top as
+        // its own full-screen sibling. A DrawerLayout unconditionally claims
+        // the entire touch gesture on ACTION_DOWN (to track a possible edge
+        // swipe) regardless of lock mode -- as a floating full-screen overlay
+        // stacked on top of everything, it was swallowing 100% of input
+        // before controlLayout ever received it. This mirrors MainActivity's
+        // real activity_game.xml structure, where the DrawerLayout wraps the
+        // controls as its actual content child rather than floating above them.
+        android.widget.FrameLayout mainContent = new android.widget.FrameLayout(this);
+        mainContent.addView(controlLayout,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mainContent.addView(loggerView,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         gameMenuDrawer = new androidx.drawerlayout.widget.DrawerLayout(this);
-        android.view.View dummyMainContent = new android.view.View(this);
-        gameMenuDrawer.addView(dummyMainContent, new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        gameMenuDrawer.addView(mainContent,
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         androidx.drawerlayout.widget.DrawerLayout.LayoutParams drawerParams =
                 new androidx.drawerlayout.widget.DrawerLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
         drawerParams.gravity = android.view.Gravity.START;
         gameMenuDrawer.addView(gameMenuBinding.getRoot(), drawerParams);
+        // Matches MainActivity's binding.mainDrawerOptions.setScrimColor(TRANSPARENT) --
+        // avoids dimming the game content when the drawer is opening/open.
+        gameMenuDrawer.setScrimColor(android.graphics.Color.TRANSPARENT);
         // DrawerLayout claims all touch events across its full bounds by default
-        // (to detect edge-swipe-to-open), even while closed -- this was very
-        // likely swallowing every touch meant for controlLayout's buttons
-        // underneath. Locking it closed until actually opened stops that.
+        // (to detect edge-swipe-to-open), even while closed. Locking it closed
+        // until actually opened stops that from interfering with the drawer's
+        // OWN content area; this is on top of (not instead of) nesting
+        // controlLayout as the content child above -- both were needed.
         gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
 
         gameMenuBinding.openMemoryInfo.setChecked(AllSettings.getGameMenuShowMemory().getValue());
         gameMenuBinding.openMemoryInfoLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.openMemoryInfo));
-        gameMenuBinding.openMemoryInfo.setOnCheckedChangeListener((b, isChecked) -> AllSettings.getGameMenuShowMemory().put(isChecked).save());
+        gameMenuBinding.openMemoryInfo.setOnCheckedChangeListener((b, isChecked) -> {
+            AllSettings.getGameMenuShowMemory().put(isChecked).save();
+            gameMenuWrapper.refreshSettingsState();
+        });
 
         gameMenuBinding.disableGestures.setChecked(AllSettings.getDisableGestures().getValue());
         gameMenuBinding.disableGesturesLayout.setOnClickListener(v -> MenuUtils.toggleSwitchState(gameMenuBinding.disableGestures));
@@ -569,5 +592,4 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         });
         android.os.Looper.loop();
     }
-}
-
+                                                                    }
