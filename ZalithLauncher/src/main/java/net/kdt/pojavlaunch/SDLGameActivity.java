@@ -28,7 +28,7 @@ import org.lwjgl.glfw.CallbackBridge;
 
 /**
  * Hosts Minecraft when the launched version needs the SDL3 backend
- * (26.3-snapshot-4 and later, currently) instead of GLFW.
+ * (26.3-snapshot-5 and later, currently) instead of GLFW.
  *
  * Separate Activity from MainActivity on purpose — SDLActivity owns its
  * own Activity lifecycle, so rather than patching SDL internals we let
@@ -83,8 +83,34 @@ import org.lwjgl.glfw.CallbackBridge;
  * matches MainActivity's real activity_game.xml structure, where the
  * DrawerLayout wraps the controls as its actual content child rather
  * than floating on top of them.
+ *
+ * MainActivity parity audit -- ported in this pass: GameService
+ * foreground-start+bind (was completely missing -- no kill-on-swipe-away
+ * protection, no persistent notification), window flags
+ * (FLAG_KEEP_SCREEN_ON/sustained performance/background drawable),
+ * GyroControl (was never instantiated at all, not just "not live"),
+ * onConfigurationChanged (render size + control button refresh on
+ * rotate), dispatchKeyEvent (BACK -> in-game ESCAPE instead of the
+ * Activity just finishing), and onResume/onPause/onStart/onStop's
+ * gyro enable/disable + CallbackBridge.nativeSetWindowAttrib calls.
+ *
+ * Still NOT ported, deliberately -- would need UI/infrastructure this
+ * minimal SDL3 overlay doesn't have, rather than a small copy-paste:
+ *   - CallbackBridge.addGrabListener/removeGrabListener on a
+ *     touchpad/render-view equivalent -- SDL3 may already handle pointer
+ *     capture internally; needs verifying on-device before wiring
+ *     anything, rather than guessing at a listener target that may not
+ *     apply here.
+ *   - onGlobalLayout()'s soft-keyboard-visible input preview -- needs
+ *     the inputPreviewLayout/TextView MainActivity's XML has, which
+ *     doesn't exist in this overlay.
+ *   - MenuSettingsInitListener on the drawer -- MainActivity's version is
+ *     a private inner class tightly coupled to the hotbarType spinner
+ *     and other menu wiring already flagged as not ported; porting the
+ *     listener alone without that infrastructure would reference views
+ *     that don't exist here.
  */
-public class SDLGameActivity extends SDLActivity implements ControlButtonMenuListener {
+public class SDLGameActivity extends SDLActivity implements ControlButtonMenuListener, android.content.ServiceConnection {
 
     private static final String TAG = "SDLGameActivity";
 
@@ -95,6 +121,11 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     private com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper gameMenuWrapper;
     private com.kdt.LoggerView loggerView;
     private com.movtery.zalithlauncher.ui.dialog.KeyboardDialog keyboardDialog;
+    // Ported from MainActivity -- without this, rotating the device / entering
+    // split-screen never re-reads sensor calibration, and enable()/disable()
+    // was never being called at all anywhere before this port (gyro was fully
+    // non-functional, not just "not live" as originally flagged).
+    private net.kdt.pojavlaunch.customcontrols.mouse.GyroControl gyroControl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,6 +169,35 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         }
         Log.i(TAG, "onCreate: launching " + minecraftVersion.getVersionName() + " with SDL3 backend");
 
+        // Foreground service MainActivity always starts+binds before launch --
+        // was entirely missing here. Without it: no protection from the process
+        // being killed while backgrounded, no persistent "game running"
+        // notification/Quit action, and GameService.onTaskRemoved() (which
+        // kills the whole process if the user swipes the app away from
+        // recents) never gets a chance to run -- swiping away could leave the
+        // JVM running as an orphaned background process instead of being
+        // cleanly killed.
+        android.content.Intent gameServiceIntent = new android.content.Intent(this, net.kdt.pojavlaunch.services.GameService.class);
+        androidx.core.content.ContextCompat.startForegroundService(this, gameServiceIntent);
+        bindService(gameServiceIntent, this, 0);
+
+        // Same window flags MainActivity sets -- were entirely missing here,
+        // meaning the screen could dim/sleep mid-game (no FLAG_KEEP_SCREEN_ON),
+        // no sustained performance mode on supported devices, and a possible
+        // white flash instead of black during transitions (no background
+        // drawable set).
+        android.view.Window window = getWindow();
+        if (AllSettings.getAlternateSurface().getValue()) window.setBackgroundDrawable(null);
+        else window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK));
+        window.setSustainedPerformanceMode(AllSettings.getSustainedPerformance().getValue());
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // GyroControl was never instantiated anywhere before this port --
+        // gyro was fully non-functional (not just "not live" as previously
+        // flagged), since nothing ever called enable()/disable() either.
+        // enable() itself happens in onResume() below, matching MainActivity.
+        gyroControl = new net.kdt.pojavlaunch.customcontrols.mouse.GyroControl(this);
+
         // These match what MainActivity.initLayout() does before launch --
         // found by reading MainActivity's actual onCreate rather than
         // waiting for each one to crash separately.
@@ -177,18 +237,25 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         DriverPluginManager.INSTANCE.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
-        // Matches Tools.getDisplayMetrics()/updateWindowSize()'s real implementation
-        // exactly: getResources().getDisplayMetrics(), NOT getRealMetrics(). These
-        // genuinely differ -- getRealMetrics() includes system bars/navigation
-        // regardless of what's actually usable, getResources().getDisplayMetrics()
-        // reflects the app's actual window area. The control-button positioning
-        // formulas (ControlButton's dynamicX/dynamicY, using ${screen_width}/
-        // ${screen_height} resolved from CallbackBridge.physicalWidth/Height) were
-        // built against the real implementation's metrics, so using the wrong one
-        // here was producing incorrectly-placed buttons, especially right/bottom-
-        // anchored ones. See class javadoc -- this replaces the earlier
-        // "known simplification" that used getRealMetrics().
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        // CORRECTION from an earlier pass: Tools.getDisplayMetrics()'s actual
+        // non-multi-window path uses getRealMetrics() (full physical screen,
+        // including the area behind system bars), NOT getResources().getDisplayMetrics()
+        // (which excludes it) -- confirmed by re-reading the real method directly.
+        // Using the smaller resources-based metrics here was shrinking
+        // CallbackBridge.physicalHeight, and since ControlLayout's button
+        // positions (dynamicX/dynamicY) are computed from that value, the
+        // now-hidden-nav-bar region ended up entirely outside controlLayout's
+        // own coordinate space -- the actual cause of the empty gap/controls
+        // not filling the screen after going fullscreen. This matches
+        // Tools.getDisplayMetrics(BaseActivity) exactly, just without the
+        // BaseActivity-specific shouldIgnoreNotch()/multi-window branches
+        // (still a known simplification, per class javadoc).
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getDisplay().getRealMetrics(displayMetrics);
+        } else {
+            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
+        }
         Tools.currentDisplayMetrics = displayMetrics;
         CallbackBridge.physicalWidth = displayMetrics.widthPixels;
         CallbackBridge.physicalHeight = displayMetrics.heightPixels;
@@ -220,16 +287,9 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         }
         controlLayout.toggleControlVisible();
 
-        // The actual floating menu-open button MainActivity uses -- ControlLayout's
-        // default buttons don't include a menu trigger; this small floating
-        // memory/FPS badge IS the real trigger (v -> onClickedMenu()).
-        gameMenuWrapper = new com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper(this, v -> onClickedMenu(), true);
-        // GameMenuViewWrapper's constructor only calls refreshState() (reads the
-        // FPS/memory settings) -- it never calls thinkForVisibility() on its own,
-        // so the floating window was never actually being created. MainActivity
-        // calls this same line right after construction; without it the toggle
-        // button (and FPS/memory badge) simply never appears.
-        gameMenuWrapper.setVisibility(!controlLayout.hasMenuButton());
+        // NOTE: the floating menu-open badge (GameMenuViewWrapper) is
+        // constructed further down, AFTER gameMenuDrawer/controlLayout are
+        // actually attached to the window -- see the comment there for why.
 
         // Real pause/settings menu, same layout + logic MainActivity uses --
         // scoped to the 3 things actually asked for (force close, FPS toggle,
@@ -305,11 +365,32 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         gameMenuDrawer = new androidx.drawerlayout.widget.DrawerLayout(this);
         gameMenuDrawer.addView(mainContent,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Real structure per activity_game.xml: the drawer panel is NOT the
+        // menu content itself -- it's a fixed-width placeholder FrameLayout
+        // ("main_navigation_view": 260sdp wide, gravity END, 12sdp margin,
+        // 8sdp elevation) that MainActivity populates via
+        // mainNavigationView.addView(gameMenuBinding.getRoot()). Adding
+        // gameMenuBinding.getRoot() directly as the DrawerLayout's own child
+        // with WRAP_CONTENT (as an earlier version of this file did) skipped
+        // that fixed-width container entirely -- since the menu content's own
+        // root view is sized to fill it (match_parent internally), placing it
+        // straight into a WRAP_CONTENT drawer slot is what caused the
+        // stretched layout. Gravity was also START (left) instead of END
+        // (right), which is why it opened from the wrong side vs. GLFW.
+        android.widget.FrameLayout navigationView = new android.widget.FrameLayout(this);
+        navigationView.addView(gameMenuBinding.getRoot(),
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         androidx.drawerlayout.widget.DrawerLayout.LayoutParams drawerParams =
                 new androidx.drawerlayout.widget.DrawerLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        drawerParams.gravity = android.view.Gravity.START;
-        gameMenuDrawer.addView(gameMenuBinding.getRoot(), drawerParams);
+                        getResources().getDimensionPixelSize(com.movtery.zalithlauncher.R.dimen._260sdp),
+                        ViewGroup.LayoutParams.MATCH_PARENT);
+        int margin = getResources().getDimensionPixelSize(com.movtery.zalithlauncher.R.dimen._12sdp);
+        drawerParams.setMargins(margin, margin, margin, margin);
+        drawerParams.gravity = android.view.Gravity.END;
+        navigationView.setElevation(getResources().getDimensionPixelSize(com.movtery.zalithlauncher.R.dimen._8sdp));
+        navigationView.setTranslationZ(Tools.dpToPx(4));
+        gameMenuDrawer.addView(navigationView, drawerParams);
         // Matches MainActivity's binding.mainDrawerOptions.setScrimColor(TRANSPARENT) --
         // avoids dimming the game content when the drawer is opening/open.
         gameMenuDrawer.setScrimColor(android.graphics.Color.TRANSPARENT);
@@ -495,6 +576,24 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                 gameMenuDrawer,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
+
+        // The actual floating menu-open button MainActivity uses -- ControlLayout's
+        // default buttons don't include a menu trigger; this small floating
+        // memory/FPS badge IS the real trigger (v -> onClickedMenu()).
+        //
+        // Constructed HERE, after gameMenuDrawer/controlLayout are already
+        // attached to the window, on purpose: GameMenuViewWrapper attaches its
+        // floating badge to the window the moment setVisibility()/
+        // thinkForVisibility() runs. Doing that before controlLayout was
+        // attached meant controlLayout (added later, so higher priority for
+        // touch) ended up covering the badge and swallowing its taps --
+        // visible, but not clickable or draggable. Building it last, after
+        // everything else is already in the window, keeps it on top for
+        // real, matching how MainActivity ends up with it on top simply by
+        // virtue of its own controls already being part of the inflated
+        // layout before the badge is created.
+        gameMenuWrapper = new com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper(this, v -> onClickedMenu(), true);
+        gameMenuWrapper.setVisibility(!controlLayout.hasMenuButton());
     }
 
     @Override
@@ -509,6 +608,90 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         if (hasFocus) Tools.setFullscreen(this);
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (AllStaticSettings.enableGyro && gyroControl != null) gyroControl.enable();
+        CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 1);
+    }
+
+    @Override
+    protected void onPause() {
+        if (gyroControl != null) gyroControl.disable();
+        if (CallbackBridge.isGrabbing()) {
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+        }
+        CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0);
+        super.onPause();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_VISIBLE, 1);
+    }
+
+    @Override
+    protected void onStop() {
+        CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_VISIBLE, 0);
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Matches MainActivity's onDestroy -- was missing entirely here,
+        // leaving a stale Activity reference around after the game closes.
+        com.movtery.zalithlauncher.context.ContextExecutor.clearActivity();
+    }
+
+    /**
+     * Ported from MainActivity -- was missing entirely, so rotating the
+     * device or entering split-screen never refreshed the render surface
+     * size or control button positions.
+     */
+    @Override
+    public void onConfigurationChanged(@androidx.annotation.NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (gyroControl != null) gyroControl.updateOrientation();
+
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            getDisplay().getRealMetrics(displayMetrics);
+        } else {
+            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
+        }
+        Tools.currentDisplayMetrics = displayMetrics;
+        CallbackBridge.physicalWidth = displayMetrics.widthPixels;
+        CallbackBridge.physicalHeight = displayMetrics.heightPixels;
+
+        if (controlLayout != null) runOnUiThread(() -> controlLayout.refreshControlButtonPositions());
+    }
+
+    /**
+     * Ported from MainActivity -- was missing entirely, so the hardware/
+     * gesture back button fell through to default Android behavior (finishes
+     * the Activity outright) instead of opening the in-game pause menu.
+     */
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_BACK) {
+            // Consume BACK ourselves and translate it to an ESCAPE keypress,
+            // same as MainActivity. Deliberately NOT calling super() for
+            // BACK specifically -- SDLActivity's own dispatchKeyEvent would
+            // otherwise also route it into SDL's native key queue,
+            // double-handling the same press.
+            if (event.getAction() != android.view.KeyEvent.ACTION_UP) return true;
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+            return true;
+        }
+        // Every other key MUST go through SDLActivity's own dispatchKeyEvent --
+        // that's what actually feeds keyboard input into SDL's native queue.
+        // Skipping super() here for anything but BACK would break all
+        // keyboard input, not just the back button.
+        return super.dispatchKeyEvent(event);
+    }
+
     /**
      * Fired when the in-game menu/pause button is tapped. Toggles the real
      * settings menu (force close, FPS toggle, resolution scaler) on/off,
@@ -517,13 +700,33 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     @Override
     public void onClickedMenu() {
         if (gameMenuDrawer == null) return;
-        if (gameMenuDrawer.isDrawerOpen(androidx.core.view.GravityCompat.START)) {
-            gameMenuDrawer.closeDrawer(androidx.core.view.GravityCompat.START);
+        // GravityCompat.END, not START -- matches the real drawer panel's
+        // layout_gravity="end" (activity_game.xml), which is also why it
+        // slides in from the right like the GLFW path, not the left.
+        if (gameMenuDrawer.isDrawerOpen(androidx.core.view.GravityCompat.END)) {
+            gameMenuDrawer.closeDrawer(androidx.core.view.GravityCompat.END);
             gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
         } else {
             gameMenuDrawer.setDrawerLockMode(androidx.drawerlayout.widget.DrawerLayout.LOCK_MODE_UNLOCKED);
-            gameMenuDrawer.openDrawer(androidx.core.view.GravityCompat.START);
+            gameMenuDrawer.openDrawer(androidx.core.view.GravityCompat.END);
         }
+    }
+
+    /**
+     * ServiceConnection callbacks for the GameService bind started in
+     * onCreate. MainActivity's version also starts its GLFW render view here
+     * (binding.mainGameRenderView.start(...)) -- not applicable to the SDL3
+     * path, since SDL starts its own render loop natively once its surface
+     * is ready/focused/resumed (see class javadoc). Marking the service
+     * active is the actual relevant part for the SDL3 path.
+     */
+    @Override
+    public void onServiceConnected(android.content.ComponentName name, android.os.IBinder service) {
+        net.kdt.pojavlaunch.services.GameService.setActive(true);
+    }
+
+    @Override
+    public void onServiceDisconnected(android.content.ComponentName name) {
     }
 
     /**
@@ -592,4 +795,5 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         });
         android.os.Looper.loop();
     }
-                                                                    }
+}
+
