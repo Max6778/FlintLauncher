@@ -2,7 +2,7 @@
 
 <img src="logo.png" alt="FlintLauncher Logo" width="600"/>
 
-### Run Minecraft: Java Edition on Android — even on devices others gave up on.
+### Run Minecraft: Java Edition on Android.
 
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Android%208%2B-brightgreen?style=flat-square)
@@ -10,7 +10,7 @@
 ![Forks](https://img.shields.io/github/forks/FlintLauncherDev/FlintLauncher?style=flat-square)
 ![Stars](https://img.shields.io/github/stars/FlintLauncherDev/FlintLauncher?style=flat-square)
 
-**Free. Open Source. Performance-first. Built for everyone.**
+**Free. Open Source. Performance.**
 
 [Download](#download) • [Features](#features) • [Compatibility](#compatibility) • [Contributing](#contributing) • [Community](#community)
 
@@ -40,25 +40,24 @@ No PC. No expensive phone. Just you and the game.
 
 ## Features
 
-### 🚀 Performance
+### Performance
 - **Auto RAM profiling** — detects your device's memory and sets safe JVM limits automatically
 - **GPU-based renderer switching** — picks the best renderer for your GPU (GL4ES, Zink, VirGL)
 - **Optimized JVM arguments** — tuned garbage collection and heap settings for low-end hardware
 - **CPU thread control** — prevents the JVM from choking slower processors
 - **Performance Pack** — optional one-tap install of Sodium, Lithium, FerriteCore, and more
 
-### 🎨 Customization
+### Customization
 - **Theme engine** — fully customizable UI with JSON-based themes
 - **Custom control layouts** — drag, resize, and reposition every touch button
 - **Per-version profiles** — separate RAM, renderer, mods, and JVM args per Minecraft version
 - **Custom icons and backgrounds** — make the launcher yours
 
-### 🔧 Compatibility
+### Compatibility
 - Supports **Android 8.0+** (API 26+)
 - **ARM32 and ARM64** device support
 - Works with **Mali, Adreno, PowerVR, and Dimensity** GPUs
 - Compatible with **Forge, Fabric, Quilt, and NeoForge**
-- Supports Minecraft Java versions **1.8 through latest**
 
 ### 🌐 Open Source
 - Fully open source under **GPL-3.0**
@@ -125,61 +124,6 @@ APK output: `app/build/outputs/apk/debug/`
 
 ---
 
-## Project Structure
-
-```
-FlintLauncher/
-├── app/
-│   └── src/main/
-│       ├── java/com/flintlauncher/
-│       │   ├── ui/               # Activities, fragments, screens
-│       │   ├── game/             # Launch logic, version manager
-│       │   ├── performance/      # RAM detector, GPU profiler
-│       │   ├── theme/            # Theme engine
-│       │   └── profiles/         # Profile manager
-│       ├── cpp/
-│       │   ├── CMakeLists.txt
-│       │   ├── launcher.cpp      # JNI bridge
-│       │   └── renderer/         # GL4ES, Zink, VirGL loaders
-│       └── assets/
-│           ├── logo.png          # FlintLauncher logo
-│           └── themes/           # Default themes (JSON)
-├── .github/
-│   └── workflows/
-│       └── build.yml             # Auto APK build
-├── LICENSE
-├── README.md
-└── CONTRIBUTING.md
-```
-
----
-
-## Roadmap
-
-### v0.1 — Foundation
-- [x] Fork ZalithLauncher
-- [ ] Rebrand UI and assets
-- [ ] GitHub Actions build pipeline
-- [ ] Confirm Minecraft boots
-
-### v0.2 — Low-End Focus
-- [ ] Auto RAM detection and JVM profiles
-- [ ] GPU detection and renderer auto-switcher
-- [ ] Performance Pack mod installer
-- [ ] ZRAM detection and user notice
-
-### v0.3 — Customization
-- [ ] JSON theme engine
-- [ ] Custom control layout editor
-- [ ] Per-version profiles
-
-### v1.0 — Public Release
-- [ ] Stable APK release
-- [ ] Full documentation
-- [ ] Community contributions open
-
----
-
 ## Contributing
 
 FlintLauncher is open to everyone. Whether you fix a typo or add a whole feature — all contributions are welcome.
@@ -195,7 +139,7 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting.
 
 ## Community
 
-> Discord server coming soon.
+> Discord server coming soon!
 
 Use GitHub Issues for bug reports and feature requests in the meantime.
 
@@ -203,9 +147,9 @@ Use GitHub Issues for bug reports and feature requests in the meantime.
 
 ## Credits
 
-FlintLauncher is built on the shoulders of giants:
+FlintLauncher is built on the shoulders of these amazing projects:
 
-- [PojavLauncher](https://github.com/PojavLaunch/PojavLauncher) — the original Android Java launcher
+- [PojavLauncher](https://github.com/PojavLaunch/PojavLauncher) — the original Android Java launcher,
 - [ZalithLauncher](https://github.com/ZalithLauncher/ZalithLauncher) — the modern fork we built on
 - [GL4ES](https://github.com/ptitSeb/gl4es) — OpenGL to OpenGL ES translation
 - [Boardwalk](https://github.com/zhuowei/Boardwalk) — early iOS/Android Java MC research
