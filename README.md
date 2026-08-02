@@ -45,13 +45,6 @@ No PC. No expensive phone. Just you and the game.
 - **GPU-based renderer switching** — picks the best renderer for your GPU (GL4ES, Zink, VirGL)
 - **Optimized JVM arguments** — tuned garbage collection and heap settings for low-end hardware
 - **CPU thread control** — prevents the JVM from choking slower processors
-- **Performance Pack** — optional one-tap install of Sodium, Lithium, FerriteCore, and more
-
-### Customization
-- **Theme engine** — fully customizable UI with JSON-based themes
-- **Custom control layouts** — drag, resize, and reposition every touch button
-- **Per-version profiles** — separate RAM, renderer, mods, and JVM args per Minecraft version
-- **Custom icons and backgrounds** — make the launcher yours
 
 ### Compatibility
 - Supports **Android 8.0+** (API 26+)
