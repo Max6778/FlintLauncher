@@ -237,28 +237,24 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         DriverPluginManager.INSTANCE.initDriver(this, false);
         DriverPluginManager.setDriverByName(minecraftVersion.getDriver());
 
-        // CORRECTION from an earlier pass: Tools.getDisplayMetrics()'s actual
-        // non-multi-window path uses getRealMetrics() (full physical screen,
-        // including the area behind system bars), NOT getResources().getDisplayMetrics()
-        // (which excludes it) -- confirmed by re-reading the real method directly.
-        // Using the smaller resources-based metrics here was shrinking
-        // CallbackBridge.physicalHeight, and since ControlLayout's button
-        // positions (dynamicX/dynamicY) are computed from that value, the
-        // now-hidden-nav-bar region ended up entirely outside controlLayout's
-        // own coordinate space -- the actual cause of the empty gap/controls
-        // not filling the screen after going fullscreen. This matches
-        // Tools.getDisplayMetrics(BaseActivity) exactly, just without the
-        // BaseActivity-specific shouldIgnoreNotch()/multi-window branches
-        // (still a known simplification, per class javadoc).
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            getDisplay().getRealMetrics(displayMetrics);
-        } else {
-            getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
-        }
-        Tools.currentDisplayMetrics = displayMetrics;
-        CallbackBridge.physicalWidth = displayMetrics.widthPixels;
-        CallbackBridge.physicalHeight = displayMetrics.heightPixels;
+        // Real Tools.getDisplayMetrics(BaseActivity) does two things this was
+        // still missing after the earlier getRealMetrics() correction: (1) it
+        // SUBTRACTS AllStaticSettings.notchSize from the physical width
+        // (landscape) or height (portrait) whenever the notch ISN'T being
+        // ignored -- the default -- specifically so controls don't get placed
+        // in/past the camera-cutout area; and (2) that notch size is only
+        // known once LauncherPreferences.computeNotchSize() has read the
+        // actual WindowInsets, which isn't reliably available yet this early
+        // in onCreate (MainActivity itself defers this to onAttachedToWindow
+        // for the same reason). Without the subtraction, CallbackBridge.
+        // physicalWidth was wider than what MainActivity actually uses,
+        // which is exactly why right-anchored controls were rendering
+        // slightly past the visible edge. refreshDisplayMetrics() below
+        // (shared with onAttachedToWindow/onConfigurationChanged) does the
+        // subtraction using whatever notch size is known at call time --
+        // -1/unset the first time this runs here, corrected once
+        // onAttachedToWindow computes the real value and calls it again.
+        refreshDisplayMetrics();
 
         CallbackBridge.usingSdl3 = true;
 
@@ -654,18 +650,86 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     public void onConfigurationChanged(@androidx.annotation.NonNull android.content.res.Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         if (gyroControl != null) gyroControl.updateOrientation();
+        // Notch size is orientation-dependent (width in landscape, height in
+        // portrait) -- matches LauncherPreferences.computeNotchSize() being
+        // re-read on rotation, not just at initial attach.
+        computeNotchSize();
+        refreshDisplayMetrics();
+        if (controlLayout != null) runOnUiThread(() -> controlLayout.refreshControlButtonPositions());
+    }
 
+    /**
+     * Ported from MainActivity's onAttachedToWindow(): notch size can only be
+     * read reliably once the view hierarchy is actually attached to the
+     * window (WindowInsets/DisplayCutout aren't dependable any earlier than
+     * this, e.g. not yet during onCreate). Recomputing metrics here corrects
+     * CallbackBridge.physicalWidth/Height with the real notch size once it's
+     * known, and refreshes controlLayout's button positions to match --
+     * without this, right-anchored buttons render using the notch-less
+     * (too-wide) fallback from onCreate and end up slightly past the visible
+     * edge on notched devices.
+     */
+    @Override
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        computeNotchSize();
+        refreshDisplayMetrics();
+        if (controlLayout != null) runOnUiThread(() -> controlLayout.refreshControlButtonPositions());
+    }
+
+    /**
+     * Same computation as LauncherPreferences.computeNotchSize(BaseActivity)
+     * -- inlined directly since that method is typed to BaseActivity
+     * specifically, and SDLGameActivity extends SDLActivity instead. Nothing
+     * in its body actually needs a BaseActivity beyond the type signature.
+     */
+    private void computeNotchSize() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return;
+        try {
+            android.graphics.Rect cutout;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                cutout = getWindowManager().getCurrentWindowMetrics().getWindowInsets().getDisplayCutout().getBoundingRects().get(0);
+            } else {
+                cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout().getBoundingRects().get(0);
+            }
+            int orientation = getResources().getConfiguration().orientation;
+            if (orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
+                AllStaticSettings.notchSize = cutout.height();
+            } else if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                AllStaticSettings.notchSize = cutout.width();
+            } else {
+                AllStaticSettings.notchSize = Math.min(cutout.width(), cutout.height());
+            }
+        } catch (Exception e) {
+            // No notch, or in split-screen -- same fallback as the real method.
+            AllStaticSettings.notchSize = -1;
+        }
+    }
+
+    /**
+     * Same computation as Tools.getDisplayMetrics(BaseActivity)'s
+     * non-multi-window branch, inlined for the same reason as
+     * computeNotchSize() above -- reads AllSettings.getIgnoreNotchLauncher()
+     * directly instead of activity.shouldIgnoreNotch() (which just reads
+     * that same setting on BaseActivity).
+     */
+    private void refreshDisplayMetrics() {
         DisplayMetrics displayMetrics = new DisplayMetrics();
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             getDisplay().getRealMetrics(displayMetrics);
         } else {
             getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
         }
+        if (!AllSettings.getIgnoreNotchLauncher().getValue()) {
+            if (getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
+                displayMetrics.heightPixels -= AllStaticSettings.notchSize;
+            } else {
+                displayMetrics.widthPixels -= AllStaticSettings.notchSize;
+            }
+        }
         Tools.currentDisplayMetrics = displayMetrics;
         CallbackBridge.physicalWidth = displayMetrics.widthPixels;
         CallbackBridge.physicalHeight = displayMetrics.heightPixels;
-
-        if (controlLayout != null) runOnUiThread(() -> controlLayout.refreshControlButtonPositions());
     }
 
     /**
@@ -677,6 +741,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     public boolean dispatchKeyEvent(android.view.KeyEvent event) {
         if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_BACK) {
             // Consume BACK ourselves and translate it to an ESCAPE keypress,
+
             // same as MainActivity. Deliberately NOT calling super() for
             // BACK specifically -- SDLActivity's own dispatchKeyEvent would
             // otherwise also route it into SDL's native key queue,
@@ -796,4 +861,3 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         android.os.Looper.loop();
     }
 }
-
