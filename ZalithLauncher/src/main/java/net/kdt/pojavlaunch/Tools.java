@@ -159,20 +159,18 @@ public final class Tools {
         return new File(version.getVersionPath(), version.getVersionName() + ".jar").getAbsolutePath();
     }
 
-    public static String getLWJGL3ClassPath() {
-        StringBuilder libStr = new StringBuilder();
-        File lwjgl3Folder = new File(PathManager.DIR_GAME_HOME, "lwjgl3");
-        File[] lwjgl3Files = lwjgl3Folder.listFiles();
-        if (lwjgl3Files != null) {
-            for (File file: lwjgl3Files) {
-                if (file.getName().endsWith(".jar")) {
-                    libStr.append(file.getAbsolutePath()).append(":");
-                }
-            }
+    public static String getLWJGL3ClassPath(JMinecraftVersionList.Version info) {
+    generateLibClasspath(info); // ensures sLwjglVersion is set
+    StringBuilder libStr = new StringBuilder();
+    File lwjgl3Folder = new File(PathManager.DIR_GAME_HOME, "lwjgl3/" + sLwjglVersion);
+    File[] lwjgl3Files = lwjgl3Folder.listFiles();
+    if (lwjgl3Files != null) {
+        for (File file : lwjgl3Files) {
+            if (file.getName().endsWith(".jar")) libStr.append(file.getAbsolutePath()).append(":");
         }
-        // Remove the ':' at the end
-        libStr.setLength(libStr.length() - 1);
-        return libStr.toString();
+    }
+    if (libStr.length() > 0) libStr.setLength(libStr.length() - 1);
+    return libStr.toString();
     }
 
     public static String generateLaunchClassPath(JMinecraftVersionList.Version info, Version minecraftVersion) {
