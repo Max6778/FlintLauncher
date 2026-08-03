@@ -82,6 +82,8 @@ public final class Tools {
     public static int DEVICE_ARCHITECTURE;
     // New since 3.0.0
     public static String DIRNAME_HOME_JRE = "lib";
+    public static int iLwjglVersion = 0;
+    public static String sLwjglVersion = null;
 
     /**
      * Checks if the Pojav's storage root is accessible and read-writable
@@ -438,27 +440,40 @@ public final class Tools {
     }
 
     public static String[] generateLibClasspath(JMinecraftVersionList.Version info) {
-        List<String> libDir = new ArrayList<>();
-        for (DependentLibrary libItem : info.libraries) {
-            if (!checkRules(libItem.rules)) continue;
+    List<String> libDir = new ArrayList<>();
+    for (DependentLibrary libItem : info.libraries) {
+        if (!checkRules(libItem.rules)) continue;
+        String libName = libItem.name;
+        if (libName == null) continue;
 
-            String libName = libItem.name;
-            if (libName == null) continue;
-
-            if (libName.contains("org.lwjgl") ||
-                libName.contains("jinput-platform") ||
-                libName.contains("twitch-platform")
-            ) {
-                Logging.d(InfoDistributor.LAUNCHER_NAME, "Ignored unusable dependency: " + libName);
-                continue;
+        if (libName.startsWith("org.lwjgl:lwjgl:")) {
+            int offset = libName.indexOf(":lwjgl:") + ":lwjgl:".length();
+            if (iLwjglVersion < 200 || iLwjglVersion > 999) {
+                while (offset < libName.length()) {
+                    char c = libName.charAt(offset);
+                    if (c >= '0' && c <= '9') iLwjglVersion = iLwjglVersion * 10 + (c - '0');
+                    else if (c != '.') break;
+                    offset++;
+                }
             }
-
-            String libArtifactPath = artifactToPath(libItem);
-            if (libArtifactPath == null) continue;
-            libDir.add(ProfilePathHome.getLibrariesHome() + "/" + libArtifactPath);
         }
-        return libDir.toArray(new String[0]);
+
+        if (libName.contains("org.lwjgl") ||
+            libName.contains("jinput-platform") ||
+            libName.contains("twitch-platform")
+        ) {
+            Logging.d(InfoDistributor.LAUNCHER_NAME, "Ignored unusable dependency: " + libName);
+            continue;
+        }
+        String libArtifactPath = artifactToPath(libItem);
+        if (libArtifactPath == null) continue;
+        libDir.add(ProfilePathHome.getLibrariesHome() + "/" + libArtifactPath);
     }
+    if (iLwjglVersion < 200 || iLwjglVersion > 999)
+        throw new RuntimeException("Unable to determine LWJGL version, JSON may be corrupt.");
+    sLwjglVersion = iLwjglVersion >= 341 ? "3.4.1" : "3.3.3";
+    return libDir.toArray(new String[0]);
+            }
 
     public static JMinecraftVersionList.Version getVersionInfo(Version version) {
         return getVersionInfo(version, false);
