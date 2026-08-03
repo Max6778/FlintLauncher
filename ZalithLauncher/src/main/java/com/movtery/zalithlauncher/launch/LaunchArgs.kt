@@ -39,7 +39,7 @@ class LaunchArgs(
         argsList.addAll(getMinecraftJVMArgs())
         argsList.addAll(getJavaArgs())
         argsList.add("-cp")
-        argsList.add("${Tools.getLWJGL3ClassPath()}:$launchClassPath")
+        argsList.add("${Tools.getLWJGL3ClassPath(versionInfo)}:$launchClassPath")
 
         if (runtime.javaVersion > 8) {
             argsList.add("--add-exports")
