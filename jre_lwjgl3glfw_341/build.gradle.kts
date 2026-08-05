@@ -30,12 +30,25 @@ tasks.jar {
             if (it.isDirectory) it else zipTree(it)
         }
     }) {
-        // The stock 3.4.1 lwjgl-glfw.jar ships its own unpatched GLFW/CallbackBridge
-        // classes. Our patched sources (compiled from jre_lwjgl3glfw/src) must always
-        // win for this package -- never rely on from()-ordering/duplicatesStrategy
-        // to sort that out implicitly, since that's exactly what silently shipped
-        // the stock class before and caused the JNI_OnLoad SIGSEGV.
-        exclude("org/lwjgl/glfw/**")
+        // Only exclude the exact classes our patch source (jre_lwjgl3glfw/src)
+        // replaces -- NOT the whole org/lwjgl/glfw package. The stock jar still
+        // needs to supply everything we don't patch (GLFWErrorCallbackI,
+        // GLFWKeyCallbackI, GLFWWindowSizeCallbackI, and the rest of the
+        // callback interfaces GLFW.java's own method signatures depend on).
+        exclude("org/lwjgl/glfw/GLFW.class", "org/lwjgl/glfw/GLFW\$*.class")
+        exclude("org/lwjgl/glfw/CallbackBridge.class", "org/lwjgl/glfw/CallbackBridge\$*.class")
+        exclude("org/lwjgl/glfw/Callbacks.class", "org/lwjgl/glfw/Callbacks\$*.class")
+        exclude("org/lwjgl/glfw/GLFWNativeCocoa.class")
+        exclude("org/lwjgl/glfw/GLFWNativeEGL.class")
+        exclude("org/lwjgl/glfw/GLFWNativeNSGL.class")
+        exclude("org/lwjgl/glfw/GLFWNativeOSMesa.class")
+        exclude("org/lwjgl/glfw/GLFWNativeWGL.class")
+        exclude("org/lwjgl/glfw/GLFWNativeWayland.class")
+        exclude("org/lwjgl/glfw/GLFWNativeWin32.class")
+        exclude("org/lwjgl/glfw/GLFWNativeX11.class")
+        exclude("org/lwjgl/glfw/GLFWWindowProperties.class", "org/lwjgl/glfw/GLFWWindowProperties\$*.class")
+        exclude("org/lwjgl/opengl/GLCapabilities.class", "org/lwjgl/opengl/GLCapabilities\$*.class")
+        exclude("org/lwjgl/opengl/PojavRendererInit.class", "org/lwjgl/opengl/PojavRendererInit\$*.class")
     }
     exclude("net/java/openjdk/cacio/ctc/**")
     manifest {
