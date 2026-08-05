@@ -577,8 +577,10 @@ public class GLFW
 		 }
 		 };
 		 */
+		nativeInit();
     }
 
+	private static native void nativeInit();
     private static native long nglfwSetCharCallback(long window, long ptr);
     private static native long nglfwSetCharModsCallback(long window, long ptr);
     private static native long nglfwSetCursorEnterCallback(long window, long ptr);
