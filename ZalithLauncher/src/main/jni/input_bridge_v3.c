@@ -45,74 +45,13 @@ jint JNI_OnLoad(JavaVM* vm, __attribute__((unused)) void* reserved) {
         pojav_environ->method_onGrabStateChanged = (*pojav_environ->dalvikJNIEnvPtr_ANDROID)->GetStaticMethodID(pojav_environ->dalvikJNIEnvPtr_ANDROID, pojav_environ->bridgeClazz, "onGrabStateChanged", "(Z)V");
         pojav_environ->isUseStackQueueCall = JNI_FALSE;
 } else if (pojav_environ->dalvikJavaVMPtr != vm) {
-        __android_log_print(ANDROID_LOG_INFO, "Native", "Saving JVM environ...");
-        pojav_environ->runtimeJavaVMPtr = vm;
-        (*vm)->GetEnv(vm, (void**) &pojav_environ->runtimeJNIEnvPtr_JRE, JNI_VERSION_1_4);
-        JNIEnv* env = pojav_environ->runtimeJNIEnvPtr_JRE;
-
-        jclass glfwClassLocal = (*env)->FindClass(env, "org/lwjgl/glfw/GLFW");
-        if (glfwClassLocal == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: FindClass(org/lwjgl/glfw/GLFW) failed");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-        pojav_environ->vmGlfwClass = (*env)->NewGlobalRef(env, glfwClassLocal);
-
-        pojav_environ->method_glftSetWindowAttrib = (*env)->GetStaticMethodID(env, pojav_environ->vmGlfwClass, "glfwSetWindowAttrib", "(JII)V");
-        if (pojav_environ->method_glftSetWindowAttrib == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticMethodID(glfwSetWindowAttrib) failed");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-
-        pojav_environ->method_internalWindowSizeChanged = (*env)->GetStaticMethodID(env, pojav_environ->vmGlfwClass, "internalWindowSizeChanged", "(JII)V");
-        if (pojav_environ->method_internalWindowSizeChanged == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticMethodID(internalWindowSizeChanged) failed -- signature mismatch with loaded GLFW.class?");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-
-        jfieldID field_keyDownBuffer = (*env)->GetStaticFieldID(env, pojav_environ->vmGlfwClass, "keyDownBuffer", "Ljava/nio/ByteBuffer;");
-        if (field_keyDownBuffer == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticFieldID(keyDownBuffer) failed");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-        jobject keyDownBufferJ = (*env)->GetStaticObjectField(env, pojav_environ->vmGlfwClass, field_keyDownBuffer);
-        if (keyDownBufferJ == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticObjectField(keyDownBuffer) returned NULL");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-        pojav_environ->keyDownBuffer = (*env)->GetDirectBufferAddress(env, keyDownBufferJ);
-        if (pojav_environ->keyDownBuffer == NULL) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetDirectBufferAddress(keyDownBuffer) returned NULL -- not a direct buffer?");
-            return JNI_VERSION_1_4;
-        }
-
-        jfieldID field_mouseDownBuffer = (*env)->GetStaticFieldID(env, pojav_environ->vmGlfwClass, "mouseDownBuffer", "Ljava/nio/ByteBuffer;");
-        if (field_mouseDownBuffer == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticFieldID(mouseDownBuffer) failed");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-        jobject mouseDownBufferJ = (*env)->GetStaticObjectField(env, pojav_environ->vmGlfwClass, field_mouseDownBuffer);
-        if (mouseDownBufferJ == NULL || (*env)->ExceptionCheck(env)) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetStaticObjectField(mouseDownBuffer) returned NULL");
-            (*env)->ExceptionClear(env);
-            return JNI_VERSION_1_4;
-        }
-        pojav_environ->mouseDownBuffer = (*env)->GetDirectBufferAddress(env, mouseDownBufferJ);
-        if (pojav_environ->mouseDownBuffer == NULL) {
-            __android_log_print(ANDROID_LOG_ERROR, "Native", "JNI_OnLoad: GetDirectBufferAddress(mouseDownBuffer) returned NULL -- not a direct buffer?");
-            return JNI_VERSION_1_4;
-        }
-
-        __android_log_print(ANDROID_LOG_INFO, "Native", "JNI_OnLoad: GLFW hooks resolved successfully");
-        hookExec();
-        installLwjglDlopenHook();
-        installEMUIIteratorMititgation();
-}
+    __android_log_print(ANDROID_LOG_INFO, "Native", "Saving JVM environ...");
+    pojav_environ->runtimeJavaVMPtr = vm;
+    (*vm)->GetEnv(vm, (void**) &pojav_environ->runtimeJNIEnvPtr_JRE, JNI_VERSION_1_4);
+    hookExec();
+    installLwjglDlopenHook();
+    installEMUIIteratorMititgation();
+    }
 
     if(pojav_environ->dalvikJavaVMPtr == vm) {
         //perform in all DVM instances, not only during first ever set up
@@ -222,6 +161,41 @@ void pojavStopPumping() {
     atomic_fetch_sub_explicit(&pojav_environ->eventCounter, pojav_environ->inEventCount, memory_order_acquire);
     // Make sure the next frame won't send mouse updates if it's unnecessary
     pojav_environ->shouldUpdateMouse = false;
+}
+
+JNIEXPORT void JNICALL Java_org_lwjgl_glfw_GLFW_nativeInit(JNIEnv* env, jclass cls) {
+    if (pojav_environ->vmGlfwClass != NULL) return;
+    __android_log_print(ANDROID_LOG_INFO, "Native", "nativeInit: caching GLFW class references");
+
+    pojav_environ->vmGlfwClass = (*env)->NewGlobalRef(env, cls);
+
+    pojav_environ->method_glftSetWindowAttrib = (*env)->GetStaticMethodID(env, cls, "glfwSetWindowAttrib", "(JII)V");
+    if (pojav_environ->method_glftSetWindowAttrib == NULL || (*env)->ExceptionCheck(env)) {
+        __android_log_print(ANDROID_LOG_ERROR, "Native", "nativeInit: GetStaticMethodID(glfwSetWindowAttrib) failed");
+        (*env)->ExceptionClear(env); return;
+    }
+
+    pojav_environ->method_internalWindowSizeChanged = (*env)->GetStaticMethodID(env, cls, "internalWindowSizeChanged", "(JII)V");
+    if (pojav_environ->method_internalWindowSizeChanged == NULL || (*env)->ExceptionCheck(env)) {
+        __android_log_print(ANDROID_LOG_ERROR, "Native", "nativeInit: GetStaticMethodID(internalWindowSizeChanged) failed");
+        (*env)->ExceptionClear(env); return;
+    }
+
+    jfieldID field_keyDownBuffer = (*env)->GetStaticFieldID(env, cls, "keyDownBuffer", "Ljava/nio/ByteBuffer;");
+    if (field_keyDownBuffer == NULL || (*env)->ExceptionCheck(env)) {
+        __android_log_print(ANDROID_LOG_ERROR, "Native", "nativeInit: GetStaticFieldID(keyDownBuffer) failed");
+        (*env)->ExceptionClear(env); return;
+    }
+    pojav_environ->keyDownBuffer = (*env)->GetDirectBufferAddress(env, (*env)->GetStaticObjectField(env, cls, field_keyDownBuffer));
+
+    jfieldID field_mouseDownBuffer = (*env)->GetStaticFieldID(env, cls, "mouseDownBuffer", "Ljava/nio/ByteBuffer;");
+    if (field_mouseDownBuffer == NULL || (*env)->ExceptionCheck(env)) {
+        __android_log_print(ANDROID_LOG_ERROR, "Native", "nativeInit: GetStaticFieldID(mouseDownBuffer) failed");
+        (*env)->ExceptionClear(env); return;
+    }
+    pojav_environ->mouseDownBuffer = (*env)->GetDirectBufferAddress(env, (*env)->GetStaticObjectField(env, cls, field_mouseDownBuffer));
+
+    __android_log_print(ANDROID_LOG_INFO, "Native", "nativeInit: done");
 }
 
 JNIEXPORT void JNICALL
