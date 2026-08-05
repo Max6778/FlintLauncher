@@ -29,7 +29,14 @@ tasks.jar {
         configurations.getByName("default").map {
             if (it.isDirectory) it else zipTree(it)
         }
-    })
+    }) {
+        // The stock 3.4.1 lwjgl-glfw.jar ships its own unpatched GLFW/CallbackBridge
+        // classes. Our patched sources (compiled from jre_lwjgl3glfw/src) must always
+        // win for this package -- never rely on from()-ordering/duplicatesStrategy
+        // to sort that out implicitly, since that's exactly what silently shipped
+        // the stock class before and caused the JNI_OnLoad SIGSEGV.
+        exclude("org/lwjgl/glfw/**")
+    }
     exclude("net/java/openjdk/cacio/ctc/**")
     manifest {
         attributes("Manifest-Version" to "3.4.1")
