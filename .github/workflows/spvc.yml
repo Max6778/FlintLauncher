@@ -8,14 +8,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Official branch
         uses: actions/checkout@v4
         with:
-          ref: v3_openjdk
+          ref: Official
+          fetch-depth: 1
 
-      - name: Fetch spirv-cross natives AAR
+      - name: Fetch SPIRV-Cross natives AAR
         run: |
           mkdir -p app_pojavlauncher/libs
+
           curl -fL \
             -o app_pojavlauncher/libs/spirv-cross-natives.aar \
-            "https://raw.githubusercontent.com/AngelAuraMC/<repo>/<branch>/<path>/spirv-cross-natives.aar"
+            "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/v3_openjdk/app_pojavlauncher/libs/spirv-cross-natives.aar"
+
+      - name: Verify downloaded AAR
+        run: |
+          test -s app_pojavlauncher/libs/spirv-cross-natives.aar
+          ls -lh app_pojavlauncher/libs/spirv-cross-natives.aar
