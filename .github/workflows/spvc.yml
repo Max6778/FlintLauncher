@@ -1,0 +1,21 @@
+name: Fetch SPIRV-Cross Natives
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: v3_openjdk
+
+      - name: Fetch spirv-cross natives AAR
+        run: |
+          mkdir -p app_pojavlauncher/libs
+          curl -fL \
+            -o app_pojavlauncher/libs/spirv-cross-natives.aar \
+            "https://raw.githubusercontent.com/AngelAuraMC/<repo>/<branch>/<path>/spirv-cross-natives.aar"
