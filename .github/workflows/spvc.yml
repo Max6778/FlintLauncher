@@ -3,6 +3,9 @@ name: Fetch SPIRV-Cross Natives
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -16,13 +19,27 @@ jobs:
 
       - name: Fetch SPIRV-Cross natives AAR
         run: |
-          mkdir -p app_pojavlauncher/libs
+          mkdir -p ZalithLauncher/libs
 
           curl -fL \
-            -o app_pojavlauncher/libs/spirv-cross-natives.aar \
+            -o ZalithLauncher/libs/spirv-cross-natives.aar \
             "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/v3_openjdk/app_pojavlauncher/libs/spirv-cross-natives.aar"
 
-      - name: Verify downloaded AAR
+      - name: Verify AAR
         run: |
-          test -s app_pojavlauncher/libs/spirv-cross-natives.aar
-          ls -lh app_pojavlauncher/libs/spirv-cross-natives.aar
+          test -s ZalithLauncher/libs/spirv-cross-natives.aar
+          ls -lh ZalithLauncher/libs/spirv-cross-natives.aar
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add ZalithLauncher/libs/spirv-cross-natives.aar
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Add SPIRV-Cross natives AAR"
+            git push origin Official
+          fi
