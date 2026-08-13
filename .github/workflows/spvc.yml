@@ -16,16 +16,15 @@ jobs:
         with:
           ref: Official
           fetch-depth: 1
-          lfs: true
 
-      - name: Install Git LFS
+      - name: Remove old LFS tracking
         run: |
-          git lfs install
-
-      - name: Track SPIRV-Cross AAR with Git LFS
-        run: |
-          git lfs track "ZalithLauncher/libs/spirv-cross-natives.aar"
-          git add .gitattributes
+          if [ -f .gitattributes ]; then
+            sed -i '/spirv-cross-natives\.aar/d' .gitattributes
+            if [ ! -s .gitattributes ]; then
+              rm .gitattributes
+            fi
+          fi
 
       - name: Fetch SPIRV-Cross natives AAR
         run: |
@@ -40,12 +39,20 @@ jobs:
           test -s ZalithLauncher/libs/spirv-cross-natives.aar
           ls -lh ZalithLauncher/libs/spirv-cross-natives.aar
 
-      - name: Commit
+          FILE_SIZE=$(stat -c%s ZalithLauncher/libs/spirv-cross-natives.aar)
+          MAX_SIZE=104857600
+
+          if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
+            echo "ERROR: AAR is larger than GitHub's 100 MB file limit."
+            exit 1
+          fi
+
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add ZalithLauncher/libs/spirv-cross-natives.aar
+          git add -A .gitattributes ZalithLauncher/libs/spirv-cross-natives.aar
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
@@ -53,7 +60,4 @@ jobs:
           fi
 
           git commit -m "Add SPIRV-Cross natives AAR"
-
-      - name: Push
-        run: |
           git push origin HEAD:Official
