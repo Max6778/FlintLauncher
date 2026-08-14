@@ -837,6 +837,11 @@ public class GLFW
         return GLFW_PLATFORM_X11;
     }
 
+    public static boolean glfwPlatformSupported(int platform) {
+        // Consistent with glfwGetPlatform() above: we only ever pretend to be X11.
+        return platform == GLFW_PLATFORM_X11;
+    }
+
     @NativeType("GLFWwindow *")
     public static long glfwGetCurrentContext() {
         long __functionAddress = Functions.GetCurrentContext;
