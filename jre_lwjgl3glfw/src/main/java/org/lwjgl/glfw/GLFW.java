@@ -842,6 +842,8 @@ public class GLFW
         return platform == GLFW_PLATFORM_X11;
     }
 
+    public static void glfwInitAllocator(@Nullable @NativeType("GLFWallocator const *") GLFWAllocator allocator) { }
+
     @NativeType("GLFWwindow *")
     public static long glfwGetCurrentContext() {
         long __functionAddress = Functions.GetCurrentContext;
@@ -870,6 +872,12 @@ public class GLFW
         return 1L;
     }
 
+    @Nullable
+    @NativeType("char const *")
+    public static String glfwGetMonitorName(@NativeType("GLFWmonitor *") long monitor) {
+        return "Display";
+    }
+
     public static void glfwGetMonitorPos(@NativeType("GLFWmonitor *") long monitor, @Nullable @NativeType("int *") IntBuffer xpos, @Nullable @NativeType("int *") IntBuffer ypos) {
         if (CHECKS) {
             checkSafe(xpos, 1);
@@ -892,6 +900,13 @@ public class GLFW
         ypos.put(0);
         width.put(mGLFWWindowWidth);
         height.put(mGLFWWindowHeight);
+    }
+
+    public static void glfwSetMonitorUserPointer(@NativeType("GLFWmonitor *") long monitor, @NativeType("void *") long pointer) {
+    }
+
+    public static long glfwGetMonitorUserPointer(@NativeType("GLFWmonitor *") long monitor) {
+        return 0L;
     }
 
     @NativeType("GLFWmonitor *")
@@ -955,6 +970,9 @@ public class GLFW
     public static GLFWGammaRamp glfwGetGammaRamp(@NativeType("GLFWmonitor *") long monitor) {
         return mGLFWGammaRamp;
     }
+    public static void glfwSetGamma(@NativeType("GLFWmonitor *") long monitor, float gamma) {
+    }
+
     public static void glfwSetGammaRamp(@NativeType("GLFWmonitor *") long monitor, @NativeType("const GLFWgammaramp *") GLFWGammaRamp ramp) {
         mGLFWGammaRamp = ramp;
     }
@@ -972,6 +990,14 @@ public class GLFW
     public static void glfwSwapInterval(int interval) {
         long __functionAddress = Functions.SwapInterval;
         invokeV(interval, __functionAddress);
+    }
+
+    public static long glfwGetProcAddress(@NativeType("char const *") ByteBuffer procname) {
+        throw new UnsupportedOperationException("Unimplemented!");
+    }
+
+    public static long glfwGetProcAddress(@NativeType("char const *") CharSequence procname) {
+        throw new UnsupportedOperationException("Unimplemented!");
     }
 
     // private static double mTime = 0d;
@@ -1113,6 +1139,33 @@ public class GLFW
     }
     public static void glfwSetWindowTitle(@NativeType("GLFWwindow *") long window, @NativeType("char const *") CharSequence title) {
         internalGetWindow(window).title = title;
+    }
+
+    public static String glfwGetWindowTitle(long window) {
+        return internalGetWindow(window).title.toString();
+    }
+
+    public static void glfwSetWindowUserPointer(@NativeType("GLFWwindow *") long window, @NativeType("void *") long pointer) {
+    }
+
+    public static long glfwGetWindowUserPointer(@NativeType("GLFWwindow *") long window) {
+        return NULL;
+    }
+
+    public static float glfwGetWindowOpacity(@NativeType("GLFWwindow *") long window) {
+        return 1.0f;
+    }
+
+    public static void glfwSetWindowOpacity(@NativeType("GLFWwindow *") long window, float opacity) {
+    }
+
+    public static void glfwIconifyWindow(@NativeType("GLFWwindow *") long window) {
+    }
+
+    public static void glfwRestoreWindow(@NativeType("GLFWwindow *") long window) {
+    }
+
+    public static void glfwSetWindowAspectRatio(@NativeType("GLFWwindow *") long window, int numer, int denom) {
     }
 
     public static void glfwSetWindowIcon(@NativeType("GLFWwindow *") long window, @Nullable @NativeType("GLFWimage const *") GLFWImage.Buffer images) {}
@@ -1261,8 +1314,10 @@ public class GLFW
             return buttonData;
         }else return null;
     }
-    public static ByteBuffer glfwGetjoystickHats(int jid) {
-        return null;
+    public static ByteBuffer glfwGetJoystickHats(int jid) {
+        if(jid == GLFW_JOYSTICK_1) {
+            return ByteBuffer.allocate(0); // Maybe implement this later?
+        }else return null;
     }
     public static boolean glfwJoystickIsGamepad(int jid) {
         if(jid == 0) return true;
