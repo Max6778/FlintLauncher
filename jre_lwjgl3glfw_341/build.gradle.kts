@@ -6,16 +6,17 @@ group = "org.lwjgl.glfw"
 
 configurations.getByName("default").isCanBeResolved = true
 
-// Same patch source files as jre_lwjgl3glfw (CallbackBridge, GLFW*, etc.),
-// not duplicated -- this module differs only in which LWJGL jars sit in ITS
-// OWN libs/ and where the output jar lands. Keeps the patch code a single
-// source of truth; any API difference between 3.3.3 and 3.4.1 the patches
-// don't compile against surfaces as a build error here, not a runtime crash.
-sourceSets {
-    main {
-        java.srcDirs("../jre_lwjgl3glfw/src/main/java")
-    }
-}
+// This module used to share Java source with jre_lwjgl3glfw via a sourceSets
+// override pointing at "../jre_lwjgl3glfw/src/main/java". That broke down once
+// Minecraft 26.2 needed GLFW.glfwSetPreeditCallback/IME methods, which only
+// exist as real classes (GLFWPreeditCallback etc.) in the 3.4.1 lwjgl-glfw jar
+// -- referencing them from shared source would fail to compile against 3.3.3's
+// jar, which doesn't ship those classes at all. So this module now keeps its
+// own full copy of the patch source under its own src/main/java (default
+// convention, no override needed) -- same pattern Amethyst uses for its two
+// lwjgl-glfw modules. Any shared, version-independent fix still needs to be
+// applied to both copies by hand; only genuinely 3.4.1-only API (Preedit/IME)
+// belongs solely here.
 
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
