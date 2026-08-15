@@ -1,6 +1,6 @@
 package org.lwjgl.glfw;
 
-import org.jspecify.annotations.*;
+import org.javax.annotations.*;
 
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.NativeType;
