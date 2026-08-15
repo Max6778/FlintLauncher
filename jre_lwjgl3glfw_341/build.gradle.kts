@@ -68,4 +68,5 @@ dependencies {
     // This module's OWN libs/ folder -- put LWJGL 3.4.1's real release jars
     // here, separate from jre_lwjgl3glfw/libs/ (which stays on 3.3.3).
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    implementation("org.jspecify:jspecify:1.0.0")
 }
