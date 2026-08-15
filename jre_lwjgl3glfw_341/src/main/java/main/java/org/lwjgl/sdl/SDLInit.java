@@ -5,7 +5,7 @@
  */
 package org.lwjgl.sdl;
 
-import org.javax.annotations.*;
+import javax.annotations.*;
 
 import java.nio.*;
 
