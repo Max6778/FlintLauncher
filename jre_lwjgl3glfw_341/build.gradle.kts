@@ -4,7 +4,11 @@ plugins {
 
 group = "org.lwjgl.glfw"
 
-configurations.getByName("default").isCanBeResolved = true
+configurations {
+    create("lwjglModules") {
+        isCanBeResolved = true
+    }
+}
 
 // This module used to share Java source with jre_lwjgl3glfw via a sourceSets
 // override pointing at "../jre_lwjgl3glfw/src/main/java". That broke down once
@@ -18,6 +22,10 @@ configurations.getByName("default").isCanBeResolved = true
 // applied to both copies by hand; only genuinely 3.4.1-only API (Preedit/IME)
 // belongs solely here.
 
+tasks.withType<JavaCompile>().configureEach {
+    options.headerOutputDirectory.set(null as? Directory)
+}
+
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("lwjgl-glfw-classes")
@@ -27,7 +35,7 @@ tasks.jar {
         versionFile.writeText(System.currentTimeMillis().toString())
     }
     from({
-        configurations.getByName("default").map {
+        configurations.getByName("lwjglModules").map {
             if (it.isDirectory) it else zipTree(it)
         }
     }) {
@@ -68,5 +76,6 @@ dependencies {
     // This module's OWN libs/ folder -- put LWJGL 3.4.1's real release jars
     // here, separate from jre_lwjgl3glfw/libs/ (which stays on 3.3.3).
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    "lwjglModules"(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
     implementation("org.jspecify:jspecify:1.0.0")
 }
