@@ -1,6 +1,6 @@
 package org.lwjgl.opengl;
 
-import org.javax.annotations.*;
+import javax.annotation.*;
 
 import org.lwjgl.system.FunctionProvider;
 import org.lwjgl.system.SharedLibrary;
