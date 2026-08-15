@@ -2,7 +2,7 @@ package org.lwjgl.glfw;
 
 import org.lwjgl.system.NativeType;
 
-import org.jspecify.annotations.*;
+import org.javax.annotations.*;
 
 public class GLFWNativeWin32 {
     @Nullable
