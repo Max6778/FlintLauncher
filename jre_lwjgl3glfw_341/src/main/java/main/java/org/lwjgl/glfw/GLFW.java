@@ -6,7 +6,7 @@ package org.lwjgl.glfw;
 
 import android.util.*;
 
-import org.javax.annotations.*;
+import javax.annotations.*;
 
 
 import java.lang.reflect.*;
