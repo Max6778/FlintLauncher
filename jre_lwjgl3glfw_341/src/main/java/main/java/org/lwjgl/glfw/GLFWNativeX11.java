@@ -4,7 +4,7 @@ import org.lwjgl.system.NativeType;
 
 import java.nio.ByteBuffer;
 
-import org.jspecify.annotations.*;
+import org.javax.annotations.*;
 
 public class GLFWNativeX11 {
     @NativeType("Display *")
