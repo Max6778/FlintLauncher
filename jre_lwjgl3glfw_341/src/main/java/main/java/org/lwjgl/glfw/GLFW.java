@@ -1047,7 +1047,7 @@ public class GLFW
 
 
     @NativeType("GLFWvidmode const *")
-    public static GLFWVidMode.@Nullable Buffer glfwGetVideoModes(@NativeType("GLFWmonitor *") long monitor) {
+    public static @Nullable GLFWVidMode.Buffer glfwGetVideoModes(@NativeType("GLFWmonitor *") long monitor) {
         MemoryStack stack = stackGet(); int stackPointer = stack.getPointer();
         try {
             // long __result = nglfwGetVideoModes(monitor, memAddress(count));
@@ -1311,7 +1311,7 @@ public class GLFW
         internalGetWindow(window).title = title;
     }
 
-    public static void glfwSetWindowIcon(@NativeType("GLFWwindow *") long window, @NativeType("GLFWimage const *") GLFWImage.@Nullable Buffer images) {}
+    public static void glfwSetWindowIcon(@NativeType("GLFWwindow *") long window, @NativeType("GLFWimage const *") @Nullable GLFWImage.Buffer images) {}
 
     public static void glfwPollEvents() {
         if (!mGLFWIsInputReady) {
@@ -1672,7 +1672,7 @@ public class GLFW
     }
 
     public static void glfwGetPreeditCursorRectangle(@NativeType("GLFWwindow *") long window, @NativeType("int *") @Nullable IntBuffer x, @NativeType("int *") @Nullable IntBuffer y, @NativeType("int *") @Nullable IntBuffer w, @NativeType("int *") @Nullable IntBuffer h) { }
-    public static void glfwGetPreeditCursorRectangle(@NativeType("GLFWwindow *") long window, @NativeType("int *") int @Nullable [] x, @NativeType("int *") int @Nullable [] y, @NativeType("int *") int @Nullable [] w, @NativeType("int *") int @Nullable [] h) { }
+    public static void glfwGetPreeditCursorRectangle(@NativeType("GLFWwindow *") long window, @NativeType("int *") @Nullable int[] x, @NativeType("int *") @Nullable int[] y, @NativeType("int *") @Nullable int[] w, @NativeType("int *") @Nullable int[] h) { }
     public static void glfwSetPreeditCursorRectangle(@NativeType("GLFWwindow *") long window, int x, int y, int w, int h) { }
     public static void glfwResetPreeditText(@NativeType("GLFWwindow *") long window) { }
     @Nullable public static IntBuffer glfwGetPreeditCandidate(@NativeType("GLFWwindow *") long window, int index) { return null; }
