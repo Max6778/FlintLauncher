@@ -567,6 +567,25 @@ public class GLFW
 
     private static native void nativeInitializeGLFWNativeBridge();
     static {
+        // 3.3.3's GLFW.java reads these two JVM properties at startup to get the real
+        // window size from FlintLauncher's own launch args (-Dglfwstub.windowWidth=...
+        // -Dglfwstub.windowHeight=...). This block was missing from Amethyst's version
+        // of this file -- their app instead pushes the size in dynamically later via a
+        // native internalChangeMonitorSize() callback we haven't wired up, so without
+        // this block mGLFWWindowWidth/Height silently stayed 0, producing a black
+        // 0x0-sized window (game ran fine, nothing was ever visible). Restoring the
+        // simple property-read here avoids needing to port that native callback chain.
+        String windowWidth = System.getProperty(PROP_WINDOW_WIDTH);
+        String windowHeight = System.getProperty(PROP_WINDOW_HEIGHT);
+        if (windowWidth == null || windowHeight == null) {
+            System.err.println("Warning: Property " + PROP_WINDOW_WIDTH + " or " + PROP_WINDOW_HEIGHT + " not set, defaulting to 1280 and 720");
+            mGLFWWindowWidth = 1280;
+            mGLFWWindowHeight = 720;
+        } else {
+            mGLFWWindowWidth = Integer.parseInt(windowWidth);
+            mGLFWWindowHeight = Integer.parseInt(windowHeight);
+        }
+
         try {
             // Mods like LWJGL3ify have more of a chance of overriding the other classes so
             // lets just load it here again just to be safe.
