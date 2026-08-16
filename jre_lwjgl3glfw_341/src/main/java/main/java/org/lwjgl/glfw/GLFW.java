@@ -1140,7 +1140,14 @@ public class GLFW
         boolean turnipLoad = System.getenv("POJAV_LOAD_TURNIP") != null &&
                 System.getenv("POJAV_LOAD_TURNIP").equals("1");
         // These values can be found at headings_array.xml
+        // NOTE: AMETHYST_RENDERER is Amethyst-Android's own renderer-selection env var
+        // (set by their app before launch). FlintLauncher uses its own scheme
+        // (POJAV_RENDERER / LIBGL_EGL, set by Renderers/DriverPluginManager) and never
+        // sets this var, so it's always null here -- guard it so this stays a harmless
+        // "no special-case default" instead of a crash. The real GL version is read
+        // properly right below via glGetString/glGetIntegerv regardless.
         String glDriver = System.getenv("AMETHYST_RENDERER");
+        if (glDriver == null) glDriver = "";
         if (turnipLoad && glDriver.equals("vulkan_zink")) {
             glMajor = 4;
             glMinor = 6;
