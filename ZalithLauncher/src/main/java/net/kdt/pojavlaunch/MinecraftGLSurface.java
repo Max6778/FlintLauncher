@@ -389,6 +389,16 @@ public class MinecraftGLSurface extends View implements GrabListener {
 
         JREUtils.setupBridgeWindow(surface);
 
+        // Hand the same real Android Surface to SDL's Java bridge too, in case this
+        // launch turns out to need SDL (26.3+ Minecraft versions) -- see
+        // org.libsdl.app.SDLActivity.externalInitialize(). This is a no-op from
+        // Minecraft's perspective until/unless sdl_hook.c's native SDL_InitSubSystem
+        // hook fires and calls CallbackBridge.notifyLauncher(), which is what
+        // actually flips CallbackBridge.usingSdl3 on and starts routing input here.
+        // Harmless to set up unconditionally: SDL simply never gets used if the
+        // game never calls into org.lwjgl.sdl.*.
+        setupSdlSurface(getContext(), surface, (ViewGroup) getParent());
+
         new Thread(() -> {
             try {
                 // Wait until the listener is attached
@@ -401,6 +411,22 @@ public class MinecraftGLSurface extends View implements GrabListener {
                 Tools.showError(getContext(), e, true);
             }
         }, "JVM Main thread").start();
+    }
+
+    /**
+     * Sets up SDLActivity's static Java-side state, pointing it at this same
+     * Activity/window instead of a dedicated SDLActivity subclass. See
+     * SDLActivity.externalInitialize() for why this doesn't create a second,
+     * competing native window: SDL is handed the exact same Surface Minecraft
+     * already renders into via JREUtils.setupBridgeWindow() above.
+     */
+    private static void setupSdlSurface(Context context, Surface nativeSurface, ViewGroup layout) {
+        org.libsdl.app.SDLSurface sdlSurface = new org.libsdl.app.SDLSurface(context);
+        // Must run here (not off a bare background thread) or SDL's internal
+        // SDLCommandHandler -- which needs a Looper -- can crash.
+        org.libsdl.app.SDL.initialize();
+        org.libsdl.app.SDL.setContext((android.app.Activity) context);
+        org.libsdl.app.SDLActivity.externalInitialize(sdlSurface, layout, nativeSurface);
     }
 
     @Override
