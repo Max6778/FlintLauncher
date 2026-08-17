@@ -22,8 +22,9 @@ import dalvik.annotation.optimization.CriticalNative;
 
 public class CallbackBridge {
     public static final Choreographer sChoreographer = Choreographer.getInstance();
-    /** Set once at launch by SDLGameActivity. When true, every send*
-     *  method below routes to SDL3 instead of the native GLFW bridge. */
+    /** True once notifyLauncher() (called from sdl_hook.c the instant real SDL
+     *  init starts) has run. When true, every send* method below routes to
+     *  SDL3 instead of the native GLFW bridge. */
     public static volatile boolean usingSdl3 = false;
     private static boolean isGrabbing = false;
     private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
@@ -222,11 +223,34 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     }
 
     // Called from JRE side via JNI for misc launcher-side notifications (SDL init,
-    // IME textbox rects, etc). FlintLauncher currently drives SDL3 routing via its
-    // own usingSdl3 flag set directly by SDLGameActivity, so this isn't wired up
-    // to anything yet -- it just needs to exist so the native lookup succeeds.
+    // IME textbox rects, etc). Called from native (sdl_hook.c) via JNI the instant
+    // real SDL_InitSubSystem starts running, i.e. right as a 26.2+ Minecraft version
+    // begins its SDL3 init. Brings up the Java-side SDL bridge (SDL.setupJNI(),
+    // usingSdl3 routing) before SDL's own init continues, so by the time Minecraft
+    // actually starts sending/receiving input, everything is already wired.
+    public static final int NOTIF_TYPE_SDL = 0;
+    public static final int ACTION_INIT_LAUNCHER_INTEGRATION = 0;
+
     @SuppressWarnings("unused")
-    private static boolean notifyLauncher(int type, int... action) {
+    @Keep
+    public static boolean notifyLauncher(int type, int... action) {
+        if (type == NOTIF_TYPE_SDL && action.length > 0 && action[0] == ACTION_INIT_LAUNCHER_INTEGRATION) {
+            try {
+                // Some mods/versions skip loading these themselves, so load explicitly.
+                System.loadLibrary("SDL3");
+                System.loadLibrary("SDL2");
+                org.libsdl.app.SDL.setupJNI();
+                usingSdl3 = true;
+                if (SDLActivity.getSDLSurface() != null) {
+                    // Nudges SDL to pick up the real window size, needed for
+                    // correct input coordinate mapping.
+                    SDLActivity.onNativeResize();
+                }
+                return true;
+            } catch (Throwable t) {
+                System.err.println("Failed to initialize SDL launcher-side integration: " + t);
+            }
+        }
         return false;
     }
 
