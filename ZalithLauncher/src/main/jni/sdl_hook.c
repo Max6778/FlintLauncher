@@ -86,12 +86,37 @@ static void notify_launcher_sdl_init() {
     if (needsDetach) (*dvm)->DetachCurrentThread(dvm);
 }
 
+typedef void (*sdl_set_main_ready_func)(void);
+
+// SDL's real SDL_InitSubSystem() (which we call through to below) refuses to
+// run unless SDL_SetMainReady() was already called -- normally done for you
+// by the SDL_main.h macro machinery around a real C main(). Since Minecraft
+// reaches SDL_InitSubSystem from a JVM thread with no SDL-owned main() ever
+// running, that flag is never set, and SDL_InitSubSystem fails immediately
+// with "did you include SDL_main.h...". We're already inside libSDL3.so by
+// the time this hook fires (SDL_InitSubSystem is one of its exports), so the
+// library is guaranteed loaded and RTLD_NOLOAD is safe here.
+static void sdl_set_main_ready_if_needed() {
+    void *sdl_handle = dlopen("libSDL3.so", RTLD_NOLOAD);
+    if (sdl_handle == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "libSDL3.so not loaded, cannot call SDL_SetMainReady");
+        return;
+    }
+    sdl_set_main_ready_func SDL_SetMainReady_p = (sdl_set_main_ready_func) dlsym(sdl_handle, "SDL_SetMainReady");
+    if (SDL_SetMainReady_p == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "SDL_SetMainReady not found in libSDL3.so");
+        return;
+    }
+    SDL_SetMainReady_p();
+}
+
 static int custom_sdl_init_subsystem(unsigned long flags) {
     // Only notify once -- SDL_InitSubSystem can legitimately be called
     // multiple times for different subsystems over the app's lifetime.
     bool expected = false;
     if (atomic_compare_exchange_strong(&sdl_init_notified, &expected, true)) {
         notify_launcher_sdl_init();
+        sdl_set_main_ready_if_needed();
     }
     int ret = BYTEHOOK_CALL_PREV(custom_sdl_init_subsystem, sdl_init_subsystem_func, flags);
     BYTEHOOK_POP_STACK();
