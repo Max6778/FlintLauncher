@@ -39,8 +39,8 @@ class LaunchArgs(
         argsList.addAll(getMinecraftJVMArgs())
         argsList.addAll(getJavaArgs())
         argsList.add("-cp")
-        argsList.add("${Tools.getLWJGL3ClassPath()}:$launchClassPath")
-
+        argsList.add("${Tools.getLWJGL3ClassPath(versionInfo)}:$launchClassPath")
+         // I hate this
         if (runtime.javaVersion > 8) {
             argsList.add("--add-exports")
             val pkg: String = versionInfo.mainClass.substring(0, versionInfo.mainClass.lastIndexOf("."))

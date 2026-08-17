@@ -204,6 +204,32 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
         }
     }
 
+    // Called from JRE side via JNI (org.lwjgl.glfw.GLFW's Android-DPI queries,
+    // e.g. glfwGetWindowContentScale). Standard display density, no custom scale.
+    @SuppressWarnings("unused")
+    private static float getAndroidDPI() {
+        android.util.DisplayMetrics metrics = new android.util.DisplayMetrics();
+        metrics.setToDefaults();
+        return metrics.density;
+    }
+
+    // Called from JRE side via JNI when gamepad direct-input mode is enabled.
+    // FlintLauncher doesn't have a dedicated gamepad-direct-input handler yet,
+    // so this is currently just a no-op hook to satisfy the native bridge.
+    @SuppressWarnings("unused")
+    private static void onDirectInputEnable() {
+        android.util.Log.i("CallbackBridge", "onDirectInputEnable()");
+    }
+
+    // Called from JRE side via JNI for misc launcher-side notifications (SDL init,
+    // IME textbox rects, etc). FlintLauncher currently drives SDL3 routing via its
+    // own usingSdl3 flag set directly by SDLGameActivity, so this isn't wired up
+    // to anything yet -- it just needs to exist so the native lookup succeeds.
+    @SuppressWarnings("unused")
+    private static boolean notifyLauncher(int type, int... action) {
+        return false;
+    }
+
     //Called from JRE side
     @SuppressWarnings("unused")
     private static void onGrabStateChanged(final boolean grabbing) {

@@ -452,8 +452,16 @@ public final class JREUtils {
         if (Renderers.INSTANCE.isCurrentRendererValid()) userArgs.add("-Dorg.lwjgl.opengl.libname=" + loadGraphicsLibrary());
 
         // Force LWJGL to use the Freetype library intended for it, instead of using the one
-        // that we ship with Java (since it may be older than what's needed)
-        userArgs.add("-Dorg.lwjgl.freetype.libname="+ DIR_NATIVE_LIB +"/libfreetype.so");
+        // that we ship with Java (since it may be older than what's needed).
+        // NOTE: this must point at the per-version natives cache dir (where the bundled
+        // LWJGL natives aar gets extracted to, see ensureLwjglNativesExtracted() in
+        // LaunchGame.kt) rather than DIR_NATIVE_LIB — libfreetype.so is not a jniLib,
+        // it only ships inside the natives aar's assets.
+        if (gameVersion != null) {
+            File versionNativesDir = new File(PathManager.DIR_CACHE, "natives/" + gameVersion.getVersionName());
+            userArgs.add("-Dorg.lwjgl.freetype.libname=" + versionNativesDir.getAbsolutePath() + "/libfreetype.so");
+        }
+        userArgs.add("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared");
 
         // Some phones are not using the right number of cores, fix that
         userArgs.add("-XX:ActiveProcessorCount=" + java.lang.Runtime.getRuntime().availableProcessors());
@@ -744,3 +752,4 @@ public final class JREUtils {
         System.loadLibrary("pojavexec_awt");
     }
     }
+

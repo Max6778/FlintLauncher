@@ -23,6 +23,7 @@ import com.movtery.zalithlauncher.ui.dialog.LifecycleAwareTipDialog
 import com.movtery.zalithlauncher.ui.dialog.TipDialog
 import com.movtery.zalithlauncher.utils.ZHTools
 import com.movtery.zalithlauncher.utils.http.NetworkUtils
+import com.movtery.zalithlauncher.utils.path.PathManager
 import com.movtery.zalithlauncher.utils.stringutils.StringUtils
 import net.kdt.pojavlaunch.Architecture
 import net.kdt.pojavlaunch.JMinecraftVersionList
@@ -36,9 +37,11 @@ import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper
 import net.kdt.pojavlaunch.services.GameService
 import net.kdt.pojavlaunch.tasks.AsyncMinecraftDownloader
 import net.kdt.pojavlaunch.tasks.MinecraftDownloader
+import net.kdt.pojavlaunch.tasks.NativesExtractor
 import net.kdt.pojavlaunch.utils.JREUtils
 import net.kdt.pojavlaunch.value.MinecraftAccount
 import org.greenrobot.eventbus.EventBus
+import java.io.File
 
 class LaunchGame {
     companion object {
@@ -236,6 +239,17 @@ class LaunchGame {
             Tools.disableSplash(gameDirPath)
             val launchClassPath = Tools.generateLaunchClassPath(versionInfo, minecraftVersion)
 
+            // Tools.sLwjglVersion is resolved as a side effect of the call above.
+            // The bundled LWJGL natives (liblwjgl.so etc.) ship as AAR *assets*
+            // (assets/components/lwjgl-<ver>-natives/<abi>/), so they end up merged
+            // into our own APK assets at build time rather than being extracted
+            // anywhere on disk automatically. Nothing else in the app unpacks them,
+            // so without this they're simply never found on java.library.path,
+            // causing a crash at JVM start ("Failed to locate library: liblwjgl.so").
+            // Extract them into the same writable per-version natives cache dir
+            // that LaunchArgs.kt already puts first on -Djava.library.path.
+            ensureLwjglNativesExtracted(activity, minecraftVersion)
+
             val launchArgs = LaunchArgs(
                 account,
                 gameDirPath,
@@ -253,6 +267,36 @@ class LaunchGame {
             }
 
             JREUtils.launchWithUtils(activity, runtime, minecraftVersion, launchArgs, customArgs)
+        }
+
+        /**
+         * Extracts the bundled LWJGL natives (liblwjgl.so and friends) for the
+         * LWJGL version that was just resolved by Tools.generateLaunchClassPath(),
+         * from the app's merged assets (assets/components/lwjgl-<ver>-natives/<abi>/)
+         * into the writable, per-Minecraft-version natives cache directory that
+         * LaunchArgs.kt puts on -Djava.library.path.
+         *
+         * Must be called after Tools.generateLaunchClassPath()/generateLibClasspath()
+         * has run at least once for this launch, since that's what sets
+         * Tools.sLwjglVersion.
+         */
+        private fun ensureLwjglNativesExtracted(activity: Activity, minecraftVersion: Version) {
+            val lwjglVersion = Tools.sLwjglVersion ?: run {
+                Logging.w("LaunchGame", "sLwjglVersion was not set before native extraction, skipping")
+                return
+            }
+
+            val nativesDir = File(PathManager.DIR_CACHE, "natives/${minecraftVersion.getVersionName()}")
+            nativesDir.mkdirs()
+
+            try {
+                NativesExtractor(nativesDir).extractFromAssets(
+                    activity.assets,
+                    "components/lwjgl-$lwjglVersion-natives"
+                )
+            } catch (e: Exception) {
+                Logging.e("LaunchGame", "Failed to extract LWJGL $lwjglVersion natives", e)
+            }
         }
 
         private fun checkMemory(activity: Activity) {

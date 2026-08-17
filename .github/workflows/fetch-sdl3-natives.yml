@@ -46,4 +46,6 @@ jobs:
         with:
           name: sdl3-android-package
           path: sdl3-android-package/
-
+          
+ 
+         run: curl -fL -o ZalithLauncher/libs/spirv-cross-natives.aar "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/tree/v3_openjdk/app_pojavlauncher/libs/spirv-cross-natives.aar"

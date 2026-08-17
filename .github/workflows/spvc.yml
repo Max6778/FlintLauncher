@@ -1,0 +1,71 @@
+name: Fetch SPIRV-Cross Natives
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Official branch
+        uses: actions/checkout@v4
+        with:
+          ref: Official
+          fetch-depth: 1
+          lfs: false
+
+      - name: Remove old LFS configuration
+        run: |
+          if [ -f .gitattributes ]; then
+            sed -i '/spirv-cross-natives\.aar/d' .gitattributes
+
+            if [ ! -s .gitattributes ]; then
+              rm .gitattributes
+            fi
+          fi
+
+      - name: Download SPIRV-Cross natives
+        run: |
+          mkdir -p ZalithLauncher/libs
+
+          curl -fL --retry 5 --retry-delay 3 \
+            -o ZalithLauncher/libs/spirv-cross-natives.aar \
+            "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/v3_openjdk/app_pojavlauncher/libs/spirv-cross-natives.aar"
+
+      - name: Verify downloaded file
+        run: |
+          test -s ZalithLauncher/libs/spirv-cross-natives.aar
+
+          echo "Downloaded file:"
+          ls -lh ZalithLauncher/libs/spirv-cross-natives.aar
+
+          SIZE=$(stat -c%s ZalithLauncher/libs/spirv-cross-natives.aar)
+
+          echo "Size: $SIZE bytes"
+
+          if [ "$SIZE" -ge 104857600 ]; then
+            echo "ERROR: File is over GitHub's 100 MB limit."
+            exit 1
+          fi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Add SPIRV-Cross natives AAR"
+
+      - name: Push to Official
+        run: |
+          git push origin HEAD:Official

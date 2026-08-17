@@ -1,5 +1,7 @@
 package net.kdt.pojavlaunch.tasks;
 
+import android.content.res.AssetManager;
+
 import com.movtery.zalithlauncher.utils.path.PathManager;
 
 import net.kdt.pojavlaunch.Architecture;
@@ -42,7 +44,12 @@ public class NativesExtractor {
         return blacklist;
     }
 
-    private static String getAarArchitectureName() {
+    /**
+     * Public so callers that need to build an assets/ path matching the
+     * current device's ABI (see {@link #extractFromAssets}) can reuse the
+     * same ABI-name mapping used for jni/&lt;abi&gt;/ extraction from AARs.
+     */
+    public static String getAarArchitectureName() {
         int architecture = Architecture.getDeviceArchitecture();
         switch (architecture) {
             case Architecture.ARCH_ARM:
@@ -74,6 +81,39 @@ public class NativesExtractor {
                 if(entryName == null || LIBRARY_BLACKLIST.contains(entryName)) continue;
 
                 processEntry(entryCopyStream, entry, new File(mDestinationDir, entryName), buffer);
+            }
+        }
+    }
+
+    /**
+     * Extract per-ABI native libraries that live inside the app's own merged
+     * assets (e.g. copied in from an AAR dependency's assets/ folder at
+     * build time by AGP), as opposed to a standalone .aar zip file sitting
+     * on disk. This is needed for natives that are packaged under
+     * assets/components/&lt;name&gt;/&lt;abi&gt;/ rather than jni/&lt;abi&gt;/,
+     * since {@link #extractFromAar} only knows how to read the latter
+     * layout out of a real zip file.
+     *
+     * @param assetManager the app's AssetManager (e.g. context.getAssets())
+     * @param assetsDirPath the assets-relative path containing one
+     *                      subdirectory per ABI (e.g.
+     *                      "components/lwjgl-3.4.1-natives")
+     */
+    public void extractFromAssets(AssetManager assetManager, String assetsDirPath) throws IOException {
+        String abiDir = assetsDirPath + "/" + getAarArchitectureName();
+        String[] fileNames = assetManager.list(abiDir);
+        if (fileNames == null || fileNames.length == 0) return;
+
+        for (String fileName : fileNames) {
+            if (LIBRARY_BLACKLIST.contains(fileName)) continue;
+
+            File destination = new File(mDestinationDir, fileName);
+            // Cheap dedup: these files are immutable per launcher build, so
+            // if something with a nonzero size is already there, skip re-copying it.
+            if (destination.exists() && destination.length() > 0) continue;
+
+            try (InputStream assetStream = assetManager.open(abiDir + "/" + fileName)) {
+                org.apache.commons.io.FileUtils.copyInputStreamToFile(assetStream, destination);
             }
         }
     }

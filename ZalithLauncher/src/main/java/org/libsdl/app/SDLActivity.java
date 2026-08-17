@@ -212,7 +212,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static boolean mBrokenLibraries = true;
 
     // Main components
-    protected static SDLActivity mSingleton;
+    // Widened from SDLActivity to Activity: MainActivity hosts SDL now (see
+    // externalInitialize() below) instead of a dedicated SDLActivity subclass,
+    // and MainActivity can't extend both BaseActivity and SDLActivity at once.
+    protected static Activity mSingleton;
     protected static SDLSurface mSurface;
     protected static SDLDummyEdit mTextEdit;
     protected static ViewGroup mLayout;
@@ -252,13 +255,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * It can be overridden by derived classes.
      */
     protected void main() {
-        String library = SDLActivity.mSingleton.getMainSharedObject();
-        String function = SDLActivity.mSingleton.getMainFunction();
-        String[] arguments = SDLActivity.mSingleton.getArguments();
-
-        Log.v("SDL", "Running main function " + function + " from library " + library);
-        SDLActivity.nativeRunMain(library, function, arguments);
-        Log.v("SDL", "Finished main function");
+        // Never reached in the externalInitialize() flow (see below): the JVM/game
+        // process is started directly by MainActivity/JREUtils, same as it always
+        // has been for the GLFW path, not via SDL's own SDLThread calling main().
+        throw new IllegalStateException("SDLActivity.main() should not be called; the game JVM is started by JREUtils/LaunchGame instead.");
     }
 
     /**
@@ -266,14 +266,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * It can be overridden by derived classes.
      */
     protected String getMainSharedObject() {
-        String library;
-        String[] libraries = SDLActivity.mSingleton.getLibraries();
-        if (libraries.length > 0) {
-            library = "lib" + libraries[libraries.length - 1] + ".so";
-        } else {
-            library = "libmain.so";
-        }
-        return getContext().getApplicationInfo().nativeLibraryDir + "/" + library;
+        // Never reached -- see main() above.
+        throw new IllegalStateException("SDLActivity.getMainSharedObject() should not be called.");
     }
 
     /**
@@ -330,6 +324,37 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         mClipboardHandler = null;
         mCursors = new Hashtable<Integer, PointerIcon>();
         mLastCursorID = 0;
+        mSDLThread = null;
+        mIsResumedCalled = false;
+        mHasFocus = true;
+        mNextNativeState = NativeState.INIT;
+        mCurrentNativeState = NativeState.INIT;
+    }
+
+    public static SDLSurface getSDLSurface() {
+        return mSurface;
+    }
+
+    /**
+     * Entry point used when SDL is bolted onto an existing Activity (MainActivity)
+     * instead of being run as its own Activity -- see MinecraftGLSurface.setupSDL().
+     * Replaces the real onCreate() flow below for this use case: no manifest entry,
+     * no separate window/surface of SDL's own. The real rendering surface (nativeSurface)
+     * was already created by MinecraftGLSurface for the GLFW/legacy path; SDL is handed
+     * that same surface rather than creating one of its own via createSDLSurface().
+     */
+    public static void externalInitialize(SDLSurface surface, ViewGroup layout, Surface nativeSurface) {
+        mSingleton = getContext();
+        mSurface = surface;
+        SDLSurface.setNativeSurface(nativeSurface);
+        mTextEdit = null;
+        mLayout = layout;
+        SDL.setContext(mSingleton);
+        mClipboardHandler = new SDLClipboardHandler();
+        mCursors = new Hashtable<Integer, PointerIcon>();
+        mLastCursorID = 0;
+        // No real main() runs through this Activity -- MainActivity/JREUtils starts
+        // the JVM its own way, same as the GLFW path always has.
         mSDLThread = null;
         mIsResumedCalled = false;
         mHasFocus = true;
@@ -779,7 +804,25 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
     // Called by JNI from SDL.
     public static void manualBackButton() {
-        mSingleton.pressBackButton();
+        // pressBackButton() only exists on SDLActivity, but mSingleton is now a
+        // plain Activity (MainActivity, in the externalInitialize() flow) -- fall
+        // back to what pressBackButton() does under the hood: run the platform's
+        // own back-button handling on the UI thread.
+        if (mSingleton instanceof SDLActivity) {
+            ((SDLActivity) mSingleton).pressBackButton();
+        } else if (mSingleton != null) {
+            // Reuse MainActivity's own proven back-button handling (dispatchKeyEvent()
+            // sends GLFW_KEY_ESCAPE to the game) instead of calling onBackPressed()
+            // directly, which could mean "finish the Activity" rather than "send
+            // Escape to Minecraft" depending on what's on top at the time.
+            mSingleton.runOnUiThread(() -> {
+                if (!mSingleton.isFinishing()) {
+                    long now = android.os.SystemClock.uptimeMillis();
+                    mSingleton.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0));
+                    mSingleton.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0));
+                }
+            });
+        }
     }
 
     // Used to get us onto the activity's main thread
@@ -1104,16 +1147,26 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * This method is called by SDL using JNI.
      */
     public static boolean setActivityTitle(String title) {
-        // Called from SDLMain() thread and can't directly affect the view
-        return mSingleton.sendCommand(COMMAND_CHANGE_TITLE, title);
+        // Called from SDLMain() thread and can't directly affect the view.
+        // sendCommand() only exists on SDLActivity; irrelevant for MainActivity's
+        // fullscreen Minecraft window anyway (there's no title bar to update), so
+        // just no-op when mSingleton isn't a real hosted SDLActivity.
+        if (mSingleton instanceof SDLActivity) {
+            return ((SDLActivity) mSingleton).sendCommand(COMMAND_CHANGE_TITLE, title);
+        }
+        return true;
     }
 
     /**
      * This method is called by SDL using JNI.
      */
     public static void setWindowStyle(boolean fullscreen) {
-        // Called from SDLMain() thread and can't directly affect the view
-        mSingleton.sendCommand(COMMAND_CHANGE_WINDOW_STYLE, fullscreen ? 1 : 0);
+        // Called from SDLMain() thread and can't directly affect the view.
+        // Irrelevant here: MainActivity's fullscreen/immersive state is already
+        // managed independently of SDL (see Tools.setFullscreen()), so no-op.
+        if (mSingleton instanceof SDLActivity) {
+            ((SDLActivity) mSingleton).sendCommand(COMMAND_CHANGE_WINDOW_STYLE, fullscreen ? 1 : 0);
+        }
     }
 
     /**
@@ -1123,9 +1176,12 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      */
     public static void setOrientation(int w, int h, boolean resizable, String hint)
     {
-        if (mSingleton != null) {
-            mSingleton.setOrientationBis(w, h, resizable, hint);
-        }
+        // No-op: the manifest already locks MainActivity to
+        // android:screenOrientation="sensorLandscape". Letting SDL re-call
+        // setRequestedOrientation() here at runtime (mid-launch, after the window
+        // already exists) is redundant with that and can cause a visible rotation
+        // snap if the physical sensor reading at that exact moment differs from how
+        // the phone was originally held when the app launched.
     }
 
     /**
@@ -1256,10 +1312,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * This method is called by SDL using JNI.
      */
     public static boolean sendMessage(int command, int param) {
-        if (mSingleton == null) {
+        if (!(mSingleton instanceof SDLActivity)) {
             return false;
         }
-        return mSingleton.sendCommand(command, param);
+        return ((SDLActivity) mSingleton).sendCommand(command, param);
     }
 
     /**
@@ -1450,8 +1506,18 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * This method is called by SDL using JNI.
      */
     public static boolean showTextInput(int input_type, int x, int y, int w, int h) {
-        // Transfer the task to the main thread as a Runnable
-        return mSingleton.commandHandler.post(new ShowTextInputTask(input_type, x, y, w, h));
+        // commandHandler only exists on SDLActivity, but mSingleton is now a plain
+        // Activity (MainActivity, in the externalInitialize() flow). This one
+        // actually matters at runtime (chat/sign text input), so give it a real
+        // fallback rather than a no-op: runOnUiThread() achieves the same "run on
+        // the Activity's main thread" effect as commandHandler.post() did.
+        if (mSingleton instanceof SDLActivity) {
+            return ((SDLActivity) mSingleton).commandHandler.post(new ShowTextInputTask(input_type, x, y, w, h));
+        } else if (mSingleton != null) {
+            mSingleton.runOnUiThread(new ShowTextInputTask(input_type, x, y, w, h));
+            return true;
+        }
+        return false;
     }
 
     public static boolean isTextInputEvent(KeyEvent event) {
@@ -2171,7 +2237,13 @@ class SDLMain implements Runnable {
         }
 
         SDLActivity.nativeInitMainThread();
-        SDLActivity.mSingleton.main();
+        // main() is never legitimately reached via externalInitialize()'s flow --
+        // mSDLThread (and so this Runnable) is never started there (see
+        // SDLActivity.externalInitialize()). Guarded for compile-safety with the
+        // now-widened Activity-typed mSingleton.
+        if (SDLActivity.mSingleton instanceof SDLActivity) {
+            ((SDLActivity) SDLActivity.mSingleton).main();
+        }
         SDLActivity.nativeCleanupMainThread();
 
         if (SDLActivity.mSingleton != null && !SDLActivity.mSingleton.isFinishing()) {

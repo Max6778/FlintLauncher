@@ -1,0 +1,26 @@
+name: Fetch LWJGL 3.4.1 Jars
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download LWJGL 3.4.1 jars from Maven Central
+        run: |
+          mkdir -p out/lwjgl3-3.4.1
+          cd out/lwjgl3-3.4.1
+          BASE="https://repo1.maven.org/maven2/org/lwjgl"
+          V="3.4.1"
+          for ART in lwjgl lwjgl-sdl lwjgl-shaderc lwjgl-spvc lwjgl-opengl lwjgl-opengles lwjgl-openal lwjgl-stb lwjgl-tinyfd lwjgl-vulkan lwjgl-vma lwjgl-jemalloc; do
+            echo "Fetching $ART $V"
+            curl -fL -o "$ART-$V.jar" "$BASE/$ART/$V/$ART-$V.jar" || echo "MISSING: $ART (may not exist at this version, check manually)"
+          done
+          ls -la
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lwjgl3-3.4.1-jars
+          path: out/
+

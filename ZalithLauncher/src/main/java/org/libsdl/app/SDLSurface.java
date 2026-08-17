@@ -42,6 +42,13 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Keep track of the surface size to normalize touch events
     protected float mWidth, mHeight;
 
+    // Static: in the externalInitialize() flow (see SDLActivity.externalInitialize),
+    // this SDLSurface is a decorative view added to MainActivity's layout, not the
+    // real rendering target -- MinecraftGLSurface's TextureView/SurfaceView is. This
+    // holds the *actual* native Surface Minecraft renders into, set explicitly via
+    // setNativeSurface() rather than derived from this view's own SurfaceHolder.
+    protected static Surface mNativeSurface;
+
     // Is SurfaceView ready for rendering
     protected boolean mIsSurfaceReady;
 
@@ -91,13 +98,19 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
         enableSensor(Sensor.TYPE_ACCELEROMETER, true);
     }
 
-    protected Surface getNativeSurface() {
-        return getHolder().getSurface();
+    public static Surface getNativeSurface() {
+        return mNativeSurface;
+    }
+
+    public static void setNativeSurface(Surface nativeSurface) {
+        mNativeSurface = nativeSurface;
+        SDLActivity.getSDLSurface().surfaceCreated(null);
     }
 
     // Called when we have a valid drawing surface
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        if (!org.lwjgl.glfw.CallbackBridge.usingSdl3) return;
         Log.v("SDL", "surfaceCreated()");
         SDLActivity.onNativeSurfaceCreated();
     }
@@ -105,6 +118,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     // Called when we lose the surface
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
+        if (!org.lwjgl.glfw.CallbackBridge.usingSdl3) return;
         Log.v("SDL", "surfaceDestroyed()");
 
         // Transition to pause, if needed
@@ -119,6 +133,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     @Override
     public void surfaceChanged(SurfaceHolder holder,
                                int format, int width, int height) {
+        if (!org.lwjgl.glfw.CallbackBridge.usingSdl3) return;
         Log.v("SDL", "surfaceChanged()");
 
         if (SDLActivity.mSingleton == null) {

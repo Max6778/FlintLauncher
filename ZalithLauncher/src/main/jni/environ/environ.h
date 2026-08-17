@@ -30,6 +30,11 @@ typedef void GLFW_invoke_MouseButton_func(void* window, int button, int action, 
 typedef void GLFW_invoke_Scroll_func(void* window, double xoffset, double yoffset);
 typedef void GLFW_invoke_WindowSize_func(void* window, int width, int height);
 
+typedef struct {
+    unsigned char buttons[15];
+    float axes[6];
+} GLFWgamepadstate;
+
 struct pojav_environ_s {
     struct ANativeWindow* pojavWindow;
     basic_render_window_t* mainWindowBundle;
@@ -44,8 +49,12 @@ struct pojav_environ_s {
     double cursorX, cursorY, cLastX, cLastY;
     jmethodID method_accessAndroidClipboard;
     jmethodID method_onGrabStateChanged;
+    jmethodID method_onDirectInputEnable;
     jmethodID method_glftSetWindowAttrib;
     jmethodID method_internalWindowSizeChanged;
+    jmethodID method_internalChangeMonitorSize;
+    jmethodID method_getAndroidDPI;
+    jmethodID method_notifyLauncher;
     jclass bridgeClazz;
     jclass vmGlfwClass;
     jboolean isGrabbing;
@@ -58,6 +67,7 @@ struct pojav_environ_s {
     long showingWindow;
     bool isInputReady, isCursorEntered, isUseStackQueueCall, shouldUpdateMouse;
     int savedWidth, savedHeight;
+    GLFWgamepadstate gamepadState;
 #define ADD_CALLBACK_WWIN(NAME) \
     GLFW_invoke_##NAME##_func* GLFW_invoke_##NAME;
     ADD_CALLBACK_WWIN(Char);
