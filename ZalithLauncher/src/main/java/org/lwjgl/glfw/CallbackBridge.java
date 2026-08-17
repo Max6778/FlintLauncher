@@ -242,9 +242,18 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 org.libsdl.app.SDL.setupJNI();
                 usingSdl3 = true;
                 if (SDLActivity.getSDLSurface() != null) {
-                    // Nudges SDL to pick up the real window size, needed for
-                    // correct input coordinate mapping.
-                    SDLActivity.onNativeResize();
+                    // This is the real fix, not onNativeResize() alone: usingSdl3 only
+                    // flips true here, deep into JVM startup -- long after Android's own
+                    // surfaceCreated/surfaceChanged callbacks already fired once (when
+                    // MinecraftGLSurface first stood up its TextureView/SurfaceView), back
+                    // when usingSdl3 was still false so SDLSurface's own callbacks no-op'd.
+                    // Without this call SDL is told a surface *exists* (via
+                    // setNativeSurface -> surfaceCreated in externalInitialize) but never
+                    // that it's actually ready to render into -- surfaceChanged() is what
+                    // calls onNativeSurfaceChanged() and drives SDL to NativeState.RESUMED.
+                    // Skipping it means SDL has no real native window, which is why init
+                    // succeeds but the app then aborts shortly after.
+                    SDLActivity.getSDLSurface().surfaceChanged(null, 0, windowWidth, windowHeight);
                 }
                 return true;
             } catch (Throwable t) {
