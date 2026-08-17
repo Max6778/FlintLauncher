@@ -46,7 +46,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := exithook
 LOCAL_LDLIBS := -ldl -llog
 LOCAL_SHARED_LIBRARIES := bytehook pojavexec
-LOCAL_SRC_FILES := exit_hook.c
+LOCAL_SRC_FILES := exit_hook.c sdl_hook.c
 include $(BUILD_SHARED_LIBRARY)
 
 
