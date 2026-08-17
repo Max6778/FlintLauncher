@@ -59,7 +59,10 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     private final ScaleGestureDetector scaleGestureDetector;
 
     // Startup
-    protected SDLSurface(Context context) {
+    // Public (was protected) so callers outside org.libsdl.app -- namely
+    // MinecraftGLSurface.setupSdlSurface() -- can construct one directly for
+    // the externalInitialize() embedded-SDL flow.
+    public SDLSurface(Context context) {
         super(context);
         getHolder().addCallback(this);
 
