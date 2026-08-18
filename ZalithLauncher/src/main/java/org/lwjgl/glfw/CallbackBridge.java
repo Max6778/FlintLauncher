@@ -236,9 +236,13 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     public static boolean notifyLauncher(int type, int... action) {
         if (type == NOTIF_TYPE_SDL && action.length > 0 && action[0] == ACTION_INIT_LAUNCHER_INTEGRATION) {
             try {
-                // Some mods/versions skip loading these themselves, so load explicitly.
+                // Load explicitly since some mods/versions skip loading it themselves.
+                // NOT SDL2 here -- confirmed via on-device testing that this APK/version
+                // combo only ships libSDL3.so; SDL2 doesn't exist and loading it used to
+                // throw UnsatisfiedLinkError here, which aborted this entire try block
+                // *before* reaching usingSdl3/surfaceChanged() below, leaving SDL's native
+                // init to proceed with zero Java-side setup and crash inside itself.
                 System.loadLibrary("SDL3");
-                System.loadLibrary("SDL2");
                 org.libsdl.app.SDL.setupJNI();
                 usingSdl3 = true;
                 if (SDLActivity.getSDLSurface() != null) {
