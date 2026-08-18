@@ -33,39 +33,46 @@ typedef int (*sdl_init_subsystem_func)(unsigned long flags);
 #define ACTION_INIT_LAUNCHER_INTEGRATION 0
 
 static void notify_launcher_sdl_init() {
-    JavaVM* dvm = pojav_environ->dalvikJavaVMPtr;
-    if (dvm == NULL) {
+    // We need to call CallbackBridge.notifyLauncher() on the Android-app (Dalvik) VM,
+    // NOT the JRE VM, because:
+    //   1. pojav_environ->bridgeClazz and method_notifyLauncher are GlobalRefs resolved
+    //      against the Dalvik VM at JNI_OnLoad time by input_bridge_v3.c. Using them
+    //      with a JRE JNIEnv is undefined behaviour and will crash.
+    //   2. Using FindClass on a JRE-attached thread fails because the thread's classloader
+    //      context doesn't know about lwjgl-glfw-classes.jar.
+    // The correct pattern: AttachCurrentThread to the Dalvik VM, then call through the
+    // already-resolved bridgeClazz/method_notifyLauncher GlobalRefs. This is exactly the
+    // same approach input_bridge_v3.c uses when it sends GLFW events to the launcher side.
+    JavaVM* dalvikVm = pojav_environ->dalvikJavaVMPtr;
+    if (dalvikVm == NULL) {
         __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "dalvikJavaVMPtr not set, cannot notify launcher");
+        return;
+    }
+
+    jclass callbackBridgeClass = (jclass) pojav_environ->bridgeClazz;
+    if (callbackBridgeClass == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "bridgeClazz not yet resolved, cannot notify launcher");
+        return;
+    }
+
+    jmethodID notifyLauncherMethod = pojav_environ->method_notifyLauncher;
+    if (notifyLauncherMethod == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "method_notifyLauncher not yet resolved, cannot notify launcher");
         return;
     }
 
     JNIEnv* env;
     bool needsDetach = false;
-    int getEnvStat = (*dvm)->GetEnv(dvm, (void**) &env, JNI_VERSION_1_6);
+    int getEnvStat = (*dalvikVm)->GetEnv(dalvikVm, (void**) &env, JNI_VERSION_1_6);
     if (getEnvStat == JNI_EDETACHED) {
-        if ((*dvm)->AttachCurrentThread(dvm, &env, NULL) != 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to attach to dalvik JVM");
+        if ((*dalvikVm)->AttachCurrentThread(dalvikVm, &env, NULL) != 0) {
+            __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to attach to Dalvik VM");
             return;
         }
         needsDetach = true;
     } else if (getEnvStat != JNI_OK) {
-        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to get dalvik JNIEnv (%i)", getEnvStat);
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to get Dalvik JNIEnv (%i)", getEnvStat);
         return;
-    }
-
-    jclass callbackBridgeClass = (*env)->FindClass(env, "org/lwjgl/glfw/CallbackBridge");
-    if (callbackBridgeClass == NULL) {
-        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to find CallbackBridge class");
-        (*env)->ExceptionClear(env);
-        goto detach;
-    }
-
-    jmethodID notifyLauncherMethod = (*env)->GetStaticMethodID(env, callbackBridgeClass,
-        "notifyLauncher", "(I[I)Z");
-    if (notifyLauncherMethod == NULL) {
-        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to find notifyLauncher method");
-        (*env)->ExceptionClear(env);
-        goto detach;
     }
 
     jintArray actionArray = (*env)->NewIntArray(env, 1);
