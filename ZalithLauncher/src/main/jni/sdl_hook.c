@@ -90,7 +90,7 @@ static void notify_launcher_sdl_init() {
     (*env)->DeleteLocalRef(env, actionArray);
 
     detach:
-    if (needsDetach) (*dvm)->DetachCurrentThread(dvm);
+    if (needsDetach) (*dalvikVm)->DetachCurrentThread(dalvikVm);
 }
 
 typedef void (*sdl_set_main_ready_func)(void);
