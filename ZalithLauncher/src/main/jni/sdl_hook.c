@@ -8,10 +8,11 @@
 // SDL's own init continues. See CallbackBridge.notifyLauncher() and
 // MinecraftGLSurface.setupSDL() for the Java-side half of this.
 //
-// Modeled directly on exit_hook.c's bytehook usage pattern (self-contained
-// dlopen of libbytehook.so + a dedicated JNI-exported init entrypoint called
-// explicitly from Java), not on a linked libbytehook.h, to stay consistent
-// with the rest of this project's hooks.
+// create_sdl_hooks() is called from exit_hook.c's shared init_hooks(), which
+// owns the single process-wide bytehook_init() call -- see native_hooks.h.
+// (This hook used to do its own independent bytehook_init(); consolidated so
+// dlopen_hook.c and this hook share one bytehook instance, matching how
+// Amethyst-Android -- the project this was ported from -- structures it.)
 //
 
 #include <jni.h>
@@ -22,6 +23,7 @@
 #include <android/log.h>
 
 #include <environ/environ.h>
+#include "native_hooks.h"
 
 static _Atomic bool sdl_init_notified = false;
 
@@ -130,48 +132,18 @@ static int custom_sdl_init_subsystem(unsigned long flags) {
     return ret;
 }
 
-static bool init_sdl_hook() {
-    void* bytehook_handle = dlopen("libbytehook.so", RTLD_NOW);
-    if (bytehook_handle == NULL) {
-        goto dlerror;
-    }
-
-    bytehook_stub_t (*bytehook_hook_all_p)(const char *callee_path_name, const char *sym_name, void *new_func,
-                                           bytehook_hooked_t hooked, void *hooked_arg);
-    int (*bytehook_init_p)(int mode, bool debug);
-
-    bytehook_hook_all_p = dlsym(bytehook_handle, "bytehook_hook_all");
-    bytehook_init_p = dlsym(bytehook_handle, "bytehook_init");
-
-    if (bytehook_hook_all_p == NULL || bytehook_init_p == NULL) {
-        goto dlerror;
-    }
-
-    int bhook_status = bytehook_init_p(BYTEHOOK_MODE_AUTOMATIC, false);
-    if (bhook_status == BYTEHOOK_STATUS_CODE_OK) {
-        // Hook across all loaded libraries -- libSDL3.so isn't loaded yet at this
-        // point (it's loaded lazily, from the Java side, only once we notify it to),
-        // so we can't target it by name; BYTEHOOK_MODE_AUTOMATIC picks up libraries
-        // loaded after the hook is installed too.
-        bytehook_stub_t stub = bytehook_hook_all_p(NULL, "SDL_InitSubSystem", &custom_sdl_init_subsystem, NULL, NULL);
-        __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Successfully initialized SDL init hook, stub=%p", stub);
-        return true;
-    } else {
-        __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "bytehook_init failed (%i)", bhook_status);
-        dlclose(bytehook_handle);
-        return false;
-    }
-
-    dlerror:
-    if (bytehook_handle != NULL) dlclose(bytehook_handle);
-    __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to load hook library: %s", dlerror());
-    return false;
+static void create_sdl_hooks_impl(bytehook_hook_all_t bytehook_hook_all_p) {
+    // Hook across all loaded libraries -- libSDL3.so isn't loaded yet at this
+    // point (it's loaded lazily, from the Java side, only once we notify it to),
+    // so we can't target it by name; BYTEHOOK_MODE_AUTOMATIC picks up libraries
+    // loaded after the hook is installed too.
+    bytehook_stub_t stub = bytehook_hook_all_p(NULL, "SDL_InitSubSystem", &custom_sdl_init_subsystem, NULL, NULL);
+    __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Successfully initialized SDL init hook, stub=%p", stub);
 }
 
-JNIEXPORT void JNICALL
-Java_net_kdt_pojavlaunch_utils_JREUtils_initializeSdlHook(JNIEnv *env, jclass clazz) {
-    bool hookReady = init_sdl_hook();
-    if (!hookReady) {
-        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to install SDL init hook -- SDL-requiring Minecraft versions (26.2+) will likely crash or hang on launch");
-    }
+// Public entrypoint called from exit_hook.c's shared init_hooks(), which owns
+// the single bytehook_init() call for the whole process -- see native_hooks.h.
+void create_sdl_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
+    create_sdl_hooks_impl(bytehook_hook_all_p);
 }
+
