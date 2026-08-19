@@ -18,6 +18,7 @@
 // better than bytehook for this specific hook.
 
 #include "environ/environ.h"
+#include "native_hooks.h"
 
 #include <bytehook.h>
 #include <dlfcn.h>
