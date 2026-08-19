@@ -478,8 +478,7 @@ public final class JREUtils {
         }
 
         setupExitMethod(activity.getApplication());
-        initializeGameExitHook();
-        initializeSdlHook();
+        initializeGameExitHook(); // also installs the dlopen and SDL native hooks now -- see native_hooks.h
         chdir(gameVersion == null ? ProfilePathHome.getGameHome() : gameVersion.getGameDir().getAbsolutePath());
         userArgs.add(0,"java"); //argv[0] is the program name according to C standard.
 
@@ -744,10 +743,6 @@ public final class JREUtils {
     public static native void setupBridgeWindow(Object surface);
     public static native void releaseBridgeWindow();
     public static native void initializeGameExitHook();
-    // Installs the SDL_InitSubSystem bytehook (sdl_hook.c). Built into the same
-    // "exithook" native module/.so as the exit hook, so it's covered by the
-    // System.loadLibrary("exithook") call below -- no separate load needed.
-    public static native void initializeSdlHook();
     public static native void setupExitMethod(Context context);
     // Obtain AWT screen pixels to render on Android SurfaceView
     public static native int[] renderAWTScreenFrame(/* Object canvas, int width, int height */);
