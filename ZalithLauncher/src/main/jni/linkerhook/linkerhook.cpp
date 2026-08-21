@@ -28,7 +28,7 @@ static const char* supported_namespaces[] = {"sphal", "vendor", "default"};
 // since it compares LWJGL's resolved address against SDL3's resolved address
 // for the same symbol name.
 static const char* singleton_renderer_libs[] = {
-    "mobileglues", "gl4es_114", "OSMesa_2300d", "OSMesa_8", "OSMesa_2121",
+    "mobileglues", "gl4es_114", "ng_gl4es", "OSMesa_2300d", "OSMesa_8", "OSMesa_2121",
     "vulkan_freedreno", "vulkan_lavapipe"
 };
 
