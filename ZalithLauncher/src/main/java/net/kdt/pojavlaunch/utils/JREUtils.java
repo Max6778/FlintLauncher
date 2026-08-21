@@ -478,7 +478,7 @@ public final class JREUtils {
         }
 
         setupExitMethod(activity.getApplication());
-        initializeGameExitHook();
+        initializeGameExitHook(); // also installs the dlopen and SDL native hooks now -- see native_hooks.h
         chdir(gameVersion == null ? ProfilePathHome.getGameHome() : gameVersion.getGameDir().getAbsolutePath());
         userArgs.add(0,"java"); //argv[0] is the program name according to C standard.
 

@@ -16,14 +16,10 @@ import com.movtery.zalithlauncher.feature.mod.parser.ModInfo;
 import com.movtery.zalithlauncher.feature.mod.parser.ModParser;
 import com.movtery.zalithlauncher.feature.mod.parser.ModParserListener;
 import com.movtery.zalithlauncher.feature.version.Version;
-import com.movtery.zalithlauncher.feature.log.Logging;
 import com.movtery.zalithlauncher.setting.AllSettings;
 
 import net.kdt.pojavlaunch.MainActivity;
-import net.kdt.pojavlaunch.SDLGameActivity;
-import net.kdt.pojavlaunch.JMinecraftVersionList;
 import net.kdt.pojavlaunch.Tools;
-import net.kdt.pojavlaunch.value.DependentLibrary;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
 import net.kdt.pojavlaunch.tasks.AsyncMinecraftDownloader;
 import net.kdt.pojavlaunch.utils.NotificationUtils;
@@ -40,41 +36,18 @@ public class ContextAwareDoneListener implements AsyncMinecraftDownloader.DoneLi
         this.mVersion = version;
     }
 
+    /**
+     * Always launches the normal MainActivity now. SDL3 versions (26.3+)
+     * are handled inside MainActivity/MinecraftGLSurface itself, via
+     * SDLActivity.externalInitialize() triggered by the native sdl_hook
+     * bytehook — not via a separate Activity anymore.
+     */
     private Intent createGameStartIntent(Context context) {
-        Class<? extends Activity> targetActivity = MainActivity.class;
-        try {
-            JMinecraftVersionList.Version versionInfo = Tools.getVersionInfo(mVersion);
-            if (versionNeedsSdl3(versionInfo)) {
-                targetActivity = SDLGameActivity.class;
-            }
-        } catch (Throwable e) {
-            // If we can't determine the requirement for any reason, fall back to
-            // the existing GLFW path rather than silently picking the wrong one.
-            Logging.e("ContextAwareDoneListener", "Failed to check SDL3 requirement, defaulting to GLFW path", e);
-        }
-
-        Intent mainIntent = new Intent(context, targetActivity);
+        Intent mainIntent = new Intent(context, MainActivity.class);
         mainIntent.putExtra(INTENT_VERSION, mVersion);
         mainIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return mainIntent;
     }
-
-    /**
-     * A version needs the SDL3 backend if its library list ships
-     * org.lwjgl:lwjgl-sdl instead of org.lwjgl:lwjgl-glfw (Mojang switched
-     * to this starting with 26.3-snapshot-4). Checking the actual library
-     * list — rather than hardcoding a version number/date — means this
-     * keeps working correctly for every future version without edits here.
-     */
-    private boolean versionNeedsSdl3(JMinecraftVersionList.Version versionInfo) {
-        if (versionInfo == null || versionInfo.libraries == null) return false;
-        for (DependentLibrary library : versionInfo.libraries) {
-            if (library != null && library.name != null && library.name.contains("lwjgl-sdl")) {
-                return true;
-            }
-        }
-        return false;
-             }
 
     private void executeTask() {
         ProgressKeeper.waitUntilDone(() -> ContextExecutor.executeTask(this));

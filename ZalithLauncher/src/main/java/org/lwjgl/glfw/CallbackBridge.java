@@ -22,8 +22,9 @@ import dalvik.annotation.optimization.CriticalNative;
 
 public class CallbackBridge {
     public static final Choreographer sChoreographer = Choreographer.getInstance();
-    /** Set once at launch by SDLGameActivity. When true, every send*
-     *  method below routes to SDL3 instead of the native GLFW bridge. */
+    /** True once notifyLauncher() (called from sdl_hook.c the instant real SDL
+     *  init starts) has run. When true, every send* method below routes to
+     *  SDL3 instead of the native GLFW bridge. */
     public static volatile boolean usingSdl3 = false;
     private static boolean isGrabbing = false;
     private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
@@ -222,11 +223,47 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     }
 
     // Called from JRE side via JNI for misc launcher-side notifications (SDL init,
-    // IME textbox rects, etc). FlintLauncher currently drives SDL3 routing via its
-    // own usingSdl3 flag set directly by SDLGameActivity, so this isn't wired up
-    // to anything yet -- it just needs to exist so the native lookup succeeds.
+    // IME textbox rects, etc). Called from native (sdl_hook.c) via JNI the instant
+    // real SDL_InitSubSystem starts running, i.e. right as a 26.2+ Minecraft version
+    // begins its SDL3 init. Brings up the Java-side SDL bridge (SDL.setupJNI(),
+    // usingSdl3 routing) before SDL's own init continues, so by the time Minecraft
+    // actually starts sending/receiving input, everything is already wired.
+    public static final int NOTIF_TYPE_SDL = 0;
+    public static final int ACTION_INIT_LAUNCHER_INTEGRATION = 0;
+
     @SuppressWarnings("unused")
-    private static boolean notifyLauncher(int type, int... action) {
+    @Keep
+    public static boolean notifyLauncher(int type, int... action) {
+        if (type == NOTIF_TYPE_SDL && action.length > 0 && action[0] == ACTION_INIT_LAUNCHER_INTEGRATION) {
+            try {
+                // Load explicitly since some mods/versions skip loading it themselves.
+                // NOT SDL2 here -- confirmed via on-device testing that this APK/version
+                // combo only ships libSDL3.so; SDL2 doesn't exist and loading it used to
+                // throw UnsatisfiedLinkError here, which aborted this entire try block
+                // *before* reaching usingSdl3/surfaceChanged() below, leaving SDL's native
+                // init to proceed with zero Java-side setup and crash inside itself.
+                System.loadLibrary("SDL3");
+                org.libsdl.app.SDL.setupJNI();
+                usingSdl3 = true;
+                if (SDLActivity.getSDLSurface() != null) {
+                    // This is the real fix, not onNativeResize() alone: usingSdl3 only
+                    // flips true here, deep into JVM startup -- long after Android's own
+                    // surfaceCreated/surfaceChanged callbacks already fired once (when
+                    // MinecraftGLSurface first stood up its TextureView/SurfaceView), back
+                    // when usingSdl3 was still false so SDLSurface's own callbacks no-op'd.
+                    // Without this call SDL is told a surface *exists* (via
+                    // setNativeSurface -> surfaceCreated in externalInitialize) but never
+                    // that it's actually ready to render into -- surfaceChanged() is what
+                    // calls onNativeSurfaceChanged() and drives SDL to NativeState.RESUMED.
+                    // Skipping it means SDL has no real native window, which is why init
+                    // succeeds but the app then aborts shortly after.
+                    SDLActivity.getSDLSurface().surfaceChanged(null, 0, windowWidth, windowHeight);
+                }
+                return true;
+            } catch (Throwable t) {
+                System.err.println("Failed to initialize SDL launcher-side integration: " + t);
+            }
+        }
         return false;
     }
 

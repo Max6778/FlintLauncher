@@ -10,6 +10,7 @@
 #include <android/log.h>
 #include <stdlib.h>
 #include "stdio_is.h"
+#include "native_hooks.h"
 
 static _Atomic bool exit_tripped = false;
 
@@ -57,6 +58,12 @@ static bool init_exit_hook() {
     if(bhook_status == BYTEHOOK_STATUS_CODE_OK) {
         bytehook_stub_t stub = bytehook_hook_all_p(NULL, "exit", &custom_exit, NULL, NULL);
         __android_log_print(ANDROID_LOG_INFO, "exit_hook", "Successfully initialized exit hook, stub=%p", stub);
+        // Install the SDL and dlopen hooks here too, sharing this same
+        // bytehook_hook_all_p, rather than each doing their own independent
+        // bytehook_init() call -- bytehook is meant to be initialized once
+        // per process. See native_hooks.h.
+        create_dlopen_hooks(bytehook_hook_all_p);
+        create_sdl_hooks(bytehook_hook_all_p);
         return true;
     } else {
         __android_log_print(ANDROID_LOG_INFO, "exit_hook", "bytehook_init failed (%i)", bhook_status);
