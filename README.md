@@ -7,8 +7,8 @@
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Android%208%2B-brightgreen?style=flat-square)
 ![Status](https://img.shields.io/badge/status-In%20Development-yellow?style=flat-square)
-![Forks](https://img.shields.io/github/forks/FlintLauncherDev/FlintLauncher?style=flat-square)
-![Stars](https://img.shields.io/github/stars/FlintLauncherDev/FlintLauncher?style=flat-square)
+![Forks](https://img.shields.io/github/forks/ActuallyTrizon/FlintLauncher?style=flat-square)
+![Stars](https://img.shields.io/github/stars/ActuallyTrizon/FlintLauncher?style=flat-square)
 
 **Free. Open Source. Performance.**
 

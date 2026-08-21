@@ -23,8 +23,10 @@ class NeoForgeDownloadTask(neoforgeVersion: String) : InstallTask, DownloaderFee
     init {
         if (neoforgeVersion.contains("1.20.1")) {
             this.mDownloadUrl = getNeoForgedForgeInstallerUrl(neoforgeVersion)
+            this.mGameVersion = "1.20.1"
         } else {
             this.mDownloadUrl = getNeoForgeInstallerUrl(neoforgeVersion)
+            this.mGameVersion = "1.20.1" // Default value, should be updated based on the actual version
         }
         Logging.i("NeoForgeDownloadTask", "Version : $mLoaderVersion, Download Url : $mDownloadUrl")
     }
@@ -63,27 +65,17 @@ class NeoForgeDownloadTask(neoforgeVersion: String) : InstallTask, DownloaderFee
         return destinationFile
     }
 
-    private fun determineDownloadUrl(findVersion: Boolean): Boolean {
-        if (mDownloadUrl != null && mLoaderVersion != null) return true
-        ProgressKeeper.submitProgress(
-            ProgressLayout.INSTALL_RESOURCE,
-            0,
-            R.string.mod_neoforge_searching
+    @Throws(Exception::class)
+    fun findNeoForgeVersion(): Boolean {
+        return findVersion(downloadNeoForgeVersions(false), getNeoForgeInstallerUrl(mLoaderVersion))
+    }
+
+    @Throws(Exception::class)
+    fun findNeoForgedForgeVersion(): Boolean {
+        return findVersion(
+            downloadNeoForgedForgeVersions(false),
+            getNeoForgedForgeInstallerUrl(mLoaderVersion)
         )
-        if (!findVersion) {
-            throw IOException("Version not found")
-        }
-        return true
-    }
-
-    @Throws(Exception::class)
-    fun determineNeoForgeDownloadUrl(): Boolean {
-        return determineDownloadUrl(findNeoForgeVersion())
-    }
-
-    @Throws(Exception::class)
-    fun determineNeoForgedForgeDownloadUrl(): Boolean {
-        return determineDownloadUrl(findNeoForgedForgeVersion())
     }
 
     private fun findVersion(neoForgeUtils: List<String>?, installerUrl: String): Boolean {
@@ -99,15 +91,25 @@ class NeoForgeDownloadTask(neoforgeVersion: String) : InstallTask, DownloaderFee
     }
 
     @Throws(Exception::class)
-    fun findNeoForgeVersion(): Boolean {
-        return findVersion(downloadNeoForgeVersions(false), getNeoForgeInstallerUrl(mLoaderVersion))
+    fun determineNeoForgeDownloadUrl(): Boolean {
+        return determineDownloadUrl(findNeoForgeVersion())
     }
 
     @Throws(Exception::class)
-    fun findNeoForgedForgeVersion(): Boolean {
-        return findVersion(
-            downloadNeoForgedForgeVersions(false),
-            getNeoForgedForgeInstallerUrl(mLoaderVersion)
+    fun determineNeoForgedForgeDownloadUrl(): Boolean {
+        return determineDownloadUrl(findNeoForgedForgeVersion())
+    }
+
+    private fun determineDownloadUrl(findVersion: Boolean): Boolean {
+        if (mDownloadUrl != null && mLoaderVersion != null) return true
+        ProgressKeeper.submitProgress(
+            ProgressLayout.INSTALL_RESOURCE,
+            0,
+            R.string.mod_neoforge_searching
         )
+        if (!findVersion) {
+            throw IOException("Version not found")
+        }
+        return true
     }
 }

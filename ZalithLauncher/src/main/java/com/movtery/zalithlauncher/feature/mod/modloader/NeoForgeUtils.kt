@@ -85,8 +85,15 @@ class NeoForgeUtils {
                         else -> ForgeBuildVersion.parse(neoForgeVersion.substringBefore("-"))
                     }
                     buildString {
-                        append("1.").append(version.major)
-                        if (version.minor != 0) append(".").append(version.minor)
+                        if (version.major >= 26) {
+                            // New Minecraft versioning scheme (NeoForge major.minor.build.revision -> MC major.minor[.build])
+                            // Examples: "26.1.2.71" -> "26.1.2", "26.1.0.3" -> "26.1", "26.2.0.1" -> "26.2"
+                            append(version.major).append(".").append(version.minor)
+                            if (version.build != 0) append(".").append(version.build)
+                        } else {
+                            append("1.").append(version.major)
+                            if (version.minor != 0) append(".").append(version.minor)
+                        }
                     }
                 }
             }
