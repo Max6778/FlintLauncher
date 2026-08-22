@@ -5,10 +5,9 @@
 #include <android/dlext.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 #include <atomic>
-#include <mutex>
-#include <unordered_map>
-#include <string>
 #include "linkerhook.h"
 
 static void* (*dlopen_ext_impl)(const char* filename, int flags, const android_dlextinfo* extinfo, const void* caller_addr);
@@ -32,14 +31,35 @@ static const char* singleton_renderer_libs[] = {
     "vulkan_freedreno", "vulkan_lavapipe"
 };
 
-static std::mutex renderer_handle_cache_mutex;
-static std::unordered_map<std::string, void*> renderer_handle_cache;
+// This build uses APP_STL := system (no linked libc++ runtime), so the cache
+// below is plain C/POSIX -- a fixed-size array + pthread_mutex_t -- instead
+// of std::mutex/std::string/std::unordered_map, which need libc++ symbols
+// this module can't link against.
+#define RENDERER_HANDLE_CACHE_MAX 16
+
+typedef struct {
+    char* filename;
+    void* handle;
+} renderer_handle_entry;
+
+static renderer_handle_entry renderer_handle_cache[RENDERER_HANDLE_CACHE_MAX];
+static int renderer_handle_cache_count = 0;
+static pthread_mutex_t renderer_handle_cache_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static bool is_singleton_renderer_library(const char* filename) {
     for (const char* needle : singleton_renderer_libs) {
         if (strstr(filename, needle) != nullptr) return true;
     }
     return false;
+}
+
+static void* cache_lookup_locked(const char* filename) {
+    for (int i = 0; i < renderer_handle_cache_count; i++) {
+        if (strcmp(renderer_handle_cache[i].filename, filename) == 0) {
+            return renderer_handle_cache[i].handle;
+        }
+    }
+    return nullptr;
 }
 
 // Returns a cached handle for `filename` if one exists; otherwise performs the
@@ -49,22 +69,30 @@ static bool is_singleton_renderer_library(const char* filename) {
 // mapped once.
 static void* get_or_load_singleton(const char* filename,
                                     void* (*loader)(const char*)) {
-    {
-        std::lock_guard<std::mutex> lock(renderer_handle_cache_mutex);
-        auto it = renderer_handle_cache.find(filename);
-        if (it != renderer_handle_cache.end()) {
-            return it->second;
-        }
+    pthread_mutex_lock(&renderer_handle_cache_mutex);
+    void* cached = cache_lookup_locked(filename);
+    pthread_mutex_unlock(&renderer_handle_cache_mutex);
+    if (cached != nullptr) {
+        return cached;
     }
 
     void* handle = loader(filename);
 
     if (handle != nullptr) {
-        std::lock_guard<std::mutex> lock(renderer_handle_cache_mutex);
+        pthread_mutex_lock(&renderer_handle_cache_mutex);
         // Another thread may have raced us and already cached a handle;
         // keep whichever was inserted first so every caller agrees.
-        auto result = renderer_handle_cache.emplace(filename, handle);
-        return result.first->second;
+        void* raced = cache_lookup_locked(filename);
+        if (raced != nullptr) {
+            pthread_mutex_unlock(&renderer_handle_cache_mutex);
+            return raced;
+        }
+        if (renderer_handle_cache_count < RENDERER_HANDLE_CACHE_MAX) {
+            renderer_handle_cache[renderer_handle_cache_count].filename = strdup(filename);
+            renderer_handle_cache[renderer_handle_cache_count].handle = handle;
+            renderer_handle_cache_count++;
+        }
+        pthread_mutex_unlock(&renderer_handle_cache_mutex);
     }
 
     return handle;
