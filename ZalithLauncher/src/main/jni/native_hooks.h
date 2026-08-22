@@ -15,5 +15,6 @@ typedef bytehook_stub_t (*bytehook_hook_all_t)(const char *callee_path_name, con
 
 void create_sdl_hooks(bytehook_hook_all_t bytehook_hook_all_p);
 void create_dlopen_hooks(bytehook_hook_all_t bytehook_hook_all_p);
+void create_gl_core_proc_hooks(bytehook_hook_all_t bytehook_hook_all_p);
 
 #endif //FLINTLAUNCHER_NATIVE_HOOKS_H

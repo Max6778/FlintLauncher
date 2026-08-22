@@ -20,6 +20,7 @@
 #include <stdatomic.h>
 #include <bytehook.h>
 #include <dlfcn.h>
+#include <string.h>
 #include <android/log.h>
 
 #include <environ/environ.h>
@@ -145,5 +146,112 @@ static void create_sdl_hooks_impl(bytehook_hook_all_t bytehook_hook_all_p) {
 // the single bytehook_init() call for the whole process -- see native_hooks.h.
 void create_sdl_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
     create_sdl_hooks_impl(bytehook_hook_all_p);
+}
+
+//
+// --- Core GL function resolution fix (SDL_GL_GetProcAddress) ---
+//
+// Since Minecraft 26.3-snapshot builds, RenderPearl's GlBackend.loadLibrary()
+// does a sanity check before accepting the OpenGL backend:
+//
+//   if (GL.getFunctionProvider().getFunctionAddress("glGetError")
+//           != SDLVideo.SDL_GL_GetProcAddress("glGetError")) {
+//       this.libraryLoadFailure = new BackendCreationException(
+//           "glGetError mismatch", Reason.OPENGL_MISSING);
+//   }
+//
+// LWJGL's GL.getFunctionProvider() resolves "glGetError" via a direct
+// dlsym() against the renderer library named by org.lwjgl.opengl.libname
+// (e.g. libmobileglues.so). SDL_GL_GetProcAddress, on Android, routes
+// through eglGetProcAddress() -- and per the EGL spec, eglGetProcAddress()
+// is only *required* to correctly resolve extension functions. For a core
+// function like glGetError (present since GL 1.0), an EGL implementation is
+// free to return something other than the real symbol address -- a
+// trampoline, a dispatch-table stub, etc. This is a known, long-documented
+// class of bug (see e.g. Cogl's 2012 fix "Don't use eglGetProcAddress to
+// retrieve core functions"). MobileGlues/Krypton bundle their own internal
+// EGL implementation, and if its eglGetProcAddress hands back a different
+// pointer than a direct dlsym() would for glGetError specifically, the two
+// sides of Minecraft's comparison disagree even though the renderer library
+// was only ever loaded once -- no double-load needed for this to happen.
+//
+// Fix: intercept SDL_GL_GetProcAddress, and when asked for "glGetError"
+// specifically, bypass the real eglGetProcAddress path and dlsym() the
+// symbol directly off whichever renderer library is already loaded (via
+// RTLD_NOLOAD -- it's already loaded by this point, we're not loading a new
+// copy), matching exactly what LWJGL's own resolution does. This keeps both
+// sides of Minecraft's check in agreement.
+//
+
+typedef void* (*sdl_gl_getprocaddress_func)(const char* proc);
+
+// Kept in sync with linkerhook.cpp's singleton_renderer_libs list (which
+// filename substrings identify a renderer library) -- here we need the full
+// .so filename instead, since dlopen(..., RTLD_NOLOAD) needs an exact (or at
+// least resolvable) name, not a substring.
+static const char* renderer_libs_for_core_gl[] = {
+    "libmobileglues.so",
+    "libgl4es_114.so",
+    "libng_gl4es.so",
+    "libOSMesa_2300d.so",
+    "libOSMesa_8.so",
+    "libOSMesa_2121.so",
+};
+
+static void* dlsym_core_function_from_loaded_renderer(const char* name) {
+    size_t count = sizeof(renderer_libs_for_core_gl) / sizeof(renderer_libs_for_core_gl[0]);
+    for (size_t i = 0; i < count; i++) {
+        // RTLD_NOLOAD: only succeeds if the library is already loaded --
+        // we're looking it up, not loading a new/second instance of it.
+        void* handle = dlopen(renderer_libs_for_core_gl[i], RTLD_NOLOAD | RTLD_NOW);
+        if (handle != NULL) {
+            void* sym = dlsym(handle, name);
+            if (sym != NULL) {
+                __android_log_print(ANDROID_LOG_INFO, "sdl_hook",
+                    "Resolved core GL function '%s' via direct dlsym on %s (bypassing eglGetProcAddress)",
+                    name, renderer_libs_for_core_gl[i]);
+                return sym;
+            }
+        }
+    }
+    return NULL;
+}
+
+static void* custom_sdl_gl_getprocaddress(const char* proc) {
+    void* real_result = BYTEHOOK_CALL_PREV(custom_sdl_gl_getprocaddress, sdl_gl_getprocaddress_func, proc);
+
+    // Only "glGetError" is known to actually need this -- it's the one
+    // function RenderPearl's sanity check compares. Deliberately not
+    // widening this to other core functions without evidence they need it
+    // too; MobileGlues/Krypton may have their own reasons to route other
+    // lookups through their internal eglGetProcAddress.
+    if (proc != NULL && strcmp(proc, "glGetError") == 0) {
+        void* direct = dlsym_core_function_from_loaded_renderer(proc);
+        if (direct != NULL && direct != real_result) {
+            __android_log_print(ANDROID_LOG_WARN, "sdl_hook",
+                "glGetError address mismatch detected (SDL_GL_GetProcAddress=%p, direct dlsym=%p) -- "
+                "returning the dlsym address so it matches LWJGL's own resolution",
+                real_result, direct);
+            BYTEHOOK_POP_STACK();
+            return direct;
+        }
+    }
+
+    BYTEHOOK_POP_STACK();
+    return real_result;
+}
+
+static void create_gl_core_proc_hooks_impl(bytehook_hook_all_t bytehook_hook_all_p) {
+    // Same BYTEHOOK_MODE_AUTOMATIC reasoning as create_sdl_hooks_impl above:
+    // libSDL3.so isn't loaded at process-hook-install time, so we hook the
+    // symbol name across all libraries rather than targeting libSDL3.so by
+    // path -- automatic mode picks up the export once SDL3 does load.
+    bytehook_stub_t stub = bytehook_hook_all_p(NULL, "SDL_GL_GetProcAddress", &custom_sdl_gl_getprocaddress, NULL, NULL);
+    __android_log_print(ANDROID_LOG_INFO, "sdl_hook",
+        "Successfully initialized SDL_GL_GetProcAddress core-function hook, stub=%p", stub);
+}
+
+void create_gl_core_proc_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
+    create_gl_core_proc_hooks_impl(bytehook_hook_all_p);
 }
 
