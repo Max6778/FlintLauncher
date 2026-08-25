@@ -16,9 +16,6 @@ import net.kdt.pojavlaunch.GrabListener;
 import net.kdt.pojavlaunch.LwjglGlfwKeycode;
 import net.kdt.pojavlaunch.MainActivity;
 
-import com.movtery.zalithlauncher.plugins.renderer.RendererPluginManager;
-import com.movtery.zalithlauncher.plugins.renderer.RendererPlugin;
-
 import java.util.ArrayList;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -57,7 +54,12 @@ public class CallbackBridge {
         mouseX = x;
         mouseY = y;
         if (usingSdl3) {
-            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, mouseX, mouseY, true);
+            // relative=true tells SDL to treat (x,y) as a motion DELTA added to the
+            // current cursor position, not an absolute screen coordinate -- hardcoding
+            // true here broke every menu tap, since a tap's (x,y) IS an absolute
+            // position and needs relative=false to land where the user actually touched.
+            // Only in-game camera-look (grabbed) should use relative deltas.
+            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, mouseX, mouseY, isGrabbing());
         } else {
             nativeSendCursorPos(mouseX, mouseY);
         }
@@ -119,7 +121,7 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
             }
             SDLActivity.onNativeMouse(androidButton,
                     isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
-                    mouseX, mouseY, true);
+                    mouseX, mouseY, isGrabbing());
         } else {
             nativeSendMouseButton(button, isDown ? 1 : 0, modifiers);
         }
@@ -248,28 +250,14 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 System.loadLibrary("SDL3");
                 org.libsdl.app.SDL.setupJNI();
                 usingSdl3 = true;
-                // GLFW normally opens this gate itself inside glfwPollEvents() every
-                // frame; SDL3 never calls that, so without this the native input gate
-                // in libdroidbridge_runtime.so stays permanently closed and every
-                // touch/mouse event sent from here gets silently dropped. Only needs
-                // to fire once -- unlike GLFW's per-frame call.
+                // input_bridge_v3.c's isInputReady gate only affects the GLFW-native
+                // critical_send_* functions (the `else` branch of sendCursorPos/
+                // sendMouseKeycode below) -- SDL3's branch calls SDLActivity.onNativeMouse()
+                // directly and never passes through that gate. Kept as harmless hygiene
+                // (matches what glfwPollEvents() would do on the GLFW path) but it is NOT
+                // what was blocking menu clicks -- see the relative-cursor fix in
+                // sendCursorPos/sendMouseKeycode for the actual fix.
                 nativeSetInputReady(true);
-                // libdroidbridge_runtime.so hooks glEnable/glIsEnabled(GL_FRAMEBUFFER_SRGB)
-                // and, when this env var is set, blocks Minecraft's own
-                // glEnable(GL_FRAMEBUFFER_SRGB) call -- DroidBridge's own workaround for a
-                // MobileGlues bug where enabling sRGB framebuffer output on SDL3-era (26.3+)
-                // versions double-applies gamma, blowing out brightness and oversaturating
-                // colors (red especially). Off by default, so it never fires unless set here.
-                // Set with Os.setenv (not JREUtils' pre-launch envMap) because usingSdl3 is
-                // only known for certain at this point, once SDL3 init has actually started.
-                RendererPlugin selectedPlugin = RendererPluginManager.getSelectedRendererPlugin();
-                if (selectedPlugin != null && "com.fcl.plugin.mobileglues".equals(selectedPlugin.getUniqueIdentifier())) {
-                    try {
-                        android.system.Os.setenv("DROIDBRIDGE_MOBILEGLUES_DISABLE_FRAMEBUFFER_SRGB", "1", true);
-                    } catch (Throwable t) {
-                        System.err.println("Failed to set DroidBridge MobileGlues sRGB env var: " + t);
-                    }
-                }
                 if (SDLActivity.getSDLSurface() != null) {
                     // This is the real fix, not onNativeResize() alone: usingSdl3 only
                     // flips true here, deep into JVM startup -- long after Android's own
@@ -344,4 +332,5 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
         System.loadLibrary("pojavexec");
     }
 }
+
 
