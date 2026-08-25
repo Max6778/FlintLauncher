@@ -16,6 +16,9 @@ import net.kdt.pojavlaunch.GrabListener;
 import net.kdt.pojavlaunch.LwjglGlfwKeycode;
 import net.kdt.pojavlaunch.MainActivity;
 
+import com.movtery.zalithlauncher.plugins.renderer.RendererPluginManager;
+import com.movtery.zalithlauncher.plugins.renderer.RendererPlugin;
+
 import java.util.ArrayList;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -245,6 +248,28 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 System.loadLibrary("SDL3");
                 org.libsdl.app.SDL.setupJNI();
                 usingSdl3 = true;
+                // GLFW normally opens this gate itself inside glfwPollEvents() every
+                // frame; SDL3 never calls that, so without this the native input gate
+                // in libdroidbridge_runtime.so stays permanently closed and every
+                // touch/mouse event sent from here gets silently dropped. Only needs
+                // to fire once -- unlike GLFW's per-frame call.
+                nativeSetInputReady(true);
+                // libdroidbridge_runtime.so hooks glEnable/glIsEnabled(GL_FRAMEBUFFER_SRGB)
+                // and, when this env var is set, blocks Minecraft's own
+                // glEnable(GL_FRAMEBUFFER_SRGB) call -- DroidBridge's own workaround for a
+                // MobileGlues bug where enabling sRGB framebuffer output on SDL3-era (26.3+)
+                // versions double-applies gamma, blowing out brightness and oversaturating
+                // colors (red especially). Off by default, so it never fires unless set here.
+                // Set with Os.setenv (not JREUtils' pre-launch envMap) because usingSdl3 is
+                // only known for certain at this point, once SDL3 init has actually started.
+                RendererPlugin selectedPlugin = RendererPluginManager.getSelectedRendererPlugin();
+                if (selectedPlugin != null && "com.fcl.plugin.mobileglues".equals(selectedPlugin.getUniqueIdentifier())) {
+                    try {
+                        android.system.Os.setenv("DROIDBRIDGE_MOBILEGLUES_DISABLE_FRAMEBUFFER_SRGB", "1", true);
+                    } catch (Throwable t) {
+                        System.err.println("Failed to set DroidBridge MobileGlues sRGB env var: " + t);
+                    }
+                }
                 if (SDLActivity.getSDLSurface() != null) {
                     // This is the real fix, not onNativeResize() alone: usingSdl3 only
                     // flips true here, deep into JVM startup -- long after Android's own
@@ -295,6 +320,12 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
         }
     }
 
+    // Opens the native input gate inside libdroidbridge_runtime.so. On the normal
+    // GLFW path this is called automatically from GLFW.glfwPollEvents() every frame;
+    // SDL3 never calls glfwPollEvents(), so on the SDL3 path nothing ever opens the
+    // gate and every touch/mouse event gets silently dropped at the native layer.
+    // See the one-shot call in notifyLauncher() below.
+    @Keep @CriticalNative public static native boolean nativeSetInputReady(boolean ready);
     @Keep @CriticalNative public static native void nativeSetUseInputStackQueue(boolean useInputStackQueue);
 
     @Keep @CriticalNative private static native boolean nativeSendChar(char codepoint);
