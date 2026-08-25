@@ -81,8 +81,16 @@ public class TapDetector {
 
         //Check for high enough speed and precision
         if(mCurrentTapNumber > 0){
-            if  ((deltaTime < TAP_MIN_DELTA_MS || deltaTime > TAP_MAX_DELTA_MS) ||
-                ((deltaX*deltaX + deltaY*deltaY) > TAP_SLOP_SQUARE_PX)) {
+            // For DETECTION_METHOD_BOTH, the DOWN and UP being checked here are the two
+            // halves of ONE continuous touch, not two separate taps -- there is no
+            // legitimate reason to invalidate a tap just because the finger was held a
+            // bit longer before lifting, only because it moved too far (drag/scroll).
+            // A time limit only makes sense for genuine multi-tap counting between
+            // SEPARATE taps (DETECTION_METHOD_DOWN/UP, e.g. HotbarView's double-tap),
+            // where it's kept as-is.
+            boolean tooSlow = !detectBothTouch() && (deltaTime < TAP_MIN_DELTA_MS || deltaTime > TAP_MAX_DELTA_MS);
+            boolean movedTooFar = (deltaX*deltaX + deltaY*deltaY) > TAP_SLOP_SQUARE_PX;
+            if (tooSlow || movedTooFar) {
                 if (mDetectionMethod == DETECTION_METHOD_BOTH && (eventAction == ACTION_UP || eventAction == ACTION_POINTER_UP)) {
                     // For the both method, the user is expected to start with a down action.
                     resetTapDetectionState();
