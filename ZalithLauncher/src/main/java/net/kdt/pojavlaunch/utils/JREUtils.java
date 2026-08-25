@@ -307,6 +307,12 @@ public final class JREUtils {
 
         envMap.put("POJAV_RENDERER", rendererId);
 
+        // NOTE: the MobileGlues sRGB color fix (DROIDBRIDGE_MOBILEGLUES_DISABLE_FRAMEBUFFER_SRGB)
+        // is NOT set here. At this point we don't yet know whether this launch will end up
+        // using SDL3 -- that's only discovered dynamically once the JVM starts and Minecraft's
+        // own SDL_InitSubSystem call fires (see CallbackBridge.notifyLauncher(), which is where
+        // that fix actually lives, applied via Os.setenv() at the moment usingSdl3 is confirmed).
+
         if (RendererPluginManager.getSelectedRendererPlugin() != null) return;
 
         if (!rendererId.startsWith("opengles")) {
