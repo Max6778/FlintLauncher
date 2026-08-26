@@ -5,6 +5,7 @@ import static android.view.MotionEvent.ACTION_POINTER_DOWN;
 import static android.view.MotionEvent.ACTION_POINTER_UP;
 import static android.view.MotionEvent.ACTION_UP;
 
+import android.util.Log;
 import android.view.MotionEvent;
 
 import net.kdt.pojavlaunch.Tools;
@@ -90,9 +91,15 @@ public class TapDetector {
             // where it's kept as-is.
             boolean tooSlow = !detectBothTouch() && (deltaTime < TAP_MIN_DELTA_MS || deltaTime > TAP_MAX_DELTA_MS);
             boolean movedTooFar = (deltaX*deltaX + deltaY*deltaY) > TAP_SLOP_SQUARE_PX;
+            Log.d("TapDebug", "action=" + eventAction + " deltaTime=" + deltaTime
+                    + " deltaX=" + deltaX + " deltaY=" + deltaY
+                    + " slopSquare=" + TAP_SLOP_SQUARE_PX
+                    + " tooSlow=" + tooSlow + " movedTooFar=" + movedTooFar
+                    + " currentTapNumber=" + mCurrentTapNumber + " needed=" + mTapNumberToDetect);
             if (tooSlow || movedTooFar) {
                 if (mDetectionMethod == DETECTION_METHOD_BOTH && (eventAction == ACTION_UP || eventAction == ACTION_POINTER_UP)) {
                     // For the both method, the user is expected to start with a down action.
+                    Log.d("TapDebug", "REJECTED tap (BOTH mode, invalidated on UP) tooSlow=" + tooSlow + " movedTooFar=" + movedTooFar);
                     resetTapDetectionState();
                     return false;
                 } else {
@@ -100,16 +107,20 @@ public class TapDetector {
                     mCurrentTapNumber = 0;
                 }
             }
+        } else {
+            Log.d("TapDebug", "action=" + eventAction + " first event of gesture, currentTapNumber=0");
         }
 
         //A worthy tap happened
         mCurrentTapNumber += 1;
         if(mCurrentTapNumber >= mTapNumberToDetect){
+           Log.d("TapDebug", "ACCEPTED tap, returning true");
            resetTapDetectionState();
            return true;
         }
 
         //If not enough taps are reached
+        Log.d("TapDebug", "tap counted (" + mCurrentTapNumber + "/" + mTapNumberToDetect + "), waiting for more");
         return false;
     }
 
