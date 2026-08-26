@@ -1,5 +1,6 @@
 package net.kdt.pojavlaunch.customcontrols.mouse;
 
+import android.util.Log;
 import android.view.MotionEvent;
 
 import com.movtery.zalithlauncher.setting.AllSettings;
@@ -54,8 +55,10 @@ public class InGUIEventProcessor implements TouchEventProcessor {
 
                         if(!mIsMouseDown) {
                             if(!hasGestureStarted()) setGestureStart(motionEvent);
-                            if(!LeftClickGesture.isFingerStill(mStartX, mStartY, FINGER_STILL_THRESHOLD))
+                            if(!LeftClickGesture.isFingerStill(mStartX, mStartY, FINGER_STILL_THRESHOLD)) {
+                                Log.d("TapDebug", "ACTION_MOVE exceeded FINGER_STILL_THRESHOLD -> enableMouse() (mStartX=" + mStartX + " mStartY=" + mStartY + " nowX=" + mainPointerX + " nowY=" + mainPointerY + ")");
                                 enableMouse();
+                            }
                         }
 
                     }
@@ -68,11 +71,20 @@ public class InGUIEventProcessor implements TouchEventProcessor {
                 mTracker.cancelTracking();
 
                 // Handle single tap on gestures
-                if((!AllSettings.getDisableGestures().getValue() || touchpadDisplayed()) && !mIsMouseDown && singleTap) {
+                boolean disableGestures = AllSettings.getDisableGestures().getValue();
+                boolean touchpad = touchpadDisplayed();
+                boolean willClick = (!disableGestures || touchpad) && !mIsMouseDown && singleTap;
+                Log.d("TapDebug", "ACTION_UP: singleTap=" + singleTap + " mIsMouseDown=" + mIsMouseDown
+                        + " disableGestures=" + disableGestures + " touchpadDisplayed=" + touchpad
+                        + " -> willClick=" + willClick + " at (" + CallbackBridge.mouseX + "," + CallbackBridge.mouseY + ")");
+                if(willClick) {
                     CallbackBridge.putMouseEventWithCoords(LwjglGlfwKeycode.GLFW_MOUSE_BUTTON_LEFT, CallbackBridge.mouseX, CallbackBridge.mouseY);
                 }
 
-                if(mIsMouseDown) disableMouse();
+                if(mIsMouseDown) {
+                    Log.d("TapDebug", "ACTION_UP: mIsMouseDown was true -> disableMouse() (drag-click path, not tap-click path)");
+                    disableMouse();
+                }
                 resetGesture();
         }
 
