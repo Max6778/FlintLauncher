@@ -40,8 +40,23 @@ public class CallbackBridge {
             holdingNumlock, holdingShift;
 
     public static void putMouseEventWithCoords(int button, float x, float y) {
-        putMouseEventWithCoords(button, true, x, y);
-        sChoreographer.postFrameCallbackDelayed(l -> putMouseEventWithCoords(button, false, x, y), 33);
+        // sendCursorPos (hover-move) and the click-down used to fire synchronously,
+        // back-to-back, in the same call/frame. Minecraft's own per-frame input
+        // processing can pick up the click before it's incorporated the hover-move
+        // that just landed right before it, missing the target even though the
+        // cursor position was correct. Delaying the down edge by one frame (same as
+        // the up edge already was) puts the hover-move and the click in separate
+        // frames, giving Minecraft a chance to catch up first. Matches the observed
+        // symptom exactly: holding two touches down (which naturally spans multiple
+        // frames) worked, a fast single tap (same-frame move+click) didn't.
+        // Deliberately calling sendMouseKeycode directly here (not
+        // putMouseEventWithCoords(button, isDown, x, y)) -- that overload also calls
+        // sendCursorPos, which would just reintroduce the same same-frame race one
+        // frame later instead of actually fixing it.
+        sendCursorPos(x, y);
+        final int mods = CallbackBridge.getCurrentMods();
+        sChoreographer.postFrameCallbackDelayed(l -> sendMouseKeycode(button, mods, true), 16);
+        sChoreographer.postFrameCallbackDelayed(l -> sendMouseKeycode(button, mods, false), 33);
     }
     
     public static void putMouseEventWithCoords(int button, boolean isDown, float x, float y /* , int dz, long nanos */) {
