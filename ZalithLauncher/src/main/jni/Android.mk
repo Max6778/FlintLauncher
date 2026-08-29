@@ -32,6 +32,7 @@ LOCAL_SRC_FILES := \
     jre_launcher.c \
     utils.c \
     stdio_is.c \
+    native_crash_handler.c \
     java_exec_hooks.c \
     lwjgl_dlopen_hook.c
 
@@ -97,4 +98,3 @@ include $(BUILD_SHARED_LIBRARY)
 
 # delete fake libs after linked
 $(info $(shell (rm $(HERE_PATH)/../jniLibs/*/libawt_headless.so)))
-
