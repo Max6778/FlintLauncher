@@ -195,6 +195,9 @@ class AllSettings {
         val dumpShaders = BooleanSettingUnit("dump_shaders", false)
 
         @JvmStatic
+        val saveLogcat = BooleanSettingUnit("saveLogcat", false)
+
+        @JvmStatic
         val bigCoreAffinity = BooleanSettingUnit("bigCoreAffinity", false)
 
         @JvmStatic
@@ -266,4 +269,5 @@ class AllSettings {
         fun getIgnoreVulkanWarning() = _ignoreVulkanWarning
     }
 }
+
 
