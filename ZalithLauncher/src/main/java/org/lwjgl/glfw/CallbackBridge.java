@@ -27,6 +27,24 @@ public class CallbackBridge {
      *  SDL3 instead of the native GLFW bridge. */
     public static volatile boolean usingSdl3 = false;
     private static boolean isGrabbing = false;
+    // FIX (2026-08-29): SDLSurface's own touch/mouse dispatch (onTouch's
+    // TOOL_TYPE_MOUSE branch, onCapturedPointerEvent) always passes SDL3's
+    // onNativeMouse() the FULL current Android button-state bitmask, i.e.
+    // MotionEvent.getButtonState() -- every button currently held, OR'd
+    // together, on every single call. sendMouseKeycode() below was instead
+    // passing only the ONE button being pressed/released, in isolation, on
+    // both the down AND the up call. SDL3's native button handling diffs
+    // the incoming mask against its own last-seen mask to decide what
+    // changed; being handed a single-bit mask instead of the true
+    // cumulative state (rather than 0 on release, or the OR of both when
+    // e.g. left+right are held together) desyncs that internal state after
+    // the first click, since the "state" SDL3 thinks it's in no longer
+    // matches what it's being told -- explaining a click working once,
+    // then silently not registering afterwards until an unrelated bitmask
+    // (e.g. left+right pressed together) happens to jolt the two back into
+    // agreement. This field tracks the same accumulated bitmask locally so
+    // sendMouseKeycode can pass SDL3 the same kind of value SDLSurface does.
+    private static int sdl3MouseButtonState = 0;
     private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
     
     public static final int CLIPBOARD_COPY = 2000;
@@ -134,7 +152,15 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 case 2: androidButton = MotionEvent.BUTTON_TERTIARY; break;
                 default: androidButton = MotionEvent.BUTTON_PRIMARY; break;
             }
-            SDLActivity.onNativeMouse(androidButton,
+            // Accumulate into the full held-buttons bitmask (see field comment
+            // above) instead of sending just this one button's bit -- matches
+            // what SDLSurface's own onTouch/onCapturedPointerEvent pass for
+            // real touch/mouse input, which is the calling convention SDL3's
+            // native side actually expects.
+            if (isDown) sdl3MouseButtonState |= androidButton;
+            else sdl3MouseButtonState &= ~androidButton;
+
+            SDLActivity.onNativeMouse(sdl3MouseButtonState,
                     isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
                     mouseX, mouseY, isGrabbing());
         } else {
