@@ -37,6 +37,13 @@ class ExperimentalSettingsFragment :
 
         SwitchSettingsWrapper(
             context,
+            AllSettings.saveLogcat,
+            binding.saveLogcatLayout,
+            binding.saveLogcat
+        )
+
+        SwitchSettingsWrapper(
+            context,
             AllSettings.bigCoreAffinity,
             binding.bigCoreAffinityLayout,
             binding.bigCoreAffinity
@@ -57,4 +64,4 @@ class ExperimentalSettingsFragment :
     override fun slideIn(animPlayer: AnimPlayer) {
         animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
     }
-}
+    }
