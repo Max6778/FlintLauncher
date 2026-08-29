@@ -13,6 +13,7 @@
 #include <environ/environ.h>
 
 #include "stdio_is.h"
+#include "native_crash_handler.h"
 
 //
 // Created by maks on 17.02.21.
@@ -193,6 +194,31 @@ Java_net_kdt_pojavlaunch_Logger_begin(JNIEnv *env, __attribute((unused)) jclass 
         return;
     }
     latestlog_fd = open(logFilePath, O_WRONLY | O_TRUNC);
+
+    // Install the native crash handler (see native_crash_handler.c) once,
+    // pointed at "<the directory latestlog.txt lives in>/launcher_log" --
+    // that's PathManager.DIR_LAUNCHER_LOG, the same directory
+    // ZHTools.shareLogs() already zips up behind the in-app "Share Log"
+    // button. No Java-side change needed for that button to start
+    // including native crash captures.
+    {
+        static bool crashHandlerInstalled = false;
+        if (!crashHandlerInstalled) {
+            char crashLogDir[512];
+            const char *lastSlash = strrchr(logFilePath, '/');
+            if (lastSlash != NULL) {
+                size_t dirLen = (size_t) (lastSlash - logFilePath);
+                if (dirLen > sizeof(crashLogDir) - sizeof("/launcher_log") - 1) {
+                    dirLen = sizeof(crashLogDir) - sizeof("/launcher_log") - 1;
+                }
+                memcpy(crashLogDir, logFilePath, dirLen);
+                memcpy(crashLogDir + dirLen, "/launcher_log", sizeof("/launcher_log"));
+                install_native_crash_handler(crashLogDir);
+                crashHandlerInstalled = true;
+            }
+        }
+    }
+
     (*env)->ReleaseStringUTFChars(env, logPath, logFilePath);
 
     if (latestlog_fd == -1)
