@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
     utils.c \
     stdio_is.c \
     native_crash_handler.c \
+    logcat_capture.c \
     java_exec_hooks.c \
     lwjgl_dlopen_hook.c
 
