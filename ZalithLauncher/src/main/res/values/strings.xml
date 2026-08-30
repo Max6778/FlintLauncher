@@ -486,7 +486,7 @@
     <string name="setting_shader_dump_title">Enable Shader Output</string>
     <string name="setting_shader_dump_desc">Logs converted shaders to a log file</string>
     <string name="setting_save_logcat_title">Save Logcat</string>
-    <string name="setting_save_logcat_desc">Continuously saves this app's own logcat...</string>
+    <string name="setting_save_logcat_desc">Continuously saves this app logcat to logcat.txt alongside latestlog.txt for the whole session -- useful for diagnosing native crashes without adb</string>
     <string name="setting_force_big_core_title">Force Renderer to Run on Big Core</string>
     <string name="setting_force_big_core_desc">Forces the Minecraft rendering thread to run on the highest frequency core</string>
     <string name="setting_touch_controller_vibrate_duration_title">TouchController Mod Vibration Duration</string>
