@@ -14,6 +14,7 @@
 
 #include "stdio_is.h"
 #include "native_crash_handler.h"
+#include "logcat_capture.h"
 
 //
 // Created by maks on 17.02.21.
@@ -47,6 +48,21 @@ static _Atomic bool logger_running = false;
 static jmethodID logger_onEventLogged = NULL;
 static volatile jobject logListener = NULL;
 static int latestlog_fd = -1;
+
+// logcat.txt capture (2026-08-30): same idea as latestlog.txt above, but
+// piping this process's own `logcat` output instead of its stdout/stderr.
+// Deliberately native and fork()+exec()-based, NOT a Java ProcessBuilder --
+// the earlier Java-side attempt (LogcatCapture.java) failed silently on
+// device, most likely an SELinux/OEM policy blocking a third-party app
+// from exec'ing "logcat" through that path. Doing the fork+exec here
+// instead doesn't sidestep that policy (same binary, same process, same
+// restriction if that's really what's happening) -- but it does remove
+// every other variable (JNI wiring, Java exception swallowing, etc.) and
+// ties capture directly to the same reliable lifecycle latestlog.txt
+// already uses, so if this *also* silently produces nothing, that's a
+// much stronger signal the actual cause is the exec being blocked
+// outright, rather than something in the surrounding plumbing.
+static pid_t logcat_child_pid = -1;
 
 #define LOG_TAG "stdio_is"
 
@@ -215,6 +231,32 @@ Java_net_kdt_pojavlaunch_Logger_begin(JNIEnv *env, __attribute((unused)) jclass 
                 memcpy(crashLogDir + dirLen, "/launcher_log", sizeof("/launcher_log"));
                 install_native_crash_handler(crashLogDir);
                 crashHandlerInstalled = true;
+            }
+        }
+    }
+
+    // Start logcat.txt capture (see logcat_capture.c) unconditionally,
+    // right alongside latestlog.txt itself -- same directory, same call
+    // site, no settings toggle and no separate per-activity Java wiring
+    // to forget. This is deliberately hooked here rather than from Java:
+    // Logger_begin() is proven to run on every single launch (it's what
+    // makes latestlog.txt exist at all), so piggybacking on it removes
+    // the one failure mode ("was the Java call site actually reached?")
+    // that every previous attempt at this kept running into.
+    {
+        static bool logcatCaptureStarted = false;
+        if (!logcatCaptureStarted) {
+            char logcatPath[512];
+            const char *lastSlash = strrchr(logFilePath, '/');
+            if (lastSlash != NULL) {
+                size_t dirLen = (size_t) (lastSlash - logFilePath);
+                if (dirLen > sizeof(logcatPath) - sizeof("/logcat.txt") - 1) {
+                    dirLen = sizeof(logcatPath) - sizeof("/logcat.txt") - 1;
+                }
+                memcpy(logcatPath, logFilePath, dirLen);
+                memcpy(logcatPath + dirLen, "/logcat.txt", sizeof("/logcat.txt"));
+                start_logcat_capture(logcatPath, getpid());
+                logcatCaptureStarted = true;
             }
         }
     }

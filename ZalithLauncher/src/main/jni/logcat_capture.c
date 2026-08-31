@@ -11,6 +11,8 @@
 #include <stdarg.h>
 #include <android/log.h>
 
+#include "logcat_capture.h"
+
 //
 // logcat_capture.c  (2026-08-30)
 //
@@ -40,6 +42,19 @@
 // Runs in its own pthread -- mirrors stdio_is.c's logger_thread in shape
 // (spawned once, writes to a file, detached) but reads from liblog
 // instead of a stdout/stderr pipe.
+//
+// REFACTOR (2026-08-30): now callable two ways --
+//   1. start_logcat_capture()/stop_logcat_capture() -- a plain C entry
+//      point, called directly from stdio_is.c's Logger_begin(), the same
+//      call site that already reliably creates latestlog.txt on every
+//      single launch. This removes the earlier dependency on Java code in
+//      three separate activities remembering to call LogcatCapture --
+//      that per-activity wiring was the actual gap in every round of
+//      testing so far, not the capture logic itself.
+//   2. The JNI wrappers below are kept as thin passthroughs to the same
+//      two functions, in case Java-side start/stop is still wanted later
+//      (e.g. an explicit "stop capturing" button) -- LogcatCapture.java's
+//      nativeStart/nativeStop still resolve to real symbols either way.
 //
 
 #define TAG "logcat_capture"
@@ -172,23 +187,17 @@ static void *capture_thread(__attribute__((unused)) void *arg) {
     return NULL;
 }
 
-JNIEXPORT jboolean JNICALL
-Java_net_kdt_pojavlaunch_utils_LogcatCapture_nativeStart(JNIEnv *env, __attribute__((unused)) jclass clazz,
-                                                          jstring outPath, jint pid) {
-    if (s_running) return JNI_TRUE; // already capturing this session
+bool start_logcat_capture(const char *out_path, int pid) {
+    if (s_running) return true; // already capturing this session
 
-    const char *path = (*env)->GetStringUTFChars(env, outPath, NULL);
-    if (path == NULL) return JNI_FALSE;
-
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0660);
-    (*env)->ReleaseStringUTFChars(env, outPath, path);
+    int fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0660);
     if (fd < 0) {
-        __android_log_print(ANDROID_LOG_WARN, TAG, "Failed to open output file for logcat capture");
-        return JNI_FALSE;
+        __android_log_print(ANDROID_LOG_WARN, TAG, "Failed to open output file for logcat capture: %s", out_path);
+        return false;
     }
 
     s_out_fd = fd;
-    s_target_pid = (int) pid;
+    s_target_pid = pid;
     s_should_stop = false;
     s_running = true;
 
@@ -196,18 +205,32 @@ Java_net_kdt_pojavlaunch_utils_LogcatCapture_nativeStart(JNIEnv *env, __attribut
         close(s_out_fd);
         s_out_fd = -1;
         s_running = false;
-        return JNI_FALSE;
+        return false;
     }
     pthread_detach(s_thread);
-    return JNI_TRUE;
+    return true;
 }
 
-JNIEXPORT void JNICALL
-Java_net_kdt_pojavlaunch_utils_LogcatCapture_nativeStop(__attribute__((unused)) JNIEnv *env,
-                                                         __attribute__((unused)) jclass clazz) {
+void stop_logcat_capture(void) {
     s_should_stop = true;
     // The blocking read inside android_logger_list_read won't wake up
     // immediately -- the thread notices s_should_stop on its next entry
     // or read timeout and exits on its own; s_out_fd is left open for it
     // to finish writing rather than closed here, to avoid a race.
+}
+
+JNIEXPORT jboolean JNICALL
+Java_net_kdt_pojavlaunch_utils_LogcatCapture_nativeStart(JNIEnv *env, __attribute__((unused)) jclass clazz,
+                                                          jstring outPath, jint pid) {
+    const char *path = (*env)->GetStringUTFChars(env, outPath, NULL);
+    if (path == NULL) return JNI_FALSE;
+    bool ok = start_logcat_capture(path, (int) pid);
+    (*env)->ReleaseStringUTFChars(env, outPath, path);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_net_kdt_pojavlaunch_utils_LogcatCapture_nativeStop(__attribute__((unused)) JNIEnv *env,
+                                                         __attribute__((unused)) jclass clazz) {
+    stop_logcat_capture();
 }
