@@ -1,6 +1,7 @@
 <div align="center">
 
 <img src="logo.png" alt="FlintLauncher Logo" width="600"/>
+## FlintLauncher
 
 ### Run Minecraft: Java Edition on Android.
 
