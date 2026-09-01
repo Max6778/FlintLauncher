@@ -65,6 +65,7 @@ static bool init_exit_hook() {
         create_dlopen_hooks(bytehook_hook_all_p);
         create_sdl_hooks(bytehook_hook_all_p);
         create_gl_core_proc_hooks(bytehook_hook_all_p);
+        create_window_title_hook(bytehook_hook_all_p);
         return true;
     } else {
         __android_log_print(ANDROID_LOG_INFO, "exit_hook", "bytehook_init failed (%i)", bhook_status);

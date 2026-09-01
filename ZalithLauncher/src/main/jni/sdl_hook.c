@@ -255,3 +255,69 @@ void create_gl_core_proc_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
     create_gl_core_proc_hooks_impl(bytehook_hook_all_p);
 }
 
+//
+// --- SDL_SetWindowTitle JNI-attach fix ---
+//
+// Real crash, from an actual device: "JNI DETECTED ERROR IN APPLICATION: a
+// thread (tid ...) is making JNI calls without being attached, in call to
+// NewStringUTF", with the native backtrace showing the abort happening
+// inside SDL_SetWindowTitle's own Android backend (it needs to call back
+// into Java to actually apply the title, and that needs a JNIEnv). SDL3's
+// own documentation states SDL_SetWindowTitle() "should only be called on
+// the main thread" -- but on Android, SDL3's internal window/surface
+// (re)creation handling can end up invoking it from a callback thread that
+// was never attached to the JVM at all (this isn't something Flint's own
+// code calls directly -- see the empty/no-op glfwSetWindowTitle() in the
+// LWJGL 3.4.1 GLFW stub; the call happens from inside libSDL3.so itself).
+//
+// We don't have libSDL3.so's source to fix the call site directly, so this
+// takes the same approach as notify_launcher_sdl_init() above: hook the
+// function, make sure the calling thread is attached to the Dalvik JVM
+// *before* letting SDL3's real implementation run, then call through.
+// Deliberately never detaches -- this may be an SDL-owned thread that lives
+// for the rest of the process and calls into JNI more than once; repeated
+// attach/detach cycles on the same thread are wasteful and have their own
+// history of ART-version-specific bugs. A thread that's attached and never
+// explicitly detached gets cleaned up automatically when it exits.
+//
+
+typedef void (*sdl_set_window_title_func)(void *window, const char *title);
+
+static void ensure_calling_thread_attached(const char *caller_tag) {
+    JavaVM *dalvikVm = pojav_environ->dalvikJavaVMPtr;
+    if (dalvikVm == NULL) return; // nothing we can do without it -- let the real call proceed as-is
+
+    JNIEnv *env;
+    int getEnvStat = (*dalvikVm)->GetEnv(dalvikVm, (void **) &env, JNI_VERSION_1_6);
+    if (getEnvStat == JNI_EDETACHED) {
+        if ((*dalvikVm)->AttachCurrentThread(dalvikVm, &env, NULL) != 0) {
+            __android_log_print(ANDROID_LOG_ERROR, "sdl_hook",
+                "Failed to attach calling thread before %s -- letting the real call "
+                "proceed anyway (may abort)", caller_tag);
+        }
+    } else if (getEnvStat != JNI_OK) {
+        __android_log_print(ANDROID_LOG_ERROR, "sdl_hook",
+            "GetEnv failed (%d) before %s -- letting the real call proceed anyway",
+            getEnvStat, caller_tag);
+    }
+}
+
+static void custom_sdl_set_window_title(void *window, const char *title) {
+    ensure_calling_thread_attached("SDL_SetWindowTitle");
+    BYTEHOOK_CALL_PREV(custom_sdl_set_window_title, sdl_set_window_title_func, window, title);
+    BYTEHOOK_POP_STACK();
+}
+
+static void create_window_title_hook_impl(bytehook_hook_all_t bytehook_hook_all_p) {
+    // Same BYTEHOOK_MODE_AUTOMATIC reasoning as the hooks above: libSDL3.so
+    // isn't loaded at process-hook-install time, so we hook the symbol name
+    // across all libraries rather than targeting libSDL3.so by path.
+    bytehook_stub_t stub = bytehook_hook_all_p(NULL, "SDL_SetWindowTitle", &custom_sdl_set_window_title, NULL, NULL);
+    __android_log_print(ANDROID_LOG_INFO, "sdl_hook",
+        "Successfully initialized SDL_SetWindowTitle JNI-attach hook, stub=%p", stub);
+}
+
+void create_window_title_hook(bytehook_hook_all_t bytehook_hook_all_p) {
+    create_window_title_hook_impl(bytehook_hook_all_p);
+}
+
