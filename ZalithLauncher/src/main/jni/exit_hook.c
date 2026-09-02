@@ -46,7 +46,8 @@ static bool init_exit_hook() {
 
     bytehook_stub_t (*bytehook_hook_all_p)(const char *callee_path_name, const char *sym_name, void *new_func,
                                            bytehook_hooked_t hooked, void *hooked_arg);
-    bytehook_stub_t (*bytehook_hook_single_p)(const char *callee_path_name, const char *sym_name, void *new_func,
+    bytehook_stub_t (*bytehook_hook_single_p)(const char *caller_path_name, const char *callee_path_name,
+                                           const char *sym_name, void *new_func,
                                            bytehook_hooked_t hooked, void *hooked_arg);
     int (*bytehook_init_p)(int mode, bool debug);
 

@@ -365,7 +365,12 @@ static void create_thread_attach_hook_impl(bytehook_hook_single_t bytehook_hook_
     // thread.cc. hook_single only intercepts pthread_create calls made
     // *from* libSDL3.so's own code, leaving every other caller (ART/
     // libart.so included) completely untouched.
-    bytehook_stub_t stub = bytehook_hook_single_p("libSDL3.so", "pthread_create", &custom_pthread_create, NULL, NULL);
+    // caller_path_name="libSDL3.so" (only intercept pthread_create calls
+    // made from SDL3's own code), callee_path_name=NULL (match
+    // pthread_create regardless of which library exports it -- it's
+    // libc.so in practice, but NULL is simplest and matches how the other
+    // hooks in this file pass NULL for callee_path_name too).
+    bytehook_stub_t stub = bytehook_hook_single_p("libSDL3.so", NULL, "pthread_create", &custom_pthread_create, NULL, NULL);
     __android_log_print(ANDROID_LOG_INFO, "sdl_hook",
         "Successfully initialized pthread_create JNI-auto-attach hook (scoped to libSDL3.so), stub=%p", stub);
 }
