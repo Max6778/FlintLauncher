@@ -46,12 +46,15 @@ static bool init_exit_hook() {
 
     bytehook_stub_t (*bytehook_hook_all_p)(const char *callee_path_name, const char *sym_name, void *new_func,
                                            bytehook_hooked_t hooked, void *hooked_arg);
+    bytehook_stub_t (*bytehook_hook_single_p)(const char *callee_path_name, const char *sym_name, void *new_func,
+                                           bytehook_hooked_t hooked, void *hooked_arg);
     int (*bytehook_init_p)(int mode, bool debug);
 
     bytehook_hook_all_p = dlsym(bytehook_handle, "bytehook_hook_all");
+    bytehook_hook_single_p = dlsym(bytehook_handle, "bytehook_hook_single");
     bytehook_init_p = dlsym(bytehook_handle, "bytehook_init");
 
-    if(bytehook_hook_all_p == NULL || bytehook_init_p == NULL) {
+    if(bytehook_hook_all_p == NULL || bytehook_hook_single_p == NULL || bytehook_init_p == NULL) {
         goto dlerror;
     }
     int bhook_status = bytehook_init_p(BYTEHOOK_MODE_AUTOMATIC, false);
@@ -65,7 +68,17 @@ static bool init_exit_hook() {
         create_dlopen_hooks(bytehook_hook_all_p);
         create_sdl_hooks(bytehook_hook_all_p);
         create_gl_core_proc_hooks(bytehook_hook_all_p);
-        create_window_title_hook(bytehook_hook_all_p);
+        // Deliberately bytehook_hook_single_p, NOT bytehook_hook_all_p, here:
+        // create_window_title_hook hooks pthread_create, and hook_all would
+        // intercept EVERY caller process-wide -- including ART's own
+        // internal thread creation for real java.lang.Thread objects. That
+        // was tried and caused a real on-device abort ("Check failed:
+        // Thread::Current() == nullptr" in ART's thread.cc) from double-
+        // attaching a thread ART was already in the middle of setting up
+        // itself. hook_single scopes interception to only calls made *from*
+        // libSDL3.so, leaving every other caller (including libart.so)
+        // completely untouched. See sdl_hook.c for the full explanation.
+        create_window_title_hook(bytehook_hook_single_p);
         return true;
     } else {
         __android_log_print(ANDROID_LOG_INFO, "exit_hook", "bytehook_init failed (%i)", bhook_status);

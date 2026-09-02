@@ -356,14 +356,22 @@ static int custom_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     return ret;
 }
 
-static void create_thread_attach_hook_impl(bytehook_hook_all_t bytehook_hook_all_p) {
-    bytehook_stub_t stub = bytehook_hook_all_p(NULL, "pthread_create", &custom_pthread_create, NULL, NULL);
+static void create_thread_attach_hook_impl(bytehook_hook_single_t bytehook_hook_single_p) {
+    // Scoped to libSDL3.so specifically -- see the long comment above and
+    // the matching comment in exit_hook.c for why hook_all (every caller
+    // process-wide) is NOT safe to use here: it previously double-attached
+    // threads ART creates internally for real java.lang.Thread objects,
+    // causing "Check failed: Thread::Current() == nullptr" in ART's own
+    // thread.cc. hook_single only intercepts pthread_create calls made
+    // *from* libSDL3.so's own code, leaving every other caller (ART/
+    // libart.so included) completely untouched.
+    bytehook_stub_t stub = bytehook_hook_single_p("libSDL3.so", "pthread_create", &custom_pthread_create, NULL, NULL);
     __android_log_print(ANDROID_LOG_INFO, "sdl_hook",
-        "Successfully initialized pthread_create JNI-auto-attach hook, stub=%p", stub);
+        "Successfully initialized pthread_create JNI-auto-attach hook (scoped to libSDL3.so), stub=%p", stub);
 }
 
-void create_window_title_hook(bytehook_hook_all_t bytehook_hook_all_p) {
-    create_thread_attach_hook_impl(bytehook_hook_all_p);
+void create_window_title_hook(bytehook_hook_single_t bytehook_hook_single_p) {
+    create_thread_attach_hook_impl(bytehook_hook_single_p);
 }
 
 
