@@ -163,6 +163,63 @@ static void *custom_sdl_gl_getprocaddress(const char *proc) {
     return real_result;
 }
 
+//
+// --- SDL_SetWindowTitle JNI-attach fix ---
+//
+// Real crash, from an actual device: "JNI DETECTED ERROR IN APPLICATION: a
+// thread is making JNI calls without being attached, in call to
+// NewStringUTF", backtrace through SDL_SetWindowTitle's own Android
+// backend (it needs to call back into Java to actually apply the title).
+// SDL3's own docs say SDL_SetWindowTitle() "should only be called on the
+// main thread" -- but on Android its internal window/surface handling can
+// end up invoking it from a thread that was never attached to the JVM.
+//
+// Two earlier attempts at this failed on-device, for the exact reason
+// described in the SDL_GL_GetProcAddress comment above: hooking
+// SDL_SetWindowTitle directly (by exported symbol) had zero effect, and
+// neither did hooking pthread_create scoped to libSDL3.so -- because
+// whatever ultimately calls SDL_SetWindowTitle here isn't going through a
+// PLT/GOT stub at all (LWJGL/SDL's Android glue resolves it once via
+// dlsym and calls the cached raw pointer forever after), so there is
+// nothing for a symbol-level or call-site-level PLT hook to intercept.
+//
+// Fix: exactly the same technique already proven above for
+// SDL_GL_GetProcAddress -- hook the *resolution* (dlsym itself) instead of
+// the call. When something asks dlsym for "SDL_SetWindowTitle", hand back
+// our wrapper's address instead of the real one. Whatever caches that
+// pointer ends up caching ours, so every future raw-pointer call to it is
+// transparently routed through us first.
+//
+
+typedef void (*sdl_set_window_title_t)(void *window, const char *title);
+static sdl_set_window_title_t real_sdl_set_window_title = NULL;
+
+static void custom_sdl_set_window_title(void *window, const char *title) {
+    JavaVM *dalvikVm = pojav_environ->dalvikJavaVMPtr;
+    if (dalvikVm != NULL) {
+        JNIEnv *env;
+        int getEnvStat = (*dalvikVm)->GetEnv(dalvikVm, (void **) &env, JNI_VERSION_1_6);
+        if (getEnvStat == JNI_EDETACHED) {
+            if ((*dalvikVm)->AttachCurrentThread(dalvikVm, &env, NULL) != 0) {
+                __android_log_print(ANDROID_LOG_ERROR, "dlopen_hook",
+                    "Failed to attach calling thread before SDL_SetWindowTitle -- "
+                    "letting the real call proceed anyway (may abort)");
+            }
+            // Deliberately never detached -- this thread may call into JNI
+            // more than once over its lifetime, and repeated attach/detach
+            // cycles on the same OS thread are wasteful and have their own
+            // history of ART-version-specific bugs. A thread that's
+            // attached and never explicitly detached is cleaned up
+            // automatically by ART when it exits.
+        }
+        // getEnvStat == JNI_OK means it's already attached -- nothing to do.
+    }
+
+    if (real_sdl_set_window_title != NULL) {
+        real_sdl_set_window_title(window, title);
+    }
+}
+
 static bool ifSdl(const char *filename) {
     if (filename == NULL)
         return false;
@@ -218,6 +275,13 @@ void *custom_dlsym(void *handle, const char *symbol) {
         real_sdl_gl_getprocaddress = (sdl_gl_getprocaddress_t) result;
         __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_GL_GetProcAddress: %p", result);
         return (void *) custom_sdl_gl_getprocaddress;
+    }
+
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_SetWindowTitle") == 0
+        && real_sdl_set_window_title == NULL) {
+        real_sdl_set_window_title = (sdl_set_window_title_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_SetWindowTitle: %p", result);
+        return (void *) custom_sdl_set_window_title;
     }
 
     return result;
