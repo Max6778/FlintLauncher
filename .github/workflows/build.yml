@@ -54,7 +54,7 @@ jobs:
         run: ./gradlew :jre_lwjgl3glfw:clean :jre_lwjgl3glfw_341:clean :jre_lwjgl3glfw:jar :jre_lwjgl3glfw_341:jar --stacktrace --no-daemon
 
       - name: Build Debug APK
-        run: ./gradlew :ZalithLauncher:assembleProguardNoDebug --stacktrace --no-daemon
+        run: ./gradlew :ZalithLauncher:assembleDebug --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
