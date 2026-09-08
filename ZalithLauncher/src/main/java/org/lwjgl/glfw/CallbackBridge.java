@@ -27,25 +27,24 @@ public class CallbackBridge {
      *  SDL3 instead of the native GLFW bridge. */
     public static volatile boolean usingSdl3 = false;
     private static boolean isGrabbing = false;
-    // FIX (2026-08-29): SDLSurface's own touch/mouse dispatch (onTouch's
-    // TOOL_TYPE_MOUSE branch, onCapturedPointerEvent) always passes SDL3's
-    // onNativeMouse() the FULL current Android button-state bitmask, i.e.
+    private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
+    // FIX: SDLSurface's own touch/mouse dispatch (onTouch's TOOL_TYPE_MOUSE
+    // branch, onCapturedPointerEvent) always passes SDL3's onNativeMouse()
+    // the FULL current Android button-state bitmask, i.e.
     // MotionEvent.getButtonState() -- every button currently held, OR'd
     // together, on every single call. sendMouseKeycode() below was instead
     // passing only the ONE button being pressed/released, in isolation, on
     // both the down AND the up call. SDL3's native button handling diffs
     // the incoming mask against its own last-seen mask to decide what
     // changed; being handed a single-bit mask instead of the true
-    // cumulative state (rather than 0 on release, or the OR of both when
-    // e.g. left+right are held together) desyncs that internal state after
-    // the first click, since the "state" SDL3 thinks it's in no longer
-    // matches what it's being told -- explaining a click working once,
-    // then silently not registering afterwards until an unrelated bitmask
-    // (e.g. left+right pressed together) happens to jolt the two back into
-    // agreement. This field tracks the same accumulated bitmask locally so
+    // cumulative state desyncs that internal state after the first click,
+    // since the "state" SDL3 thinks it's in no longer matches what it's
+    // being told -- explaining a click working once, then silently not
+    // registering afterwards until an unrelated bitmask (e.g. left+right
+    // pressed together) happens to jolt the two back into agreement. This
+    // field tracks the same accumulated bitmask locally so
     // sendMouseKeycode can pass SDL3 the same kind of value SDLSurface does.
     private static int sdl3MouseButtonState = 0;
-    private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
     
     public static final int CLIPBOARD_COPY = 2000;
     public static final int CLIPBOARD_PASTE = 2001;
@@ -83,20 +82,54 @@ public class CallbackBridge {
     }
 
 
+    // FIX: sendCursorPos always passed the raw ABSOLUTE mouseX/mouseY through
+    // to onNativeMouse, only toggling the trailing "relative" boolean based
+    // on isGrabbing() -- but relative=true tells SDL3 to treat the (x,y)
+    // arguments themselves AS a motion delta to add to the current cursor
+    // position, not as an absolute coordinate to jump to. Confirmed by
+    // direct comparison against DroidBridge's own working equivalent
+    // (DroidBridgeSDL3Bootstrap.routeVirtualCursor()), which explicitly
+    // computes (current - last) as a small delta before calling
+    // onNativeMouse(..., relative=true) -- it never passes the absolute
+    // position through on that path. Passing full absolute screen
+    // coordinates (potentially hundreds of pixels) as if they were a tiny
+    // per-frame delta is exactly what produced the reported symptom: the
+    // camera snapping/spinning wildly the instant you start moving it,
+    // since SDL3 was adding what it thought was a small delta but was
+    // actually your raw on-screen position. lastRelativeX/Y plus the
+    // baseline-valid flag mirror DroidBridge's lastVirtualCursorX/Y and
+    // virtualCursorBaselineValid exactly, including not sending any motion
+    // at all on the very first move after grab starts (nothing to diff
+    // against yet) rather than one large delta from an arbitrary origin.
+    private static float lastRelativeMouseX, lastRelativeMouseY;
+    private static boolean relativeMouseBaselineValid = false;
+
     public static void sendCursorPos(float x, float y) {
         mouseX = x;
         mouseY = y;
         if (usingSdl3) {
-            // relative=true tells SDL to treat (x,y) as a motion DELTA added to the
-            // current cursor position, not an absolute screen coordinate -- hardcoding
-            // true here broke every menu tap, since a tap's (x,y) IS an absolute
-            // position and needs relative=false to land where the user actually touched.
-            // Only in-game camera-look (grabbed) should use relative deltas.
-            SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, mouseX, mouseY, isGrabbing());
+            if (isGrabbing()) {
+                if (!relativeMouseBaselineValid) {
+                    lastRelativeMouseX = x;
+                    lastRelativeMouseY = y;
+                    relativeMouseBaselineValid = true;
+                    return; // nothing to diff against yet -- see comment above
+                }
+                float deltaX = x - lastRelativeMouseX;
+                float deltaY = y - lastRelativeMouseY;
+                lastRelativeMouseX = x;
+                lastRelativeMouseY = y;
+                SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, deltaX, deltaY, true);
+            } else {
+                relativeMouseBaselineValid = false;
+                // Absolute position, relative=false -- this path was already
+                // correct (menu taps need to land where you actually touched).
+                SDLActivity.onNativeMouse(0, MotionEvent.ACTION_HOVER_MOVE, mouseX, mouseY, false);
+            }
         } else {
             nativeSendCursorPos(mouseX, mouseY);
         }
-            }
+    }
 public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
         if (usingSdl3) {
             if (keycode != 0) {
@@ -325,6 +358,12 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     @SuppressWarnings("unused")
     private static void onGrabStateChanged(final boolean grabbing) {
         isGrabbing = grabbing;
+        // Matches DroidBridgeSDL3Bootstrap.onSdlRelativeMouseChanged() resetting
+        // virtualCursorBaselineValid immediately on grab-state change, rather
+        // than waiting for the next sendCursorPos call to notice -- avoids any
+        // window where a stale baseline from the previous grab session could
+        // produce one bad delta right at the start of a new one.
+        relativeMouseBaselineValid = false;
         sChoreographer.postFrameCallbackDelayed((time) -> {
             // If the grab re-changed, skip notify process
             if(isGrabbing != grabbing) return;
