@@ -243,6 +243,136 @@ static jint custom_sdl3_JNI_OnLoad(JavaVM *vm, void *reserved){
     return JNI_VERSION_1_4;
 }
 
+//
+// --- SDL_SetCursor use-after-free / bogus-handle guard ---
+//
+// Real crash, from an actual device: SIGSEGV inside SDL_SetCursor, called
+// from Minecraft's own CursorType.select() (com.mojang.blaze3d.platform.
+// cursor.CursorType) -- the instruction pointer at the fault point decoded
+// to readable ASCII bytes, a classic sign of a corrupted/use-after-free
+// pointer rather than a null dereference. Reproduced specifically when
+// closing the inventory (switches to the CROSSHAIR system cursor) and when
+// hovering creative-mode category tabs (switches to POINTING_HAND) --
+// notably NOT the plain ARROW cursor used for basic menus, which never
+// crashed. Minecraft's own CursorType.createStandardCursor() already
+// checks for cursor-creation failure (SDL_CreateSystemCursor returning
+// 0/NULL) and falls back safely -- but if this SDL3 Android build's
+// SDL_CreateSystemCursor returns a non-null-but-invalid handle for a
+// shape it doesn't actually support properly, rather than correctly
+// signaling failure with NULL, that existing safety check gets silently
+// bypassed, and the crash only surfaces later, whenever that specific
+// cursor actually gets used.
+//
+// Rather than bet everything on that one theory of the root cause, this
+// guards against the *symptom* directly regardless of cause (also covers
+// the case of a cursor handle going stale from a surface/window
+// recreation event, which is a separate real code path in this app --
+// see MinecraftGLSurface.surfaceCreated()'s isCalled branch): every
+// handle actually returned by SDL_CreateSystemCursor or SDL_GetDefault
+// Cursor gets recorded; SDL_SetCursor then refuses to forward any handle
+// that isn't one we've actually seen returned, substituting the default
+// cursor instead of ever letting a bad pointer reach SDL3's internals.
+//
+
+#define TRACKED_CURSOR_HANDLES_MAX 32
+static void *tracked_cursor_handles[TRACKED_CURSOR_HANDLES_MAX];
+static int tracked_cursor_handle_count = 0;
+static void *default_cursor_handle = NULL; // first handle we ever see, used as the safe fallback
+
+static void remember_cursor_handle(void *handle) {
+    if (handle == NULL) return;
+    for (int i = 0; i < tracked_cursor_handle_count; i++) {
+        if (tracked_cursor_handles[i] == handle) return; // already tracked
+    }
+    if (default_cursor_handle == NULL) default_cursor_handle = handle;
+    if (tracked_cursor_handle_count < TRACKED_CURSOR_HANDLES_MAX) {
+        tracked_cursor_handles[tracked_cursor_handle_count++] = handle;
+    }
+    // If we ever exceed 32 distinct real cursors (Minecraft only creates 8
+    // total, per CursorTypes.java), we simply stop tracking new ones rather
+    // than overflow -- the existing tracked set still protects SetCursor.
+}
+
+static bool is_known_cursor_handle(void *handle) {
+    if (handle == NULL) return false;
+    for (int i = 0; i < tracked_cursor_handle_count; i++) {
+        if (tracked_cursor_handles[i] == handle) return true;
+    }
+    return false;
+}
+
+typedef void *(*sdl_create_system_cursor_t)(int id);
+static sdl_create_system_cursor_t real_sdl_create_system_cursor = NULL;
+
+static void *custom_sdl_create_system_cursor(int id) {
+    void *handle = (real_sdl_create_system_cursor != NULL) ? real_sdl_create_system_cursor(id) : NULL;
+    remember_cursor_handle(handle);
+    return handle;
+}
+
+typedef void *(*sdl_get_default_cursor_t)(void);
+static sdl_get_default_cursor_t real_sdl_get_default_cursor = NULL;
+
+static void *custom_sdl_get_default_cursor(void) {
+    void *handle = (real_sdl_get_default_cursor != NULL) ? real_sdl_get_default_cursor() : NULL;
+    remember_cursor_handle(handle);
+    return handle;
+}
+
+typedef bool (*sdl_set_cursor_t)(void *cursor);
+static sdl_set_cursor_t real_sdl_set_cursor = NULL;
+
+static bool custom_sdl_set_cursor(void *cursor) {
+    if (cursor != NULL && !is_known_cursor_handle(cursor)) {
+        __android_log_print(ANDROID_LOG_WARN, "dlopen_hook",
+            "Refusing to SDL_SetCursor with an unrecognized handle %p -- "
+            "substituting the default cursor instead of risking a crash", cursor);
+        cursor = default_cursor_handle; // may itself be NULL if we've never seen ANY cursor yet
+    }
+    if (real_sdl_set_cursor != NULL) {
+        return real_sdl_set_cursor(cursor);
+    }
+    return false;
+}
+
+//
+// --- FPS counter fix ---
+//
+// CallbackBridge.getCurrentFps() (read by GameMenuViewWrapper's floating
+// overlay) has always been backed by a plain counter (frameCount/fps,
+// egl_bridge.c) incremented inside pojavSwapBuffers() -- but that's the old
+// GLFW-era buffer-swap wrapper. 26.3-snapshot+ moved Minecraft's windowing
+// to SDL3, which presents frames via its own SDL_GL_SwapWindow, never
+// routing through pojavSwapBuffers() at all -- so the counter simply never
+// increments anymore, reported by the user as the overlay always reading 0
+// (confirmed under both MobileGlues and a Vulkan-based rendering mod,
+// ruling out a renderer-specific cause and pointing at the counter itself
+// being disconnected from whatever actually presents a frame now).
+//
+// DroidBridge's equivalent (DroidBridgeSdlFpsBridge) solves this by writing
+// FPS+timestamp to a file from their own native SDL3 wrapper and polling it
+// from Java -- a bigger architecture change than needed here. Since
+// calculateFPS() (egl_bridge.c) is a plain externally-linkable function
+// already in this same pojavexec module, and getCurrentFps() already reads
+// the exact static variable it updates, the minimal fix is just calling it
+// from the actual place frames present now instead of the place they used
+// to: hook SDL_GL_SwapWindow with the same dlsym-intercept technique as
+// everything else in this file, call the real swap through, then tick the
+// existing counter. No Java-side change needed at all.
+//
+
+extern void calculateFPS(void);
+
+typedef void (*sdl_gl_swap_window_t)(void *window);
+static sdl_gl_swap_window_t real_sdl_gl_swap_window = NULL;
+
+static void custom_sdl_gl_swap_window(void *window) {
+    if (real_sdl_gl_swap_window != NULL) {
+        real_sdl_gl_swap_window(window);
+    }
+    calculateFPS();
+}
+
 void *custom_dlopen(const char *filename, int flags) {
     void *result = BYTEHOOK_CALL_PREV(
             custom_dlopen,
@@ -282,6 +412,34 @@ void *custom_dlsym(void *handle, const char *symbol) {
         real_sdl_set_window_title = (sdl_set_window_title_t) result;
         __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_SetWindowTitle: %p", result);
         return (void *) custom_sdl_set_window_title;
+    }
+
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_CreateSystemCursor") == 0
+        && real_sdl_create_system_cursor == NULL) {
+        real_sdl_create_system_cursor = (sdl_create_system_cursor_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_CreateSystemCursor: %p", result);
+        return (void *) custom_sdl_create_system_cursor;
+    }
+
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_GetDefaultCursor") == 0
+        && real_sdl_get_default_cursor == NULL) {
+        real_sdl_get_default_cursor = (sdl_get_default_cursor_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_GetDefaultCursor: %p", result);
+        return (void *) custom_sdl_get_default_cursor;
+    }
+
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_SetCursor") == 0
+        && real_sdl_set_cursor == NULL) {
+        real_sdl_set_cursor = (sdl_set_cursor_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_SetCursor: %p", result);
+        return (void *) custom_sdl_set_cursor;
+    }
+
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_GL_SwapWindow") == 0
+        && real_sdl_gl_swap_window == NULL) {
+        real_sdl_gl_swap_window = (sdl_gl_swap_window_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_GL_SwapWindow: %p", result);
+        return (void *) custom_sdl_gl_swap_window;
     }
 
     return result;
