@@ -19,6 +19,23 @@ public class EfficientAndroidLWJGLKeycode {
      *  key events aren't a hot path like mouse move is. Returns
      *  KeyEvent.KEYCODE_UNKNOWN if no mapping exists. */
     public static int getAndroidKeycode(int lwjglKeycode) {
+        // FIX: KEYCODE_BACK and KEYCODE_ESCAPE both map to GLFW_KEY_ESCAPE
+        // below (intentional for the forward/Android->LWJGL direction --
+        // either physical key should register as Escape to Minecraft), but
+        // that makes this reverse lookup ambiguous for GLFW_KEY_ESCAPE
+        // specifically. The linear scan below hits KEYCODE_BACK's entry
+        // first (added earlier, lower index) and returns that -- so every
+        // synthetic "send Escape" ended up telling SDL3 the Android BACK
+        // button was pressed instead. SDL3 has no meaningful scancode for
+        // that (BACK is normally consumed at the Activity/dispatchKeyEvent
+        // level, never fed into SDL's key queue at all -- exactly what
+        // SDLGameActivity's own dispatchKeyEvent override does for real
+        // presses), so Minecraft never saw an actual Escape and the pause
+        // menu never opened. Special-cased here rather than reordering the
+        // shared table, which must stay sorted by Android keycode for the
+        // forward direction's binary search (see the class-level comment).
+        if (lwjglKeycode == LwjglGlfwKeycode.GLFW_KEY_ESCAPE) return KeyEvent.KEYCODE_ESCAPE;
+
         for (int i = 0; i < sLwjglKeycodes.length; i++) {
             if (sLwjglKeycodes[i] == lwjglKeycode) return sAndroidKeycodes[i];
         }
