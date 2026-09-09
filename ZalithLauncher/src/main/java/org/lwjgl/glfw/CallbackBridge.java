@@ -193,9 +193,29 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
             if (isDown) sdl3MouseButtonState |= androidButton;
             else sdl3MouseButtonState &= ~androidButton;
 
-            SDLActivity.onNativeMouse(sdl3MouseButtonState,
-                    isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
-                    mouseX, mouseY, isGrabbing());
+            // FIX: same bug shape as sendCursorPos above -- this was passing
+            // the raw absolute mouseX/mouseY as the trailing coordinate
+            // arguments alongside isGrabbing() as the relative flag. A
+            // button press/release isn't motion at all; while grabbed,
+            // relative=true tells SDL3 to treat those coordinates as a
+            // delta to ADD to the cursor position, so every single click
+            // during gameplay was injecting a one-off "jump" equal to your
+            // full absolute on-screen position -- a small but real camera
+            // hitch on every click, isolated now that continuous movement
+            // itself (sendCursorPos) sends proper zero-drift deltas. A
+            // button event should carry zero motion, so this sends an
+            // explicit (0,0) delta when grabbed, and only uses the actual
+            // absolute position (relative=false) for menu/GUI clicks,
+            // matching sendCursorPos's own split exactly.
+            if (isGrabbing()) {
+                SDLActivity.onNativeMouse(sdl3MouseButtonState,
+                        isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
+                        0f, 0f, true);
+            } else {
+                SDLActivity.onNativeMouse(sdl3MouseButtonState,
+                        isDown ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP,
+                        mouseX, mouseY, false);
+            }
         } else {
             nativeSendMouseButton(button, isDown ? 1 : 0, modifiers);
         }
