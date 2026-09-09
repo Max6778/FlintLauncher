@@ -274,65 +274,48 @@ static jint custom_sdl3_JNI_OnLoad(JavaVM *vm, void *reserved){
 // cursor instead of ever letting a bad pointer reach SDL3's internals.
 //
 
-#define TRACKED_CURSOR_HANDLES_MAX 32
-static void *tracked_cursor_handles[TRACKED_CURSOR_HANDLES_MAX];
-static int tracked_cursor_handle_count = 0;
-static void *default_cursor_handle = NULL; // first handle we ever see, used as the safe fallback
-
-static void remember_cursor_handle(void *handle) {
-    if (handle == NULL) return;
-    for (int i = 0; i < tracked_cursor_handle_count; i++) {
-        if (tracked_cursor_handles[i] == handle) return; // already tracked
-    }
-    if (default_cursor_handle == NULL) default_cursor_handle = handle;
-    if (tracked_cursor_handle_count < TRACKED_CURSOR_HANDLES_MAX) {
-        tracked_cursor_handles[tracked_cursor_handle_count++] = handle;
-    }
-    // If we ever exceed 32 distinct real cursors (Minecraft only creates 8
-    // total, per CursorTypes.java), we simply stop tracking new ones rather
-    // than overflow -- the existing tracked set still protects SetCursor.
-}
-
-static bool is_known_cursor_handle(void *handle) {
-    if (handle == NULL) return false;
-    for (int i = 0; i < tracked_cursor_handle_count; i++) {
-        if (tracked_cursor_handles[i] == handle) return true;
-    }
-    return false;
-}
+// SDL_CreateSystemCursor/SDL_GetDefaultCursor are left completely
+// unhooked-in-effect now (still intercepted at the dlsym level below only
+// so we can no-op SDL_SetCursor consistently -- see that function) --
+// creating a cursor OBJECT is not what crashes; only ever asking SDL3 to
+// actually APPLY one does, so creation is allowed to proceed normally.
 
 typedef void *(*sdl_create_system_cursor_t)(int id);
 static sdl_create_system_cursor_t real_sdl_create_system_cursor = NULL;
 
 static void *custom_sdl_create_system_cursor(int id) {
-    void *handle = (real_sdl_create_system_cursor != NULL) ? real_sdl_create_system_cursor(id) : NULL;
-    remember_cursor_handle(handle);
-    return handle;
+    return (real_sdl_create_system_cursor != NULL) ? real_sdl_create_system_cursor(id) : NULL;
 }
 
 typedef void *(*sdl_get_default_cursor_t)(void);
 static sdl_get_default_cursor_t real_sdl_get_default_cursor = NULL;
 
 static void *custom_sdl_get_default_cursor(void) {
-    void *handle = (real_sdl_get_default_cursor != NULL) ? real_sdl_get_default_cursor() : NULL;
-    remember_cursor_handle(handle);
-    return handle;
+    return (real_sdl_get_default_cursor != NULL) ? real_sdl_get_default_cursor() : NULL;
 }
 
 typedef bool (*sdl_set_cursor_t)(void *cursor);
 static sdl_set_cursor_t real_sdl_set_cursor = NULL;
 
 static bool custom_sdl_set_cursor(void *cursor) {
-    if (cursor != NULL && !is_known_cursor_handle(cursor)) {
-        __android_log_print(ANDROID_LOG_WARN, "dlopen_hook",
-            "Refusing to SDL_SetCursor with an unrecognized handle %p -- "
-            "substituting the default cursor instead of risking a crash", cursor);
-        cursor = default_cursor_handle; // may itself be NULL if we've never seen ANY cursor yet
-    }
-    if (real_sdl_set_cursor != NULL) {
-        return real_sdl_set_cursor(cursor);
-    }
-    return false;
+    // ESCALATION #2 (2026-08-31): pinning to "whatever got applied first"
+    // still assumed that first call was inherently safe -- no real
+    // guarantee of that, and this crash has already burned through two
+    // narrower theories (bogus handle, then stale-but-tracked handle)
+    // without a live native debugger available to see the actual
+    // corrupted memory and pin down the real mechanism.
+    //
+    // Cursor SHAPE is purely cosmetic -- Minecraft's gameplay is entirely
+    // unaffected by whether the pointer looks like an arrow, crosshair, or
+    // hand. There is no reason to ever let this code path run at all, not
+    // even once. This now unconditionally never calls the real
+    // SDL_SetCursor for the entire session -- guaranteed zero risk of
+    // triggering whatever the underlying corruption is, at the cost of
+    // the system cursor simply staying whatever Android's own default
+    // pointer already is throughout. Trades a cosmetic downside for a
+    // crash that was previously reliably ending entire play sessions.
+    (void) cursor; // unused now, kept for signature compatibility with the real function
+    return true; // pretend success -- SDL3 gets no error to react to
 }
 
 //
