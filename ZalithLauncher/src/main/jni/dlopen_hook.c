@@ -319,6 +319,45 @@ static bool custom_sdl_set_cursor(void *cursor) {
 }
 
 //
+// --- SDL_StopTextInput crash (same underlying bug class as SDL_SetCursor) ---
+//
+// Real crash, from an actual device: SIGSEGV at pc=0x00676f72702e7374 --
+// the EXACT SAME faulting address as the SDL_SetCursor crash above, just
+// reached through a different function this time. Triggered by clicking a
+// creative-mode inventory tab: CreativeModeInventoryScreen.selectTab()
+// blurs the search EditBox, which calls SDL_StopTextInput() (presumably
+// to hide the on-screen keyboard) -- and that crashes the same way.
+//
+// The identical address across two unrelated-looking functions is the
+// important clue: this isn't a cursor-specific or text-input-specific bug,
+// it's shared corruption somewhere in SDL3's Android JNI-callback
+// machinery that multiple different SDL-to-Java calls all route through
+// (a cached Activity/View reference gone stale is the most likely shape of
+// this, though confirming that precisely would need a live native
+// debugger, not available here). Any other SDL3 Android function that
+// calls back into Java is a plausible future candidate for the exact same
+// crash -- if one shows up with this same pc value, this is the fix to
+// copy.
+//
+// Same trade-off reasoning as SDL_SetCursor: stopping text input just
+// means the soft keyboard may stay visible a moment longer than ideal
+// when a text field loses focus -- a minor cosmetic/UX rough edge, not a
+// gameplay-breaking one, and clearly the better trade against a crash
+// that was ending the session outright. SDL_StartTextInput is left alone
+// (not hooked) since it hasn't been reported as crashing, and disabling it
+// would break typing in text fields entirely rather than just leaving the
+// keyboard open a beat too long.
+//
+
+typedef bool (*sdl_stop_text_input_t)(void *window);
+static sdl_stop_text_input_t real_sdl_stop_text_input = NULL;
+
+static bool custom_sdl_stop_text_input(void *window) {
+    (void) window; // unused, kept for signature compatibility with the real function
+    return true; // pretend success -- never actually call the real (crashing) function
+}
+
+//
 // --- FPS counter fix ---
 //
 // CallbackBridge.getCurrentFps() (read by GameMenuViewWrapper's floating
@@ -418,6 +457,13 @@ void *custom_dlsym(void *handle, const char *symbol) {
         return (void *) custom_sdl_set_cursor;
     }
 
+    if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_StopTextInput") == 0
+        && real_sdl_stop_text_input == NULL) {
+        real_sdl_stop_text_input = (sdl_stop_text_input_t) result;
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL_StopTextInput: %p", result);
+        return (void *) custom_sdl_stop_text_input;
+    }
+
     if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_GL_SwapWindow") == 0
         && real_sdl_gl_swap_window == NULL) {
         real_sdl_gl_swap_window = (sdl_gl_swap_window_t) result;
@@ -435,3 +481,4 @@ void create_dlopen_hooks(bytehook_hook_all_t bytehook_hook_all_p) {
             bytehook_hook_all_p(NULL, "dlsym", &custom_dlsym, NULL, NULL);
     __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Successfully initialized dlopen hooks, stub: %p %p", stub_dlopen, stub_dlsym);
 }
+
