@@ -30,12 +30,12 @@ jobs:
           cache: gradle
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install NDK and CMake
         run: |
-          echo "y" | sdkmanager "ndk;25.2.9519653"
-          echo "y" | sdkmanager "cmake;3.22.1"
+          yes | sdkmanager "ndk;25.2.9519653"
+          yes | sdkmanager "cmake;3.22.1"
 
       - name: Grant Gradle Execute Permission
         run: chmod +x gradlew
