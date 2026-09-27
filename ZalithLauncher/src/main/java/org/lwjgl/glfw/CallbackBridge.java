@@ -26,6 +26,25 @@ public class CallbackBridge {
      *  init starts) has run. When true, every send* method below routes to
      *  SDL3 instead of the native GLFW bridge. */
     public static volatile boolean usingSdl3 = false;
+
+    /** True once onDirectInputEnable() (called from the JRE side via JNI, see
+     *  jre_lwjgl3glfw_341's CallbackBridge.enableGamepadDirectInput()) has run.
+     *  When true, net.kdt.pojavlaunch.gamepad.DirectGamepad routes gamepad
+     *  KeyEvent/MotionEvent input directly into these native-backed buffers
+     *  instead of going through GLFW's normal joystick callback path.
+     *  Ported from ZalithLauncher2's SdlBridge/DirectGamepad. */
+    public static volatile boolean sGamepadDirectInput = false;
+    /** Direct view onto native GLFWgamepadstate.buttons (unsigned char[15]) --
+     *  see Java_org_lwjgl_glfw_CallbackBridge_nativeCreateGamepadButtonBuffer
+     *  in input_bridge_v3.c, which already implements this native method. */
+    public static java.nio.ByteBuffer sGamepadButtonBuffer;
+    /** Direct view onto native GLFWgamepadstate.axes (float[6]) -- same native
+     *  buffer as above, re-interpreted as a FloatBuffer since GLFW's axes
+     *  array is float, not byte. */
+    public static java.nio.FloatBuffer sGamepadAxisBuffer;
+
+    private static native java.nio.ByteBuffer nativeCreateGamepadButtonBuffer();
+    private static native java.nio.ByteBuffer nativeCreateGamepadAxisBuffer();
     private static boolean isGrabbing = false;
     private static final ArrayList<GrabListener> grabListeners = new ArrayList<>();
     // FIX: SDLSurface's own touch/mouse dispatch (onTouch's TOOL_TYPE_MOUSE
@@ -313,12 +332,24 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
         return metrics.density;
     }
 
-    // Called from JRE side via JNI when gamepad direct-input mode is enabled.
-    // FlintLauncher doesn't have a dedicated gamepad-direct-input handler yet,
-    // so this is currently just a no-op hook to satisfy the native bridge.
+    // Called from JRE side via JNI when gamepad direct-input mode is enabled
+    // (input_bridge_v3.c's Java_org_lwjgl_glfw_CallbackBridge_nativeEnableGamepadDirectInput
+    // already exists and calls back here via TRY_ATTACH_ENV -- this just wires up the
+    // Java-side buffers that net.kdt.pojavlaunch.gamepad.DirectGamepad writes into).
+    // Ported from ZalithLauncher2's SdlBridge gamepad-enable path.
     @SuppressWarnings("unused")
     private static void onDirectInputEnable() {
-        android.util.Log.i("CallbackBridge", "onDirectInputEnable()");
+        if (sGamepadDirectInput) return;
+        java.nio.ByteBuffer buttonBuf = nativeCreateGamepadButtonBuffer();
+        java.nio.ByteBuffer axisBuf = nativeCreateGamepadAxisBuffer();
+        if (buttonBuf == null || axisBuf == null) {
+            android.util.Log.e("CallbackBridge", "onDirectInputEnable(): native gamepad buffers unavailable");
+            return;
+        }
+        sGamepadButtonBuffer = buttonBuf.order(java.nio.ByteOrder.nativeOrder());
+        sGamepadAxisBuffer = axisBuf.order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer();
+        sGamepadDirectInput = true;
+        android.util.Log.i("CallbackBridge", "onDirectInputEnable(): gamepad direct-input buffers ready");
     }
 
     // Called from JRE side via JNI for misc launcher-side notifications (SDL init,
