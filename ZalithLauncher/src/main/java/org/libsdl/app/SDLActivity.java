@@ -1309,13 +1309,68 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     }
 
     /**
+     * Runs the same handling as SDLCommandHandler.handleMessage(), but directly
+     * on the UI thread rather than through an SDLActivity instance's
+     * commandHandler. Needed because in the externalInitialize() flow
+     * (SDL embedded into MainActivity) mSingleton is a plain Activity, not an
+     * SDLActivity, so there is no live commandHandler/SDLActivity instance to
+     * route through — mirrors the fallback showTextInput() already uses.
+     */
+    private static void dispatchCommandDirect(int command, Object data) {
+        // Only reachable via sendMessage(int,int) below, whose param is always
+        // an int — COMMAND_CHANGE_TITLE/COMMAND_CHANGE_WINDOW_STYLE take a
+        // String/are sent through setActivityTitle()/setWindowStyle() instead
+        // (already deliberately no-op'd there for this embedded window), so
+        // they're intentionally not handled here.
+        Context context = getContext();
+        if (context == null) {
+            Log.e(TAG, "error handling message, getContext() returned null");
+            return;
+        }
+        switch (command) {
+            case COMMAND_TEXTEDIT_HIDE:
+                if (mTextEdit != null) {
+                    mTextEdit.setLayoutParams(new RelativeLayout.LayoutParams(0, 0));
+                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
+                    onNativeScreenKeyboardHidden();
+                    if (mSurface != null) {
+                        mSurface.requestFocus();
+                    }
+                }
+                break;
+            case COMMAND_SET_KEEP_SCREEN_ON:
+                if (context instanceof Activity) {
+                    Window window = ((Activity) context).getWindow();
+                    if (window != null) {
+                        if ((data instanceof Integer) && ((Integer) data != 0)) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        }
+                    }
+                }
+                break;
+            default:
+                Log.w(TAG, "dispatchCommandDirect: unhandled command " + command + " (no live SDLActivity to route it through)");
+        }
+    }
+
+    /**
      * This method is called by SDL using JNI.
      */
     public static boolean sendMessage(int command, int param) {
-        if (!(mSingleton instanceof SDLActivity)) {
-            return false;
+        if (mSingleton instanceof SDLActivity) {
+            return ((SDLActivity) mSingleton).sendCommand(command, param);
+        } else if (mSingleton != null) {
+            // externalInitialize() flow: no SDLActivity instance/commandHandler
+            // exists, so run the handling directly on the UI thread instead of
+            // silently dropping the command (this is what was crashing/no-op'ing
+            // COMMAND_TEXTEDIT_HIDE on SDL_StopTextInput()).
+            mSingleton.runOnUiThread(() -> dispatchCommandDirect(command, param));
+            return true;
         }
-        return ((SDLActivity) mSingleton).sendCommand(command, param);
+        return false;
     }
 
     /**
