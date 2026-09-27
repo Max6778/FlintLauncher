@@ -106,8 +106,25 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
     }
 
     public static void setNativeSurface(Surface nativeSurface) {
+        // Reject stale/torn-down surfaces -- e.g. a delayed callback firing
+        // after activity recreation/config change handed us an already-dead
+        // Surface. Registering a dead surface with native code is a crash
+        // waiting to happen the next time it's drawn to.
+        if (nativeSurface == null || !nativeSurface.isValid()) {
+            Log.w("SDL", "setNativeSurface() ignoring null/invalid surface");
+            return;
+        }
         mNativeSurface = nativeSurface;
         SDLActivity.getSDLSurface().surfaceCreated(null);
+    }
+
+    /**
+     * Clears the static native-surface reference. Call this from
+     * SdlBridge-equivalent teardown/reset paths so a destroyed surface can
+     * never be handed to native code after the fact.
+     */
+    public static void clearNativeSurface() {
+        mNativeSurface = null;
     }
 
     // Called when we have a valid drawing surface
@@ -130,6 +147,9 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         mIsSurfaceReady = false;
         SDLActivity.onNativeSurfaceDestroyed();
+        // Clear the stale reference now that native has been told to drop it,
+        // so nothing can hand this dead Surface back to native code later.
+        mNativeSurface = null;
     }
 
     // Called when the surface is resized
