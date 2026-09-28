@@ -4,20 +4,27 @@
 //   - SdlBridge.sdlEnabled (Zalith's activity-less SDL lifecycle flag, not present
 //     in Flint) replaced with CallbackBridge.usingSdl3, Flint's own equivalent flag
 //     (flipped true in CallbackBridge.notifyLauncher() once real SDL init begins)
-//   - EfficientAndroidLWJGLKeycode already exists in Flint at this same package,
-//     so the import just drops the com.movtery.zalithlauncher.game.input prefix
+//   - Flint has no SDLActivity.onNativeTextInput(): text is fed to SDL through
+//     SDLInputConnection.nativeCommitText(String, int) instead (confirmed by reading
+//     SDLInputConnection.java) -- fixed after the first attempt failed to compile
+//     with "Unresolved reference 'onNativeTextInput'"
+//   - Flint's actual keycode-lookup method is
+//     EfficientAndroidLWJGLKeycode.getAndroidKeycode(int), not getSdlAndroidKeycode()
+//     -- fixed after the first attempt failed to compile with
+//     "Unresolved reference 'getSdlAndroidKeycode'"
 
 package net.kdt.pojavlaunch
 
 import android.view.KeyEvent
 import org.libsdl.app.SDLActivity
+import org.libsdl.app.SDLInputConnection
 import org.lwjgl.glfw.CallbackBridge
 
 object SdlTextSender {
     @JvmStatic
     fun sendChar(character: Char) {
         if (!CallbackBridge.usingSdl3) return
-        SDLActivity.onNativeTextInput(character.toString())
+        SDLInputConnection.nativeCommitText(character.toString(), 1)
     }
 
     @JvmStatic
@@ -30,7 +37,7 @@ object SdlTextSender {
     @JvmStatic
     fun sendKey(lwjglGlfwKeycode: Int) {
         if (!CallbackBridge.usingSdl3) return
-        val keyCode = EfficientAndroidLWJGLKeycode.getSdlAndroidKeycode(lwjglGlfwKeycode)
+        val keyCode = EfficientAndroidLWJGLKeycode.getAndroidKeycode(lwjglGlfwKeycode)
         if (keyCode == KeyEvent.KEYCODE_UNKNOWN) return
         SDLActivity.onNativeKeyDown(keyCode)
         SDLActivity.onNativeKeyUp(keyCode)
