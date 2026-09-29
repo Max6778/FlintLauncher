@@ -26,7 +26,12 @@ class NewbieGuideUtils {
                 runCatching {
                     if (!exists()) createNewFile()
 
-                    val read = Tools.read(this)
+                    // Was: parsing the raw file content directly. A freshly created (or
+                    // otherwise empty) file reads back as an empty string, and
+                    // JsonParser.parseString("") returns a JSON null, not an array --
+                    // .asJsonArray on that throws "Not a JSON Array: null" (caught here,
+                    // but NEWBIE_TAGS then never loads on this run).
+                    val read = Tools.read(this).ifBlank { "[]" }
                     val jsonArray = JsonParser.parseString(read).asJsonArray
                     val tags: MutableList<String> = ArrayList()
                     for (jsonElement in jsonArray) {
