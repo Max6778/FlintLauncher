@@ -996,19 +996,15 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                 }
                 break;
             case COMMAND_TEXTEDIT_HIDE:
-                if (mTextEdit != null) {
-                    // Note: On some devices setting view to GONE creates a flicker in landscape.
-                    // Setting the View's sizes to 0 is similar to GONE but without the flicker.
-                    // The sizes will be set to useful values when the keyboard is shown again.
-                    mTextEdit.setLayoutParams(new RelativeLayout.LayoutParams(0, 0));
-
-                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
-
-                    onNativeScreenKeyboardHidden();
-
-                    mSurface.requestFocus();
-                }
+                // Was: unconditionally calling onNativeScreenKeyboardHidden() (-> SDL_StopTextInput())
+                // whenever mTextEdit != null, which is true essentially always. Minecraft sends
+                // COMMAND_TEXTEDIT_HIDE defensively on *any* screen close, including screens with no
+                // text field at all (e.g. the survival inventory) -- meaning SDL_StopTextInput() was
+                // being called even when text input was never started, which is exactly what crashed
+                // natively (SIGSEGV inside SDL_StopTextInput, see hs_err log). SdlImeController.doHide()
+                // (ported from ZalithLauncher2) only calls onNativeScreenKeyboardHidden() when
+                // mKeyboardShown is actually true, which is the real fix.
+                SdlImeController.requestHide(SdlImeController.Source.GAME);
                 break;
             case COMMAND_SET_KEEP_SCREEN_ON:
             {
@@ -1329,15 +1325,11 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         }
         switch (command) {
             case COMMAND_TEXTEDIT_HIDE:
-                if (mTextEdit != null) {
-                    mTextEdit.setLayoutParams(new RelativeLayout.LayoutParams(0, 0));
-                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.hideSoftInputFromWindow(mTextEdit.getWindowToken(), 0);
-                    onNativeScreenKeyboardHidden();
-                    if (mSurface != null) {
-                        mSurface.requestFocus();
-                    }
-                }
+                // Same fix as the handleMessage() path above -- route through
+                // SdlImeController so onNativeScreenKeyboardHidden() only fires when the
+                // keyboard was actually shown, instead of unconditionally on every
+                // screen close (the actual cause of the SDL_StopTextInput SIGSEGV).
+                SdlImeController.requestHide(SdlImeController.Source.GAME);
                 break;
             case COMMAND_SET_KEEP_SCREEN_ON:
                 if (context instanceof Activity) {
