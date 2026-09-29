@@ -8,6 +8,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
@@ -47,7 +48,13 @@ public class ControlHandleView extends View {
     private void init(){
         int size = getResources().getDimensionPixelOffset(R.dimen._22sdp);
         mDrawable.setBounds(0,0,size,size);
-        ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(size, size);
+        // Was: plain ViewGroup.LayoutParams via setLayoutParams() directly. setLayoutParams()
+        // stores whatever object it's given without validating it against the real parent
+        // (unlike addView(), which auto-converts) -- this view is added to ControlLayout, a
+        // FrameLayout, so a generic ViewGroup.LayoutParams here throws a ClassCastException
+        // the moment FrameLayout.onMeasure() tries to read it, i.e. the first time the control
+        // editor's add/clone/delete handle is shown.
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
         setLayoutParams(params);
         setBackground(mDrawable);
         setTranslationZ(10.5F);
