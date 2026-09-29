@@ -62,13 +62,26 @@ class GameMenuViewWrapper(
 
     private fun startNewbieGuide(mainView: View) {
         if (NewbieGuideUtils.showOnlyOne(TAG)) return
-        TapTargetView.showFor(
-            activity,
-            NewbieGuideUtils.getSimpleTarget(activity, mainView,
-                activity.getString(R.string.setting_category_game_menu),
-                activity.getString(R.string.newbie_guide_game_menu)
+        // TapTargetView.showFor(activity, ...) attaches its highlight overlay to whatever
+        // FrameLayout it finds under the Activity's decor view. mainView here comes from a
+        // FloatingX-hosted window (getWindow()), not the Activity's own content tree, so the
+        // two libraries' assumptions about the view hierarchy don't necessarily line up --
+        // this is the same code path implicated in the ClassCastException
+        // (RelativeLayout.LayoutParams cannot be cast to FrameLayout.LayoutParams) crash seen
+        // in the logs, tied to the first time this floating HUD is shown in a session. Neither
+        // FloatingX nor TapTargetView is Flint's own code, so this can't be patched directly --
+        // guard it so a mismatch there can't take down the whole game.
+        runCatching {
+            TapTargetView.showFor(
+                activity,
+                NewbieGuideUtils.getSimpleTarget(activity, mainView,
+                    activity.getString(R.string.setting_category_game_menu),
+                    activity.getString(R.string.newbie_guide_game_menu)
+                )
             )
-        )
+        }.onFailure { e ->
+            android.util.Log.e(TAG, "startNewbieGuide: failed to show tap target, skipping", e)
+        }
     }
 
     fun setVisibility(visible: Boolean) {
