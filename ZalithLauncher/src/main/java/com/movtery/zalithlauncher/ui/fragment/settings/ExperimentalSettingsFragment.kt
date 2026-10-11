@@ -62,6 +62,6 @@ class ExperimentalSettingsFragment :
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
+        animPlayer.duration(240).apply(AnimPlayer.Entry(binding.root, Animations.FadeIn))
     }
     }

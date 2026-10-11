@@ -340,6 +340,11 @@ public class GamepadMapperAdapter extends RecyclerView.Adapter<GamepadMapperAdap
         grabListener.onGrabState(mGrabState);
     }
 
+    @Override
+    public void detachGrabListener(GrabListener grabListener) {
+        if (mGamepadGrabListener == grabListener) mGamepadGrabListener = null;
+    }
+
     public void setGrabState(boolean newState) {
         mGrabState = newState;
         if(mGamepadGrabListener != null) mGamepadGrabListener.onGrabState(newState);

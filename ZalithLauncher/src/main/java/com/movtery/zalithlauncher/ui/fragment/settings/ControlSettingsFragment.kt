@@ -226,7 +226,7 @@ class ControlSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fra
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
+        animPlayer.duration(240).apply(AnimPlayer.Entry(binding.root, Animations.FadeIn))
     }
 
     private fun computeVisibility() {

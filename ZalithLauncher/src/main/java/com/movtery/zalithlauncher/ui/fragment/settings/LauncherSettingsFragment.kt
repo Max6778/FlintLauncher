@@ -238,10 +238,10 @@ class LauncherSettingsFragment() :
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(
+        animPlayer.duration(240).apply(
             AnimPlayer.Entry(
                 binding.root,
-                Animations.BounceInDown
+                Animations.FadeIn
             )
         )
     }

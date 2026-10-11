@@ -3,6 +3,8 @@ import org.libsdl.app.SDLInputConnection;
 
 import android.content.ClipData;
 import android.content.ClipDescription;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.view.Choreographer;
 
 import androidx.annotation.Keep;
@@ -170,8 +172,14 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
 }
 
     public static void sendChar(char keychar, int modifiers){
-        nativeSendCharMods(keychar,modifiers);
-        nativeSendChar(keychar);
+        if (usingSdl3) {
+            if (keychar != '\u0000') {
+                SDLInputConnection.nativeCommitText(String.valueOf(keychar), 1);
+            }
+        } else {
+            nativeSendCharMods(keychar,modifiers);
+            nativeSendChar(keychar);
+        }
     }
 
     public static void sendKeyPress(int keyCode, int modifiers, boolean status) {
@@ -374,7 +382,18 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 // init to proceed with zero Java-side setup and crash inside itself.
                 System.loadLibrary("SDL3");
                 org.libsdl.app.SDL.setupJNI();
+                // MobileGlues may enable framebuffer sRGB when SDL creates its
+                // EGL context. Minecraft's colors are authored for the normal
+                // framebuffer path, so the extra conversion makes the 26.3 SDL
+                // menu look washed out. Set this before SDL creates the context.
+                try {
+                    Os.setenv("DROIDBRIDGE_MOBILEGLUES_DISABLE_FRAMEBUFFER_SRGB", "1", true);
+                } catch (ErrnoException | SecurityException envError) {
+                    System.err.println("Could not disable MobileGlues framebuffer sRGB for SDL: " + envError);
+                }
                 usingSdl3 = true;
+                sdl3MouseButtonState = 0;
+                relativeMouseBaselineValid = false;
                 // input_bridge_v3.c's isInputReady gate only affects the GLFW-native
                 // critical_send_* functions (the `else` branch of sendCursorPos/
                 // sendMouseKeycode below) -- SDL3's branch calls SDLActivity.onNativeMouse()

@@ -33,6 +33,7 @@ class GameMenuViewWrapper(
     private var showMemory: Boolean = false
     private var showFPS: Boolean = false
     private var visible: Boolean = false
+    private var temporarilyHidden: Boolean = false
 
     private var scopeFx: IFxScopeControl? = null
 
@@ -94,11 +95,17 @@ class GameMenuViewWrapper(
         thinkForVisibility()
     }
 
+    /** Hides the entire floating overlay temporarily without changing saved HUD settings. */
+    fun setTemporarilyHidden(hidden: Boolean) {
+        temporarilyHidden = hidden
+        thinkForVisibility()
+    }
+
     /**
      * 根据三个条件判断是否显示悬浮窗（是否想要显示、是否展示内存信息、是否展示FPS）
      */
     private fun thinkForVisibility() {
-        val v1 = visible || showMemory || showFPS
+        val v1 = !temporarilyHidden && (visible || showMemory || showFPS)
         if (v1) {
             if (scopeFx != null) {
                 updateInfoText()

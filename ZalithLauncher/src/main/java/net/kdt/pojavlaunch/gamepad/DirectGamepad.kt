@@ -8,9 +8,8 @@
 //
 // Requires CallbackBridge.sGamepadDirectInput / sGamepadButtonBuffer / sGamepadAxisBuffer
 // (see the CallbackBridge.java patch shipped alongside this file) and needs to be wired
-// into whichever Activity currently dispatches gamepad KeyEvent/MotionEvent -- call
-// handleGamepadKeyEvent()/handleGamepadMotionEvent() from its dispatchKeyEvent()/
-// dispatchGenericMotionEvent() (not included here, see README).
+// into MinecraftGLSurface.dispatchKeyEvent()/dispatchGenericMotionEvent() when
+// the JRE enables direct gamepad input.
 
 package net.kdt.pojavlaunch.gamepad
 

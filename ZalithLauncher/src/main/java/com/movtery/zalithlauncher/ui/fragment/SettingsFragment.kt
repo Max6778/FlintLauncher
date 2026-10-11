@@ -13,7 +13,6 @@ import com.movtery.anim.animations.Animations
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.databinding.FragmentSettingsBinding
 import com.movtery.zalithlauncher.event.value.SettingsPageSwapEvent
-import com.movtery.zalithlauncher.setting.Settings
 import com.movtery.zalithlauncher.ui.fragment.settings.ControlSettingsFragment
 import com.movtery.zalithlauncher.ui.fragment.settings.ExperimentalSettingsFragment
 import com.movtery.zalithlauncher.ui.fragment.settings.GameSettingsFragment
@@ -46,11 +45,6 @@ class SettingsFragment : FragmentWithAnim(R.layout.fragment_settings) {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        Settings.refreshSettings()
-    }
-
     private fun initViewPager() {
         binding.settingsViewpager.apply {
             adapter = ViewPagerAdapter(this@SettingsFragment)
@@ -72,8 +66,9 @@ class SettingsFragment : FragmentWithAnim(R.layout.fragment_settings) {
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.settingsLayout, Animations.BounceInRight))
-            .apply(AnimPlayer.Entry(binding.settingsViewpager, Animations.BounceInDown))
+        animPlayer.duration(240)
+            .apply(AnimPlayer.Entry(binding.settingsLayout, Animations.FadeIn))
+            .apply(AnimPlayer.Entry(binding.settingsViewpager, Animations.FadeIn))
     }
 
     override fun slideOut(animPlayer: AnimPlayer) {

@@ -30,4 +30,9 @@ public class DefaultDataProvider implements GamepadDataProvider {
     public void attachGrabListener(GrabListener grabListener) {
         CallbackBridge.addGrabListener(grabListener);
     }
+
+    @Override
+    public void detachGrabListener(GrabListener grabListener) {
+        CallbackBridge.removeGrabListener(grabListener);
+    }
 }

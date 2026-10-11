@@ -14,7 +14,7 @@ class AllSettings {
     companion object {
         // Video
         @JvmStatic
-        val renderer = StringSettingUnit("renderer", "opengles2")
+        val renderer = StringSettingUnit("renderer", "c47a1e6d-3f92-4b8a-9e15-7d2c6a4f0b83")
 
         @JvmStatic
         val driver = StringSettingUnit("driver", "Turnip")
@@ -141,7 +141,7 @@ class AllSettings {
         val gameMenuAlpha = IntSettingUnit("gameMenuAlpha", 100)
 
         /**
-         * When enabled, the launcher overrides the renderer to GL4ES (OpenGL) for
+         * When enabled, the launcher overrides the renderer to Krypton Wrapper (OpenGL) for
          * Minecraft 26.2 and newer versions before launch. Recommended for devices
          * that fail the Vulkan compatibility test.
          */

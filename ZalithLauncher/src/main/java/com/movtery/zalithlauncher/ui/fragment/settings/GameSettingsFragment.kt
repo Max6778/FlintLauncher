@@ -218,7 +218,7 @@ class GameSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragment
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
+        animPlayer.duration(240).apply(AnimPlayer.Entry(binding.root, Animations.FadeIn))
     }
 
     private fun updateMemoryInfo(context: Context, seekValue: Long) {

@@ -217,7 +217,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     // and MainActivity can't extend both BaseActivity and SDLActivity at once.
     protected static Activity mSingleton;
     protected static SDLSurface mSurface;
-    protected static SDLDummyEdit mTextEdit;
     protected static ViewGroup mLayout;
     protected static SDLClipboardHandler mClipboardHandler;
     protected static Hashtable<Integer, PointerIcon> mCursors;
@@ -315,11 +314,13 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     }
 
     public static void initialize() {
+        // Release the previous text editor before clearing/replacing mLayout.
+        // Otherwise a second game launch can keep an editor attached to the old activity tree.
+        SdlImeController.reset();
         // The static nature of the singleton and Android quirkyness force us to initialize everything here
         // Otherwise, when exiting the app and returning to it, these variables *keep* their pre exit values
         mSingleton = null;
         mSurface = null;
-        mTextEdit = null;
         mLayout = null;
         mClipboardHandler = null;
         mCursors = new Hashtable<Integer, PointerIcon>();
@@ -347,7 +348,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         mSingleton = getContext();
         mSurface = surface;
         SDLSurface.setNativeSurface(nativeSurface);
-        mTextEdit = null;
         mLayout = layout;
         SDL.setContext(mSingleton);
         mClipboardHandler = new SDLClipboardHandler();
@@ -996,14 +996,9 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                 }
                 break;
             case COMMAND_TEXTEDIT_HIDE:
-                // Was: unconditionally calling onNativeScreenKeyboardHidden() (-> SDL_StopTextInput())
-                // whenever mTextEdit != null, which is true essentially always. Minecraft sends
-                // COMMAND_TEXTEDIT_HIDE defensively on *any* screen close, including screens with no
-                // text field at all (e.g. the survival inventory) -- meaning SDL_StopTextInput() was
-                // being called even when text input was never started, which is exactly what crashed
-                // natively (SIGSEGV inside SDL_StopTextInput, see hs_err log). SdlImeController.doHide()
-                // (ported from ZalithLauncher2) only calls onNativeScreenKeyboardHidden() when
-                // mKeyboardShown is actually true, which is the real fix.
+                // Minecraft sends COMMAND_TEXTEDIT_HIDE defensively on any screen close,
+                // including screens with no text field. SdlImeController.doHide() only calls
+                // onNativeScreenKeyboardHidden() when the IME was actually shown.
                 SdlImeController.requestHide(SdlImeController.Source.GAME);
                 break;
             case COMMAND_SET_KEEP_SCREEN_ON:
@@ -1524,28 +1519,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         @Override
         public void run() {
-            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(w, h + HEIGHT_PADDING);
-            params.leftMargin = x;
-            params.topMargin = y;
-
-            if (mTextEdit == null) {
-                mTextEdit = new SDLDummyEdit(getContext());
-
-                mLayout.addView(mTextEdit, params);
-            } else {
-                mTextEdit.setLayoutParams(params);
-            }
-            mTextEdit.setInputType(input_type);
-
-            mTextEdit.setVisibility(View.VISIBLE);
-            mTextEdit.requestFocus();
-
-            InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.showSoftInput(mTextEdit, 0);
-
-            if (imm.isAcceptingText()) {
-                onNativeScreenKeyboardShown();
-            }
+            // Keep all SDL text entry on the same guarded IME path as hide.
+            // This avoids leaving the legacy dummy EditText attached when the
+            // controller later suppresses an unsolicited keyboard show.
+            SdlImeController.requestShow(SdlImeController.Source.GAME, input_type, x, y, w, h);
         }
     }
 

@@ -7,6 +7,12 @@ import static org.lwjgl.glfw.CallbackBridge.windowWidth;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.os.Build;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -32,6 +38,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -92,6 +100,9 @@ import org.lwjgl.glfw.CallbackBridge;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends BaseActivity implements ControlButtonMenuListener, EditorExitable, ServiceConnection, ViewTreeObserver.OnGlobalLayoutListener {
     public static volatile ClipboardManager GLOBAL_CLIPBOARD;
@@ -116,10 +127,41 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     private SimpleTextWatcher mInputWatcher;
     private final AnimPlayer mInputPreviewAnim = new AnimPlayer();
     boolean isKeyboardVisible = false;
+    private ActivityResultLauncher<Intent> createRecordingDocument;
+    private ActivityResultLauncher<Intent> requestScreenCapture;
+    private Uri recordingOutputUri;
+    private boolean recordingWebm;
+    private boolean recordingUiHidden;
+    private boolean previousControlsVisible;
+    private boolean recordingReceiverRegistered;
+    private boolean recordingServiceStarted;
+    private final BroadcastReceiver recordingReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (ScreenRecordingService.ACTION_STATUS.equals(intent.getAction())) updateRecordingStatus(intent);
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        createRecordingDocument = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                            || result.getData().getData() == null) return;
+                    recordingOutputUri = result.getData().getData();
+                    MediaProjectionManager manager = (MediaProjectionManager)
+                            getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    requestScreenCapture.launch(manager.createScreenCaptureIntent());
+                });
+        requestScreenCapture = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                            || recordingOutputUri == null) {
+                        deletePendingRecording();
+                        return;
+                    }
+                    beginRecording(result.getResultCode(), result.getData());
+                });
         minecraftVersion = getIntent().getParcelableExtra(INTENT_VERSION);
         if (minecraftVersion == null) throw new RuntimeException("The game version is not selected!");
 
@@ -160,6 +202,126 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         //初始化输入监听器，当输入法遮挡了游戏画面时，将设置这个监听器
         mInputWatcher = s -> binding.inputPreview.setText(s.toString().trim());
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalLayoutListener(this);
+        IntentFilter recordingFilter = new IntentFilter(ScreenRecordingService.ACTION_STATUS);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(recordingReceiver, recordingFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(recordingReceiver, recordingFilter);
+        }
+        recordingReceiverRegistered = true;
+    }
+
+    private void initScreenRecordingMenu() {
+        mGameMenuBinding.recordKeepControlsLayout.setOnClickListener(
+                v -> mGameMenuBinding.recordKeepControls.setChecked(!mGameMenuBinding.recordKeepControls.isChecked()));
+        mGameMenuBinding.recordStart.setOnClickListener(v -> chooseRecordingDestination());
+        mGameMenuBinding.recordPause.setOnClickListener(v -> {
+            Object state = mGameMenuBinding.recordPause.getTag();
+            sendRecordingCommand("paused".equals(state)
+                    ? ScreenRecordingService.ACTION_RESUME : ScreenRecordingService.ACTION_PAUSE);
+        });
+        mGameMenuBinding.recordStop.setOnClickListener(v -> sendRecordingCommand(ScreenRecordingService.ACTION_STOP));
+    }
+
+    private void chooseRecordingDestination() {
+        recordingWebm = mGameMenuBinding.recordFormatGroup.getCheckedRadioButtonId() == R.id.record_format_webm;
+        String extension = recordingWebm ? ".webm" : ".mp4";
+        String mimeType = recordingWebm ? "video/webm" : "video/mp4";
+        String time = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+        Intent createDocument = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType(mimeType)
+                .putExtra(Intent.EXTRA_TITLE, "FlintLauncher-" + time + extension);
+        createRecordingDocument.launch(createDocument);
+    }
+
+    private void beginRecording(int resultCode, Intent resultData) {
+        boolean keepControls = mGameMenuBinding.recordKeepControls.isChecked();
+        if (!keepControls) {
+            previousControlsVisible = binding.mainControlLayout.areControlVisible();
+            binding.mainControlLayout.setControlVisible(false);
+            mGameMenuWrapper.setTemporarilyHidden(true);
+            recordingUiHidden = true;
+        }
+        binding.mainDrawerOptions.closeDrawers();
+        Intent start = new Intent(this, ScreenRecordingService.class)
+                .putExtra(ScreenRecordingService.EXTRA_ACTION, ScreenRecordingService.ACTION_START)
+                .putExtra(ScreenRecordingService.EXTRA_RESULT_CODE, resultCode)
+                .putExtra(ScreenRecordingService.EXTRA_RESULT_DATA, resultData)
+                .putExtra(ScreenRecordingService.EXTRA_OUTPUT_URI, recordingOutputUri)
+                .putExtra(ScreenRecordingService.EXTRA_WEBM, recordingWebm);
+        try {
+            ContextCompat.startForegroundService(this, start);
+            recordingServiceStarted = true;
+        } catch (RuntimeException e) {
+            recordingServiceStarted = false;
+            restoreRecordingOverlays();
+            deletePendingRecording();
+            Toast.makeText(this, "Could not start screen recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void sendRecordingCommand(String action) {
+        Intent command = new Intent(this, ScreenRecordingService.class)
+                .putExtra(ScreenRecordingService.EXTRA_ACTION, action);
+        try {
+            if (ScreenRecordingService.ACTION_START.equals(action)) ContextCompat.startForegroundService(this, command);
+            else startService(command);
+        } catch (RuntimeException e) {
+            Logging.e("ScreenRecording", "Could not send recording command", e);
+            if (ScreenRecordingService.ACTION_STOP.equals(action)) restoreRecordingOverlays();
+        }
+    }
+
+    private void updateRecordingStatus(Intent status) {
+        String state = status.getStringExtra(ScreenRecordingService.EXTRA_STATE);
+        long elapsed = status.getLongExtra(ScreenRecordingService.EXTRA_ELAPSED_MS, 0L);
+        int seconds = (int) (elapsed / 1000L);
+        mGameMenuBinding.recordDuration.setText(getString(R.string.recording_elapsed, seconds / 60, seconds % 60));
+        boolean active = "recording".equals(state) || "paused".equals(state);
+        mGameMenuBinding.recordControls.setVisibility(active ? View.VISIBLE : View.GONE);
+        mGameMenuBinding.recordStart.setVisibility(active ? View.GONE : View.VISIBLE);
+        mGameMenuBinding.recordFormatGroup.setEnabled(!active);
+        mGameMenuBinding.recordFormatMp4.setEnabled(!active);
+        mGameMenuBinding.recordFormatWebm.setEnabled(!active);
+        mGameMenuBinding.recordKeepControls.setEnabled(!active);
+        if (active) {
+            boolean paused = "paused".equals(state);
+            mGameMenuBinding.recordPause.setTag(paused ? "paused" : "recording");
+            mGameMenuBinding.recordPause.setText(paused ? R.string.recording_resume : R.string.recording_pause);
+            return;
+        }
+
+        restoreRecordingOverlays();
+        recordingServiceStarted = false;
+        recordingOutputUri = null;
+        if ("stopped".equals(state)) {
+            mGameMenuBinding.recordDuration.setText(R.string.recording_saved);
+            Toast.makeText(this, R.string.recording_saved, Toast.LENGTH_SHORT).show();
+        } else if ("error".equals(state)) {
+            String message = status.getStringExtra(ScreenRecordingService.EXTRA_ERROR);
+            mGameMenuBinding.recordDuration.setText(R.string.recording_idle);
+            if (message != null) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        } else {
+            mGameMenuBinding.recordDuration.setText(R.string.recording_idle);
+        }
+    }
+
+    private void restoreRecordingOverlays() {
+        if (!recordingUiHidden) return;
+        if (binding != null && binding.mainControlLayout != null) {
+            binding.mainControlLayout.setControlVisible(previousControlsVisible);
+        }
+        if (mGameMenuWrapper != null) mGameMenuWrapper.setTemporarilyHidden(false);
+        recordingUiHidden = false;
+    }
+
+    private void deletePendingRecording() {
+        if (recordingOutputUri != null) {
+            try { DocumentsContract.deleteDocument(getContentResolver(), recordingOutputUri); }
+            catch (Exception ignored) {}
+            recordingOutputUri = null;
+        }
     }
 
     protected void initLayout() {
@@ -205,6 +367,7 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
             // Menu
             mGameMenuBinding = ViewGameMenuBinding.inflate(getLayoutInflater());
             mMenuSettingsInitListener = new MenuSettingsInitListener(mGameMenuBinding);
+            initScreenRecordingMenu();
 
             binding.mainNavigationView.removeAllViews();
             binding.mainNavigationView.addView(mGameMenuBinding.getRoot());
@@ -312,6 +475,12 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
 
     @Override
     protected void onDestroy() {
+        if (recordingServiceStarted) sendRecordingCommand(ScreenRecordingService.ACTION_STOP);
+        if (recordingReceiverRegistered) {
+            unregisterReceiver(recordingReceiver);
+            recordingReceiverRegistered = false;
+        }
+        restoreRecordingOverlays();
         super.onDestroy();
         mMenuSettingsInitListener.closeSpinner();
         CallbackBridge.removeGrabListener(binding.mainTouchpad);

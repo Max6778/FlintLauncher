@@ -31,6 +31,7 @@ import com.movtery.zalithlauncher.ui.activity.BaseActivity;
 import net.kdt.pojavlaunch.customcontrols.ControlLayout;
 import net.kdt.pojavlaunch.customcontrols.gamepad.DefaultDataProvider;
 import net.kdt.pojavlaunch.customcontrols.gamepad.Gamepad;
+import net.kdt.pojavlaunch.gamepad.DirectGamepadKt;
 import net.kdt.pojavlaunch.customcontrols.mouse.AbstractTouchpad;
 import net.kdt.pojavlaunch.customcontrols.mouse.AndroidPointerCapture;
 import net.kdt.pojavlaunch.customcontrols.mouse.InGUIEventProcessor;
@@ -212,6 +213,19 @@ public class MinecraftGLSurface extends View implements GrabListener {
         return mCurrentTouchProcessor.processTouchEvent(e);
     }
 
+    private void releaseGamepad() {
+        if (mGamepad != null) {
+            mGamepad.dispose();
+            mGamepad = null;
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        releaseGamepad();
+        super.onDetachedFromWindow();
+    }
+
     private void createGamepad(View contextView, InputDevice inputDevice) {
         mGamepad = new Gamepad(contextView, inputDevice, DefaultDataProvider.INSTANCE, true);
     }
@@ -225,6 +239,11 @@ public class MinecraftGLSurface extends View implements GrabListener {
         int mouseCursorIndex = -1;
 
         if(Gamepad.isGamepadEvent(event)){
+            if (CallbackBridge.sGamepadDirectInput) {
+                releaseGamepad();
+                DirectGamepadKt.handleGamepadMotionEvent(event);
+                return true;
+            }
             if(mGamepad == null) createGamepad(this, event.getDevice());
 
             mInputManager.handleMotionEventInput(getContext(), event, mGamepad);
@@ -305,6 +324,11 @@ public class MinecraftGLSurface extends View implements GrabListener {
         }
 
         if(Gamepad.isGamepadEvent(event)){
+            if (CallbackBridge.sGamepadDirectInput) {
+                releaseGamepad();
+                DirectGamepadKt.handleGamepadKeyEvent(event);
+                return true;
+            }
             if(mGamepad == null) createGamepad(this, event.getDevice());
 
             mInputManager.handleKeyEventInput(getContext(), event, mGamepad);

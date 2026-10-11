@@ -33,6 +33,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 
 import org.lwjgl.glfw.CallbackBridge;
 
@@ -65,6 +66,10 @@ final class SdlImeController {
 
     static boolean isEditAvailable() {
         return mEdit != null;
+    }
+
+    static boolean isEditVisible() {
+        return mEdit != null && mEdit.getVisibility() == View.VISIBLE;
     }
 
     static boolean isKeyboardShown() {
@@ -204,7 +209,7 @@ final class SdlImeController {
         }
     }
 
-    private static FrameLayout.LayoutParams makeParams(int x, int y, int w, int h) {
+    private static ViewGroup.LayoutParams makeParams(int x, int y, int w, int h) {
         if (x < 0 || w <= 0) {
             x = 0;
             y = 0;
@@ -214,10 +219,22 @@ final class SdlImeController {
         if (h + HEIGHT_PADDING <= 0) {
             h = 1 - HEIGHT_PADDING;
         }
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(w, h + HEIGHT_PADDING);
-        params.leftMargin = x;
-        params.topMargin = y;
-        return params;
+        // SDLActivity's standalone root is a RelativeLayout, while the legacy
+        // embedded path receives the render view's parent (often a FrameLayout).
+        // Match the actual parent so Android never has to cast incompatible params.
+        if (SDLActivity.mLayout instanceof RelativeLayout) {
+            RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(w, h + HEIGHT_PADDING);
+            params.leftMargin = x;
+            params.topMargin = y;
+            return params;
+        }
+        if (SDLActivity.mLayout instanceof FrameLayout) {
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(w, h + HEIGHT_PADDING);
+            params.leftMargin = x;
+            params.topMargin = y;
+            return params;
+        }
+        return new ViewGroup.LayoutParams(w, h + HEIGHT_PADDING);
     }
 
     private static void doHide(Source source) {

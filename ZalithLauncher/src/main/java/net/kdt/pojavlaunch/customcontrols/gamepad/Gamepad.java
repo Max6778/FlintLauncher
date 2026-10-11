@@ -29,6 +29,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -78,7 +79,9 @@ public class Gamepad implements GrabListener, GamepadHandler {
 
     /* Choreographer with time to compute delta on ticking */
     private final Choreographer mScreenChoreographer;
+    private final Choreographer.FrameCallback mFrameCallback;
     private long mLastFrameTime;
+    private boolean mDisposed;
 
     private final GamepadDataProvider mMapProvider;
 
@@ -90,14 +93,15 @@ public class Gamepad implements GrabListener, GamepadHandler {
         Settings.setDeadzoneScale((float) AllSettings.getDeadZoneScale().getValue() / 100f);
 
         mScreenChoreographer = Choreographer.getInstance();
-        Choreographer.FrameCallback frameCallback = new Choreographer.FrameCallback() {
+        mFrameCallback = new Choreographer.FrameCallback() {
             @Override
             public void doFrame(long frameTimeNanos) {
+                if (mDisposed) return;
                 tick(frameTimeNanos);
                 mScreenChoreographer.postFrameCallback(this);
             }
         };
-        mScreenChoreographer.postFrameCallback(frameCallback);
+        mScreenChoreographer.postFrameCallback(mFrameCallback);
         mLastFrameTime = System.nanoTime();
 
         mLeftJoystick = new GamepadJoystick(AXIS_X, AXIS_Y, inputDevice);
@@ -125,6 +129,25 @@ public class Gamepad implements GrabListener, GamepadHandler {
 
         reloadGamepadMaps();
         mMapProvider.attachGrabListener(this);
+    }
+
+    /** Stop frame work and detach listeners when the owning view is destroyed. */
+    public void dispose() {
+        if (mDisposed) return;
+        mDisposed = true;
+        mScreenChoreographer.removeFrameCallback(mFrameCallback);
+        mMapProvider.detachGrabListener(this);
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
+        if (mCurrentMap != null) mCurrentMap.resetPressedState();
+        if (mGameMap != null && mCurrentJoystickDirection != DIRECTION_NONE) {
+            sendDirectionalKeycode(mCurrentJoystickDirection, false, mGameMap);
+        }
+        ViewParent parent = mPointerImageView.getParent();
+        if (parent instanceof ViewGroup) {
+            ((ViewGroup) parent).removeView(mPointerImageView);
+        }
     }
 
     public void reloadGamepadMaps() {

@@ -74,6 +74,127 @@
                 android:paddingHorizontal="@dimen/_8sdp"
                 app:ripple_for_text="true"/>
 
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_12sdp"
+                android:textStyle="bold"
+                android:textColor="@color/black_or_white"
+                android:text="@string/recording_title" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/_1sdp"
+                android:background="@color/text_background_fill" />
+
+            <com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout
+                android:id="@+id/record_keep_controls_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:background="@drawable/background_item"
+                android:padding="@dimen/_8sdp"
+                app:ripple_for_relative="true">
+
+                <TextView
+                    android:id="@+id/record_keep_controls_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_alignParentStart="true"
+                    android:layout_marginEnd="@dimen/_8sdp"
+                    android:layout_toStartOf="@id/record_keep_controls"
+                    android:text="@string/recording_keep_controls"
+                    android:textColor="@color/black_or_white" />
+
+                <Switch
+                    android:id="@+id/record_keep_controls"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:checked="true" />
+            </com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:text="@string/recording_format"
+                android:textColor="@color/black_or_white" />
+
+            <RadioGroup
+                android:id="@+id/record_format_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/record_format_mp4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/recording_format_mp4" />
+                <RadioButton
+                    android:id="@+id/record_format_webm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recording_format_webm" />
+            </RadioGroup>
+
+            <TextView
+                android:id="@+id/record_duration"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_4sdp"
+                android:gravity="center"
+                android:text="@string/recording_idle"
+                android:textColor="@color/black_or_white" />
+
+            <com.movtery.zalithlauncher.ui.view.AnimTextView
+                android:id="@+id/record_start"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:background="@drawable/background_item"
+                android:gravity="center"
+                android:paddingVertical="@dimen/_12sdp"
+                android:paddingHorizontal="@dimen/_8sdp"
+                android:text="@string/recording_start"
+                app:ripple_for_text="true" />
+
+            <LinearLayout
+                android:id="@+id/record_controls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone">
+                <com.movtery.zalithlauncher.ui.view.AnimTextView
+                    android:id="@+id/record_pause"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:layout_marginEnd="@dimen/_4sdp"
+                    android:background="@drawable/background_item"
+                    android:gravity="center"
+                    android:paddingVertical="@dimen/_12sdp"
+                    android:text="@string/recording_pause"
+                    app:ripple_for_text="true" />
+                <com.movtery.zalithlauncher.ui.view.AnimTextView
+                    android:id="@+id/record_stop"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:layout_marginStart="@dimen/_4sdp"
+                    android:background="@drawable/background_item"
+                    android:gravity="center"
+                    android:paddingVertical="@dimen/_12sdp"
+                    android:text="@string/recording_stop"
+                    app:ripple_for_text="true" />
+            </LinearLayout>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/_1sdp"

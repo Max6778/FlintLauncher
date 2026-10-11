@@ -31,8 +31,8 @@ object Renderers {
         }
 
         addRenderers(
-            GL4ESRenderer(),
             KryptonRenderer(),
+            GL4ESRenderer(),
             VulkanZinkRenderer(),
             VirGLRenderer(),
             FreedrenoRenderer(),

@@ -121,6 +121,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     private com.movtery.zalithlauncher.ui.subassembly.view.GameMenuViewWrapper gameMenuWrapper;
     private com.kdt.LoggerView loggerView;
     private com.movtery.zalithlauncher.ui.dialog.KeyboardDialog keyboardDialog;
+    private boolean gameServiceBound;
     // Ported from MainActivity -- without this, rotating the device / entering
     // split-screen never re-reads sensor calibration, and enable()/disable()
     // was never being called at all anywhere before this port (gyro was fully
@@ -179,7 +180,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // cleanly killed.
         android.content.Intent gameServiceIntent = new android.content.Intent(this, net.kdt.pojavlaunch.services.GameService.class);
         androidx.core.content.ContextCompat.startForegroundService(this, gameServiceIntent);
-        bindService(gameServiceIntent, this, 0);
+        gameServiceBound = bindService(gameServiceIntent, this, 0);
 
         // Same window flags MainActivity sets -- were entirely missing here,
         // meaning the screen could dim/sleep mid-game (no FLAG_KEEP_SCREEN_ON),
@@ -636,6 +637,14 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (gameServiceBound) {
+            try {
+                unbindService(this);
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "GameService was already unbound", e);
+            }
+            gameServiceBound = false;
+        }
         // Matches MainActivity's onDestroy -- was missing entirely here,
         // leaving a stale Activity reference around after the game closes.
         com.movtery.zalithlauncher.context.ContextExecutor.clearActivity();
@@ -684,13 +693,28 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
      * in its body actually needs a BaseActivity beyond the type signature.
      */
     private void computeNotchSize() {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return;
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) {
+            AllStaticSettings.notchSize = 0;
+            return;
+        }
         try {
             android.graphics.Rect cutout;
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                cutout = getWindowManager().getCurrentWindowMetrics().getWindowInsets().getDisplayCutout().getBoundingRects().get(0);
+                android.view.DisplayCutout displayCutout = getWindowManager().getCurrentWindowMetrics()
+                        .getWindowInsets().getDisplayCutout();
+                if (displayCutout == null || displayCutout.getBoundingRects().isEmpty()) {
+                    AllStaticSettings.notchSize = 0;
+                    return;
+                }
+                cutout = displayCutout.getBoundingRects().get(0);
             } else {
-                cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout().getBoundingRects().get(0);
+                android.view.WindowInsets windowInsets = getWindow().getDecorView().getRootWindowInsets();
+                android.view.DisplayCutout displayCutout = windowInsets == null ? null : windowInsets.getDisplayCutout();
+                if (displayCutout == null || displayCutout.getBoundingRects().isEmpty()) {
+                    AllStaticSettings.notchSize = 0;
+                    return;
+                }
+                cutout = displayCutout.getBoundingRects().get(0);
             }
             int orientation = getResources().getConfiguration().orientation;
             if (orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
@@ -701,8 +725,9 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                 AllStaticSettings.notchSize = Math.min(cutout.width(), cutout.height());
             }
         } catch (Exception e) {
-            // No notch, or in split-screen -- same fallback as the real method.
-            AllStaticSettings.notchSize = -1;
+            // Insets may not be available yet during early Activity startup.
+            // A zero fallback avoids expanding display metrics by one pixel.
+            AllStaticSettings.notchSize = 0;
         }
     }
 
@@ -720,7 +745,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         } else {
             getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
         }
-        if (!AllSettings.getIgnoreNotchLauncher().getValue()) {
+        if (!AllSettings.getIgnoreNotchLauncher().getValue() && AllStaticSettings.notchSize > 0) {
             if (getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
                 displayMetrics.heightPixels -= AllStaticSettings.notchSize;
             } else {

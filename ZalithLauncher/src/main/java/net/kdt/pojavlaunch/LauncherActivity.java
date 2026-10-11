@@ -105,7 +105,12 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -218,7 +223,7 @@ public class LauncherActivity extends BaseActivity {
      * Decision tree:
      *  1. Version < 26.2 → launch normally, no checks needed.
      *  2. Version ≥ 26.2 AND forceOpenGlForNewVersions is ON → silently override
-     *     the renderer to GL4ES ("opengles2") and launch without showing a dialog.
+     *     the renderer to Krypton Wrapper and launch without showing a dialog.
      *  3. Version ≥ 26.2 AND ignoreVulkanWarning is ON → skip the dialog and
      *     launch with whatever renderer the user has configured.
      *  4. Otherwise → show the Vulkan warning dialog so the user can test first.
@@ -249,24 +254,24 @@ public class LauncherActivity extends BaseActivity {
     }
 
     /**
-     * Overrides the given version's renderer to GL4ES ("opengles2") for this launch.
+     * Overrides the given version's renderer to Krypton Wrapper for this launch.
      *
      * Writes into VersionConfig in memory only — save() is NOT called — so the
      * user's persisted renderer choice is left untouched.
      *
-     * FIX: was version.setRenderer(GL4ES_RENDERER_ID) which does not exist on Version.
-     *      The setter lives on VersionConfig, accessed via version.getVersionConfig().
+     * Renderer settings store registry UUIDs, not renderer IDs like "opengles2".
+     * The setter lives on VersionConfig, accessed via version.getVersionConfig().
      */
     private void applyOpenGlOverride(Version version) {
-        final String GL4ES_RENDERER_ID = "opengles2";
+        final String KRYPTON_RENDERER_ID = "c47a1e6d-3f92-4b8a-9e15-7d2c6a4f0b83";
 
         try {
             String current = version.getRenderer();
-            if (!GL4ES_RENDERER_ID.equals(current)) {
-                version.getVersionConfig().setRenderer(GL4ES_RENDERER_ID);
+            if (!KRYPTON_RENDERER_ID.equals(current)) {
+                version.getVersionConfig().setRenderer(KRYPTON_RENDERER_ID);
                 Logging.i("LauncherActivity",
                         "Force-OpenGL override: " + version.getVersionName()
-                        + " (was: " + current + " -> now: " + GL4ES_RENDERER_ID + ")");
+                        + " (was: " + current + " -> now: " + KRYPTON_RENDERER_ID + ")");
             }
             Toast.makeText(this,
                     getString(R.string.setting_force_opengl_active_toast, version.getVersionName()),
@@ -641,6 +646,13 @@ public class LauncherActivity extends BaseActivity {
     }
 
     private void launchGame(Version version) {
+        // This is the common launch entry point, so re-apply the preference on
+        // every launch in case Minecraft or another tool changed options.txt.
+        if (isVersionAtLeast26_2(version.getVersionName())
+                && AllSettings.getForceOpenGlForNewVersions().getValue()) {
+            ensurePreferredGraphicsBackend(version);
+        }
+
         LocalAccountUtils.checkUsageAllowed(new LocalAccountUtils.CheckResultListener() {
             @Override
             public void onUsageAllowed() {
@@ -661,6 +673,69 @@ public class LauncherActivity extends BaseActivity {
                 }
             }
         });
+    }
+
+    /** Keep Minecraft 26.2+'s graphics backend preference aligned with Force OpenGL. */
+    private void ensurePreferredGraphicsBackend(Version version) {
+        File gameDir = version.getGameDir();
+        File optionsFile = new File(gameDir, "options.txt");
+        final String target = "preferredGraphicsBackend:opengl";
+
+        try {
+            if (!gameDir.exists() && !gameDir.mkdirs()) {
+                throw new IOException("Could not create game directory: " + gameDir);
+            }
+
+            if (!optionsFile.exists()) {
+                // Preserve Flint's normal starter options when this game folder
+                // has not created options.txt yet.
+                Tools.copyAssetFile(this, "options.txt", gameDir.getAbsolutePath(), false);
+            }
+
+            StringBuilder updated = new StringBuilder();
+            boolean foundPreference = false;
+            boolean changed = false;
+            boolean firstLine = true;
+
+            if (optionsFile.isFile()) {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(optionsFile), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("preferredGraphicsBackend:")) {
+                            if (foundPreference) {
+                                changed = true; // Collapse duplicate preference entries.
+                                continue;
+                            }
+                            foundPreference = true;
+                            if (!target.equals(line)) changed = true;
+                            line = target;
+                        }
+                        if (!firstLine) updated.append('\n');
+                        updated.append(line);
+                        firstLine = false;
+                    }
+                }
+            }
+
+            if (!foundPreference) {
+                if (!firstLine) updated.append('\n');
+                updated.append(target);
+                changed = true;
+            }
+
+            if (changed || !optionsFile.isFile()) {
+                try (OutputStreamWriter writer = new OutputStreamWriter(
+                        new FileOutputStream(optionsFile), "UTF-8")) {
+                    writer.write(updated.toString());
+                    writer.write('\n');
+                }
+                Logging.i("LauncherActivity", "Set preferredGraphicsBackend to opengl for "
+                        + version.getVersionName());
+            }
+        } catch (Exception e) {
+            Logging.e("LauncherActivity", "Failed to set preferredGraphicsBackend to opengl", e);
+        }
     }
 
     private void checkNotice() {

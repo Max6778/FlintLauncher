@@ -24,6 +24,8 @@ import com.movtery.zalithlauncher.feature.version.utils.VersionIconUtils;
 import com.movtery.zalithlauncher.feature.version.VersionInfo;
 import com.movtery.zalithlauncher.feature.version.VersionsManager;
 import com.movtery.zalithlauncher.setting.AllSettings;
+import com.movtery.zalithlauncher.renderer.RendererInterface;
+import com.movtery.zalithlauncher.renderer.Renderers;
 import com.movtery.zalithlauncher.task.TaskExecutors;
 import com.movtery.zalithlauncher.ui.fragment.AboutFragment;
 import com.movtery.zalithlauncher.ui.fragment.ControlButtonFragment;
@@ -242,10 +244,20 @@ public class MainMenuFragment extends FragmentWithAnim {
             if (binding.statRendererValue != null) {
                 try {
                     String renderer = AllSettings.getRenderer().getValue();
-
-                    binding.statRendererValue.setText(
-                            renderer != null ? renderer : "GL4ES"
-                    );
+                    String rendererName = renderer;
+                    if (renderer != null) {
+                        for (RendererInterface availableRenderer :
+                                Renderers.INSTANCE.getCompatibleRenderers(requireContext()).getSecond()) {
+                            if (renderer.equals(availableRenderer.getUniqueIdentifier())) {
+                                rendererName = availableRenderer.getRendererName();
+                                break;
+                            }
+                        }
+                    }
+                    if (rendererName == null || rendererName.equals(renderer)) {
+                        rendererName = "Krypton Wrapper";
+                    }
+                    binding.statRendererValue.setText(rendererName);
 
                 } catch (Exception e) {
                     binding.statRendererValue.setText("GL4ES");

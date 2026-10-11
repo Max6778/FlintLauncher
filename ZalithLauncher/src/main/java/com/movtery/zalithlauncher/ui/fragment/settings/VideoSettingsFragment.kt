@@ -145,6 +145,13 @@ class VideoSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragmen
 
         binding.driverDownload.setOnClickListener { ZHTools.openLink(context, UrlManager.URL_FCL_DRIVER_PLUGIN) }
 
+        SwitchSettingsWrapper(
+            context,
+            AllSettings.getForceOpenGlForNewVersions(),
+            binding.forceOpenGlForNewVersionsLayout,
+            binding.forceOpenGlForNewVersions
+        )
+
         val ignoreNotch = SwitchSettingsWrapper(
             context,
             AllSettings.ignoreNotch,
@@ -253,7 +260,7 @@ class VideoSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragmen
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {
-        animPlayer.apply(AnimPlayer.Entry(binding.root, Animations.BounceInDown))
+        animPlayer.duration(240).apply(AnimPlayer.Entry(binding.root, Animations.FadeIn))
     }
 
     companion object {

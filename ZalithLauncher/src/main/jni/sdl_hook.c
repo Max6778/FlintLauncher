@@ -65,14 +65,12 @@ static void notify_launcher_sdl_init() {
     }
 
     JNIEnv* env;
-    bool needsDetach = false;
     int getEnvStat = (*dalvikVm)->GetEnv(dalvikVm, (void**) &env, JNI_VERSION_1_6);
     if (getEnvStat == JNI_EDETACHED) {
         if ((*dalvikVm)->AttachCurrentThread(dalvikVm, &env, NULL) != 0) {
             __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to attach to Dalvik VM");
             return;
         }
-        needsDetach = true;
     } else if (getEnvStat != JNI_OK) {
         __android_log_print(ANDROID_LOG_ERROR, "sdl_hook", "Failed to get Dalvik JNIEnv (%i)", getEnvStat);
         return;
@@ -92,8 +90,16 @@ static void notify_launcher_sdl_init() {
 
     (*env)->DeleteLocalRef(env, actionArray);
 
-    detach:
-    if (needsDetach) (*dalvikVm)->DetachCurrentThread(dalvikVm);
+    /*
+     * Do not detach a thread that this function just attached. notifyLauncher()
+     * calls SDL.setupJNI(), whose nativeSetupJNI() stores this JNIEnv in SDL's
+     * own pthread TLS via Android_JNI_SetEnv(). Detaching here leaves SDL with
+     * a stale JNIEnv pointer; later Android JNI callbacks on the game render
+     * thread then call through freed/corrupted JNI table data (seen as SIGSEGV
+     * in SDL_SetWindowRelativeMouseMode and SDL_StopTextInput). SDL's
+     * Android_JNI_ThreadDestroyed TLS destructor owns detaching this thread
+     * when it exits and clears the cached JNIEnv at the same time.
+     */
 }
 
 typedef void (*sdl_set_main_ready_func)(void);

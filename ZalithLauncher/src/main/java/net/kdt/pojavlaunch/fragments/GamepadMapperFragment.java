@@ -126,6 +126,20 @@ public class GamepadMapperFragment extends FragmentWithAnim implements
     }
 
     @Override
+    public void onDestroyView() {
+        mExitHandler.removeCallbacks(mExitRunnable);
+        if (mGamepad != null) {
+            mGamepad.dispose();
+            mGamepad = null;
+        }
+        if (binding != null) {
+            binding.gamepadRemapperRecycler.setAdapter(null);
+            binding = null;
+        }
+        super.onDestroyView();
+    }
+
+    @Override
     public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
         boolean grab = i == 1;
         mMapperAdapter.setGrabState(grab);
