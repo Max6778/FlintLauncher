@@ -382,14 +382,21 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
                 // init to proceed with zero Java-side setup and crash inside itself.
                 System.loadLibrary("SDL3");
                 org.libsdl.app.SDL.setupJNI();
-                // MobileGlues may enable framebuffer sRGB when SDL creates its
-                // EGL context. Minecraft's colors are authored for the normal
-                // framebuffer path, so the extra conversion makes the 26.3 SDL
-                // menu look washed out. Set this before SDL creates the context.
+                // The embedded path bypasses SDLActivity.onCreate(), which normally
+                // verifies the native/Java SDL versions and clears mBrokenLibraries.
+                // Without this check, SDL lifecycle callbacks keep treating the
+                // successfully loaded library as unavailable.
+                if (!SDLActivity.externalLibrariesReady()) {
+                    return false;
+                }
+                // SDL 3.4.2+ supports this hint; Flint's bundled SDL is 3.4.12.
+                // Some Android GL drivers return washed-out colors when SDL
+                // requests an sRGB framebuffer, so force SDL to request a
+                // non-sRGB context before Minecraft creates its SDL window.
                 try {
-                    Os.setenv("DROIDBRIDGE_MOBILEGLUES_DISABLE_FRAMEBUFFER_SRGB", "1", true);
+                    Os.setenv("SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER", "0", true);
                 } catch (ErrnoException | SecurityException envError) {
-                    System.err.println("Could not disable MobileGlues framebuffer sRGB for SDL: " + envError);
+                    System.err.println("Could not disable SDL framebuffer sRGB: " + envError);
                 }
                 usingSdl3 = true;
                 sdl3MouseButtonState = 0;

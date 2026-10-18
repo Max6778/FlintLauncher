@@ -218,6 +218,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected static Activity mSingleton;
     protected static SDLSurface mSurface;
     protected static ViewGroup mLayout;
+    // Embedded SDL uses Flint's existing render view as the Android pointer-
+    // capture host. Capturing the decorative SDL surface or its parent layout
+    // competes with Flint's AndroidPointerCapture and drops relative motion.
+    protected static View mRelativeMouseCaptureView;
     protected static SDLClipboardHandler mClipboardHandler;
     protected static Hashtable<Integer, PointerIcon> mCursors;
     protected static int mLastCursorID;
@@ -337,6 +341,34 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     }
 
     /**
+     * Completes the SDL library checks for the embedded-Minecraft path.
+     *
+     * Normal SDL launches do this in onCreate() after loading the libraries.
+     * Flint starts SDL from LWJGL instead, so onCreate() is never reached and
+     * mBrokenLibraries would otherwise stay true forever. Several SDL lifecycle
+     * callbacks use that flag to decide whether native callbacks are safe.
+     * Call this only after SDL.setupJNI() has successfully registered them.
+     */
+    public static boolean externalLibrariesReady() {
+        String expectedVersion = SDL_MAJOR_VERSION + "." + SDL_MINOR_VERSION + "." + SDL_MICRO_VERSION;
+        try {
+            String actualVersion = nativeGetVersion();
+            if (!expectedVersion.equals(actualVersion)) {
+                mBrokenLibraries = true;
+                Log.e(TAG, "Embedded SDL version mismatch: expected " + expectedVersion + ", got " + actualVersion);
+                return false;
+            }
+            mBrokenLibraries = false;
+            Log.i(TAG, "Embedded SDL libraries ready: " + actualVersion);
+            return true;
+        } catch (Throwable error) {
+            mBrokenLibraries = true;
+            Log.e(TAG, "Embedded SDL native setup is incomplete", error);
+            return false;
+        }
+    }
+
+    /**
      * Entry point used when SDL is bolted onto an existing Activity (MainActivity)
      * instead of being run as its own Activity -- see MinecraftGLSurface.setupSDL().
      * Replaces the real onCreate() flow below for this use case: no manifest entry,
@@ -344,11 +376,12 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * was already created by MinecraftGLSurface for the GLFW/legacy path; SDL is handed
      * that same surface rather than creating one of its own via createSDLSurface().
      */
-    public static void externalInitialize(SDLSurface surface, ViewGroup layout, Surface nativeSurface) {
+    public static void externalInitialize(SDLSurface surface, ViewGroup layout, Surface nativeSurface, View captureView) {
         mSingleton = getContext();
         mSurface = surface;
         SDLSurface.setNativeSurface(nativeSurface);
         mLayout = layout;
+        mRelativeMouseCaptureView = captureView;
         SDL.setContext(mSingleton);
         mClipboardHandler = new SDLClipboardHandler();
         mCursors = new Hashtable<Integer, PointerIcon>();
@@ -1487,7 +1520,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
     // This method is called by SDLControllerManager's API 26 Generic Motion Handler.
     public static View getContentView() {
-        return mLayout;
+        return mRelativeMouseCaptureView != null ? mRelativeMouseCaptureView : mLayout;
     }
 
     static class ShowTextInputTask implements Runnable {

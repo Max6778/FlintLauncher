@@ -421,7 +421,7 @@ public class MinecraftGLSurface extends View implements GrabListener {
         // actually flips CallbackBridge.usingSdl3 on and starts routing input here.
         // Harmless to set up unconditionally: SDL simply never gets used if the
         // game never calls into org.lwjgl.sdl.*.
-        setupSdlSurface(getContext(), surface, (ViewGroup) getParent());
+        setupSdlSurface(getContext(), surface, (ViewGroup) getParent(), this);
 
         new Thread(() -> {
             try {
@@ -444,13 +444,13 @@ public class MinecraftGLSurface extends View implements GrabListener {
      * competing native window: SDL is handed the exact same Surface Minecraft
      * already renders into via JREUtils.setupBridgeWindow() above.
      */
-    private static void setupSdlSurface(Context context, Surface nativeSurface, ViewGroup layout) {
+    private static void setupSdlSurface(Context context, Surface nativeSurface, ViewGroup layout, View sdlHostView) {
         org.libsdl.app.SDLSurface sdlSurface = new org.libsdl.app.SDLSurface(context);
         // Must run here (not off a bare background thread) or SDL's internal
         // SDLCommandHandler -- which needs a Looper -- can crash.
         org.libsdl.app.SDL.initialize();
         org.libsdl.app.SDL.setContext((android.app.Activity) context);
-        org.libsdl.app.SDLActivity.externalInitialize(sdlSurface, layout, nativeSurface);
+        org.libsdl.app.SDLActivity.externalInitialize(sdlSurface, layout, nativeSurface, sdlHostView);
     }
 
     @Override
