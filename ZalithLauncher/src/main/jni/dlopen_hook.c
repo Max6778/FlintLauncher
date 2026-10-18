@@ -30,6 +30,8 @@
 
 typedef void *(*dlopen_func_t)(const char *, int);
 typedef void *(*dlsym_func_t)(void *, const char *);
+
+extern void *sdlWindowDlsymProxy(const char *symbol, void *real);
 typedef jint (*JNI_OnLoad_t)(JavaVM *vm, void *reserved);
 
 #define SDL_LIBS \
@@ -431,6 +433,11 @@ void *custom_dlsym(void *handle, const char *symbol) {
         // This outputs in the minecraft logs
         __android_log_print(ANDROID_LOG_INFO, "dlopen_hook", "Intercepted SDL3 JNI_OnLoad: %p", result);
         return (void *) custom_sdl3_JNI_OnLoad;
+    }
+
+    if (result != NULL && symbol != NULL && sdl3_handle != NULL && handle == sdl3_handle) {
+        void *window_proxy = sdlWindowDlsymProxy(symbol, result);
+        if (window_proxy != NULL) return window_proxy;
     }
 
     if (result != NULL && symbol != NULL && strcmp(symbol, "SDL_GL_GetProcAddress") == 0

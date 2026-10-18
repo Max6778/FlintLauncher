@@ -17,6 +17,8 @@
 
 #include <jni.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 #include <bytehook.h>
 #include <dlfcn.h>
@@ -29,6 +31,101 @@
 static _Atomic bool sdl_init_notified = false;
 
 typedef int (*sdl_init_subsystem_func)(unsigned long flags);
+
+// SDL's Android video driver exposes one native window per process. Minecraft
+// 26.3's RenderPearl GL path creates a bootstrap window and then asks for the
+// game window; route those logical windows to the same Android window.
+typedef struct SDL_Window SDL_Window;
+typedef SDL_Window *(*sdl_create_window_func)(const char *, int, int, uint64_t);
+typedef SDL_Window *(*sdl_create_window_props_func)(uint32_t);
+typedef void (*sdl_destroy_window_func)(SDL_Window *);
+static SDL_Window *sdl_primary_window;
+static unsigned int sdl_primary_window_refs;
+static sdl_create_window_func real_sdl_create_window;
+static sdl_create_window_props_func real_sdl_create_window_props;
+static sdl_destroy_window_func real_sdl_destroy_window;
+
+static bool reuse_sdl_window_enabled(void) {
+    const char *value = getenv("POJAV_SDL_REUSE_WINDOW");
+    return value == NULL || strcmp(value, "1") == 0;
+}
+
+static SDL_Window *reuse_sdl_primary_window(void) {
+    ++sdl_primary_window_refs;
+    __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Reusing SDL Android window %p (refs=%u)", sdl_primary_window, sdl_primary_window_refs);
+    return sdl_primary_window;
+}
+
+static void register_sdl_primary_window(SDL_Window *window) {
+    sdl_primary_window = window;
+    sdl_primary_window_refs = 1;
+    __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Registered primary SDL window %p", window);
+}
+
+static SDL_Window *custom_sdl_create_window(const char *title, int width, int height, uint64_t flags) {
+    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *window = BYTEHOOK_CALL_PREV(custom_sdl_create_window, sdl_create_window_func, title, width, height, flags);
+    BYTEHOOK_POP_STACK();
+    if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
+    return window;
+}
+
+static SDL_Window *custom_sdl_create_window_props(uint32_t properties) {
+    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *window = BYTEHOOK_CALL_PREV(custom_sdl_create_window_props, sdl_create_window_props_func, properties);
+    BYTEHOOK_POP_STACK();
+    if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
+    return window;
+}
+
+static bool release_sdl_primary_window(SDL_Window *window) {
+    if (window != sdl_primary_window) return true;
+    if (sdl_primary_window_refs > 0) --sdl_primary_window_refs;
+    if (sdl_primary_window_refs > 0) return false;
+    sdl_primary_window = NULL;
+    return true;
+}
+
+static void custom_sdl_destroy_window(SDL_Window *window) {
+    if (release_sdl_primary_window(window)) BYTEHOOK_CALL_PREV(custom_sdl_destroy_window, sdl_destroy_window_func, window);
+    BYTEHOOK_POP_STACK();
+}
+
+// LWJGL caches raw dlsym() results, so apply the same reuse policy there.
+static SDL_Window *proxy_sdl_create_window(const char *title, int width, int height, uint64_t flags) {
+    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *window = real_sdl_create_window(title, width, height, flags);
+    if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
+    return window;
+}
+
+static SDL_Window *proxy_sdl_create_window_props(uint32_t properties) {
+    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *window = real_sdl_create_window_props(properties);
+    if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
+    return window;
+}
+
+static void proxy_sdl_destroy_window(SDL_Window *window) {
+    if (release_sdl_primary_window(window)) real_sdl_destroy_window(window);
+}
+
+void *sdlWindowDlsymProxy(const char *symbol, void *real) {
+    if (symbol == NULL || real == NULL) return NULL;
+    if (strcmp(symbol, "SDL_CreateWindow") == 0) {
+        if (real_sdl_create_window == NULL) real_sdl_create_window = (sdl_create_window_func) real;
+        return (void *) proxy_sdl_create_window;
+    }
+    if (strcmp(symbol, "SDL_CreateWindowWithProperties") == 0) {
+        if (real_sdl_create_window_props == NULL) real_sdl_create_window_props = (sdl_create_window_props_func) real;
+        return (void *) proxy_sdl_create_window_props;
+    }
+    if (strcmp(symbol, "SDL_DestroyWindow") == 0) {
+        if (real_sdl_destroy_window == NULL) real_sdl_destroy_window = (sdl_destroy_window_func) real;
+        return (void *) proxy_sdl_destroy_window;
+    }
+    return NULL;
+}
 
 // Mirrors CallbackBridge's notification constants -- keep these in sync
 // with org.lwjgl.glfw.CallbackBridge.NOTIF_TYPE_SDL / ACTION_INIT_LAUNCHER_INTEGRATION.
@@ -146,6 +243,9 @@ static void create_sdl_hooks_impl(bytehook_hook_all_t bytehook_hook_all_p) {
     // loaded after the hook is installed too.
     bytehook_stub_t stub = bytehook_hook_all_p(NULL, "SDL_InitSubSystem", &custom_sdl_init_subsystem, NULL, NULL);
     __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Successfully initialized SDL init hook, stub=%p", stub);
+    bytehook_hook_all_p(NULL, "SDL_CreateWindow", &custom_sdl_create_window, NULL, NULL);
+    bytehook_hook_all_p(NULL, "SDL_CreateWindowWithProperties", &custom_sdl_create_window_props, NULL, NULL);
+    bytehook_hook_all_p(NULL, "SDL_DestroyWindow", &custom_sdl_destroy_window, NULL, NULL);
 }
 
 // Public entrypoint called from exit_hook.c's shared init_hooks(), which owns
