@@ -18,8 +18,6 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout Repository
@@ -65,21 +63,12 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
-      # Actions artifacts are always downloaded as ZIP files. Publish the APK
-      # as a release asset instead so users can download/install the .apk directly.
-      - name: Publish Debug APK download
-        if: github.event_name == 'push' && github.ref == 'refs/heads/Official'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          apk=$(find ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)
-          test -n "$apk"
-          cp "$apk" FlintLauncher-debug.apk
-          if gh release view latest-debug >/dev/null 2>&1; then
-            gh release delete latest-debug --cleanup-tag --yes
-          fi
-          gh release create latest-debug FlintLauncher-debug.apk \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "FlintLauncher latest debug APK" \
-            --notes "Rolling debug APK from the Official branch. Replaced by each successful Official build."
+      # This is a debug build for testing, not a product release. GitHub Actions
+      # stores workflow artifacts as ZIPs; the APK is inside and can be installed
+      # after extracting it.
+      - name: Upload DEBUG APK for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlintLauncher-DEBUG-APK-${{ github.run_number }}
+          path: ZalithLauncher/build/outputs/apk/debug/*.apk
+          retention-days: 14
