@@ -92,6 +92,9 @@ class AllSettings {
         @JvmStatic
         val deadZoneScale = IntSettingUnit("gamepad_deadzone_scale", 100)
 
+        @JvmStatic
+        val androidBackAction = StringSettingUnit("android_back_action", "pause_game")
+
         // Game
         @JvmStatic
         val versionIsolation = BooleanSettingUnit("versionIsolation", true)
@@ -212,6 +215,9 @@ class AllSettings {
 
         @JvmStatic
         val defaultCtrl = StringSettingUnit("defaultCtrl", PathManager.FILE_CTRLDEF_FILE)
+
+        @JvmStatic
+        val controlLayoutStyle = StringSettingUnit("control_layout_style", "legacy")
 
         @JvmStatic
         val defaultRuntime = StringSettingUnit("defaultRuntime", "")

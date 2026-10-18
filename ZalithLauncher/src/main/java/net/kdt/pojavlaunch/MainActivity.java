@@ -7,11 +7,10 @@ import static org.lwjgl.glfw.CallbackBridge.windowWidth;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
-import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
-import android.provider.DocumentsContract;
 import android.os.Build;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -20,26 +19,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
+import android.provider.MediaStore;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -104,6 +106,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.lang.ref.WeakReference;
 
 public class MainActivity extends BaseActivity implements ControlButtonMenuListener, EditorExitable, ServiceConnection, ViewTreeObserver.OnGlobalLayoutListener {
     public static volatile ClipboardManager GLOBAL_CLIPBOARD;
@@ -128,12 +131,10 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     private SimpleTextWatcher mInputWatcher;
     private final AnimPlayer mInputPreviewAnim = new AnimPlayer();
     boolean isKeyboardVisible = false;
-    private ActivityResultLauncher<Intent> createRecordingDocument;
-    private ActivityResultLauncher<Intent> requestScreenCapture;
+    private static volatile WeakReference<ControlLayout> recordingControlsView = new WeakReference<>(null);
     private Uri recordingOutputUri;
-    private boolean recordingWebm;
-    private boolean recordingUiHidden;
-    private boolean previousControlsVisible;
+    private Surface recordingCaptureSurface;
+    private boolean recordingIncludeControls;
     private boolean recordingReceiverRegistered;
     private boolean recordingServiceStarted;
     private final BroadcastReceiver recordingReceiver = new BroadcastReceiver() {
@@ -145,24 +146,6 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        createRecordingDocument = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(), result -> {
-                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
-                            || result.getData().getData() == null) return;
-                    recordingOutputUri = result.getData().getData();
-                    MediaProjectionManager manager = (MediaProjectionManager)
-                            getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                    requestScreenCapture.launch(manager.createScreenCaptureIntent());
-                });
-        requestScreenCapture = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(), result -> {
-                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
-                            || recordingOutputUri == null) {
-                        deletePendingRecording();
-                        return;
-                    }
-                    beginRecording(result.getResultCode(), result.getData());
-                });
         minecraftVersion = getIntent().getParcelableExtra(INTENT_VERSION);
         if (minecraftVersion == null) throw new RuntimeException("The game version is not selected!");
 
@@ -213,9 +196,11 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     }
 
     private void initScreenRecordingMenu() {
+        // Keep capture and encoder work moderate on mobile GPUs by default.
+        mGameMenuBinding.recordResolution.setSelection(2);
         mGameMenuBinding.recordKeepControlsLayout.setOnClickListener(
                 v -> mGameMenuBinding.recordKeepControls.setChecked(!mGameMenuBinding.recordKeepControls.isChecked()));
-        mGameMenuBinding.recordStart.setOnClickListener(v -> chooseRecordingDestination());
+        mGameMenuBinding.recordStart.setOnClickListener(v -> startRecordingFlow());
         mGameMenuBinding.recordPause.setOnClickListener(v -> {
             Object state = mGameMenuBinding.recordPause.getTag();
             sendRecordingCommand("paused".equals(state)
@@ -224,40 +209,90 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         mGameMenuBinding.recordStop.setOnClickListener(v -> sendRecordingCommand(ScreenRecordingService.ACTION_STOP));
     }
 
-    private void chooseRecordingDestination() {
-        recordingWebm = mGameMenuBinding.recordFormatGroup.getCheckedRadioButtonId() == R.id.record_format_webm;
-        String extension = recordingWebm ? ".webm" : ".mp4";
-        String mimeType = recordingWebm ? "video/webm" : "video/mp4";
-        String time = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-        Intent createDocument = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-                .addCategory(Intent.CATEGORY_OPENABLE)
-                .setType(mimeType)
-                .putExtra(Intent.EXTRA_TITLE, "FlintLauncher-" + time + extension);
-        createRecordingDocument.launch(createDocument);
+    private void startRecordingFlow() {
+        mGameMenuBinding.recordStart.setEnabled(false);
+        String time = new SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(new Date());
+        String fileName = "FlintLauncher-" + time + ".mp4";
+        try {
+            recordingOutputUri = createRecordingOutput(fileName, "video/mp4");
+            if (recordingOutputUri == null) throw new IOException("Could not create the recording file");
+            beginRecording();
+        } catch (Exception e) {
+            releaseRecordingSurface();
+            deletePendingRecording();
+            if (mGameMenuBinding != null) mGameMenuBinding.recordStart.setEnabled(true);
+            Toast.makeText(this, "Could not prepare recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
-    private void beginRecording(int resultCode, Intent resultData) {
-        boolean keepControls = mGameMenuBinding.recordKeepControls.isChecked();
-        if (!keepControls) {
-            previousControlsVisible = binding.mainControlLayout.areControlVisible();
-            binding.mainControlLayout.setControlVisible(false);
-            mGameMenuWrapper.setTemporarilyHidden(true);
-            recordingUiHidden = true;
+    private Uri createRecordingOutput(String fileName, String mimeType) throws IOException {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
+        values.put(MediaStore.Video.Media.TITLE, fileName);
+        values.put(MediaStore.Video.Media.MIME_TYPE, mimeType);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.put(MediaStore.Video.Media.RELATIVE_PATH,
+                    Environment.DIRECTORY_DCIM + File.separator + "FlintLauncher");
+            values.put(MediaStore.Video.Media.IS_PENDING, 1);
+        } else {
+            File outputDirectory = new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "FlintLauncher");
+            if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
+                throw new IOException("Could not create DCIM/FlintLauncher");
+            }
+            values.put(MediaStore.Video.Media.DATA, new File(outputDirectory, fileName).getAbsolutePath());
+        }
+        return getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+    }
+
+    private void beginRecording() {
+        recordingCaptureSurface = binding.mainGameRenderView.getRecordingSurface();
+        if (recordingCaptureSurface == null) {
+            deletePendingRecording();
+            mGameMenuBinding.recordStart.setEnabled(true);
+            Toast.makeText(this, "Minecraft's render surface is not ready", Toast.LENGTH_LONG).show();
+            return;
+        }
+        recordingIncludeControls = mGameMenuBinding.recordKeepControls.isChecked();
+
+        // Capture starts after the menu closes. The recorder reads only the
+        // Minecraft Surface, so touch controls remain available on screen while
+        // staying out of the recording unless composited as an overlay.
+        boolean waitForDrawerClose = binding.mainDrawerOptions.isDrawerVisible(binding.mainNavigationView);
+        if (waitForDrawerClose) {
+            recordingDrawerCloseListener = new DrawerLayout.SimpleDrawerListener() {
+                @Override public void onDrawerClosed(View drawerView) {
+                    binding.mainDrawerOptions.removeDrawerListener(this);
+                    recordingDrawerCloseListener = null;
+                    startRecordingService();
+                }
+            };
+            binding.mainDrawerOptions.addDrawerListener(recordingDrawerCloseListener);
         }
         binding.mainDrawerOptions.closeDrawers();
+        if (!waitForDrawerClose) startRecordingService();
+    }
+
+    private DrawerLayout.DrawerListener recordingDrawerCloseListener;
+
+    private void startRecordingService() {
         Intent start = new Intent(this, ScreenRecordingService.class)
                 .putExtra(ScreenRecordingService.EXTRA_ACTION, ScreenRecordingService.ACTION_START)
-                .putExtra(ScreenRecordingService.EXTRA_RESULT_CODE, resultCode)
-                .putExtra(ScreenRecordingService.EXTRA_RESULT_DATA, resultData)
+                .putExtra(ScreenRecordingService.EXTRA_CAPTURE_SURFACE, recordingCaptureSurface)
+                .putExtra(ScreenRecordingService.EXTRA_SOURCE_WIDTH, binding.mainGameRenderView.getWidth())
+                .putExtra(ScreenRecordingService.EXTRA_SOURCE_HEIGHT, binding.mainGameRenderView.getHeight())
                 .putExtra(ScreenRecordingService.EXTRA_OUTPUT_URI, recordingOutputUri)
-                .putExtra(ScreenRecordingService.EXTRA_WEBM, recordingWebm);
+                .putExtra(ScreenRecordingService.EXTRA_RESOLUTION,
+                        mGameMenuBinding.recordResolution.getSelectedItemPosition())
+                .putExtra(ScreenRecordingService.EXTRA_INCLUDE_CONTROLS, recordingIncludeControls);
         try {
             ContextCompat.startForegroundService(this, start);
             recordingServiceStarted = true;
         } catch (RuntimeException e) {
             recordingServiceStarted = false;
-            restoreRecordingOverlays();
+            releaseRecordingSurface();
             deletePendingRecording();
+            mGameMenuBinding.recordStart.setEnabled(true);
             Toast.makeText(this, "Could not start screen recording: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
@@ -266,11 +301,9 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         Intent command = new Intent(this, ScreenRecordingService.class)
                 .putExtra(ScreenRecordingService.EXTRA_ACTION, action);
         try {
-            if (ScreenRecordingService.ACTION_START.equals(action)) ContextCompat.startForegroundService(this, command);
-            else startService(command);
+            startService(command);
         } catch (RuntimeException e) {
             Logging.e("ScreenRecording", "Could not send recording command", e);
-            if (ScreenRecordingService.ACTION_STOP.equals(action)) restoreRecordingOverlays();
         }
     }
 
@@ -282,10 +315,8 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         boolean active = "recording".equals(state) || "paused".equals(state);
         mGameMenuBinding.recordControls.setVisibility(active ? View.VISIBLE : View.GONE);
         mGameMenuBinding.recordStart.setVisibility(active ? View.GONE : View.VISIBLE);
-        mGameMenuBinding.recordFormatGroup.setEnabled(!active);
-        mGameMenuBinding.recordFormatMp4.setEnabled(!active);
-        mGameMenuBinding.recordFormatWebm.setEnabled(!active);
         mGameMenuBinding.recordKeepControls.setEnabled(!active);
+        mGameMenuBinding.recordResolution.setEnabled(!active);
         if (active) {
             boolean paused = "paused".equals(state);
             mGameMenuBinding.recordPause.setTag(paused ? "paused" : "recording");
@@ -293,9 +324,10 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
             return;
         }
 
-        restoreRecordingOverlays();
+        releaseRecordingSurface();
         recordingServiceStarted = false;
         recordingOutputUri = null;
+        mGameMenuBinding.recordStart.setEnabled(true);
         if ("stopped".equals(state)) {
             mGameMenuBinding.recordDuration.setText(R.string.recording_saved);
             Toast.makeText(this, R.string.recording_saved, Toast.LENGTH_SHORT).show();
@@ -308,18 +340,26 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         }
     }
 
-    private void restoreRecordingOverlays() {
-        if (!recordingUiHidden) return;
-        if (binding != null && binding.mainControlLayout != null) {
-            binding.mainControlLayout.setControlVisible(previousControlsVisible);
+    private void releaseRecordingSurface() {
+        if (recordingCaptureSurface != null) {
+            recordingCaptureSurface.release();
+            recordingCaptureSurface = null;
         }
-        if (mGameMenuWrapper != null) mGameMenuWrapper.setTemporarilyHidden(false);
-        recordingUiHidden = false;
+    }
+
+    /** Draw the touch-control overlay into a transparent Minecraft frame. Called on the UI thread. */
+    public static void drawRecordingControls(Bitmap target) {
+        ControlLayout controls = recordingControlsView.get();
+        if (controls == null || controls.getWidth() <= 0 || controls.getHeight() <= 0) return;
+        Canvas canvas = new Canvas(target);
+        canvas.scale(target.getWidth() / (float) controls.getWidth(),
+                target.getHeight() / (float) controls.getHeight());
+        controls.draw(canvas);
     }
 
     private void deletePendingRecording() {
         if (recordingOutputUri != null) {
-            try { DocumentsContract.deleteDocument(getContentResolver(), recordingOutputUri); }
+            try { getContentResolver().delete(recordingOutputUri, null, null); }
             catch (Exception ignored) {}
             recordingOutputUri = null;
         }
@@ -328,6 +368,7 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     protected void initLayout() {
         binding = ActivityGameBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        recordingControlsView = new WeakReference<>(binding.mainControlLayout);
 
         mGameMenuWrapper = new GameMenuViewWrapper(this, v -> onClickedMenu(), true);
         touchCharInput = binding.mainTouchCharInput;
@@ -476,12 +517,18 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
 
     @Override
     protected void onDestroy() {
+        if (recordingDrawerCloseListener != null && binding != null) {
+            binding.mainDrawerOptions.removeDrawerListener(recordingDrawerCloseListener);
+            recordingDrawerCloseListener = null;
+        }
         if (recordingServiceStarted) sendRecordingCommand(ScreenRecordingService.ACTION_STOP);
         if (recordingReceiverRegistered) {
             unregisterReceiver(recordingReceiver);
             recordingReceiverRegistered = false;
         }
-        restoreRecordingOverlays();
+        releaseRecordingSurface();
+        if (!recordingServiceStarted) deletePendingRecording();
+        recordingControlsView = new WeakReference<>(null);
         super.onDestroy();
         mMenuSettingsInitListener.closeSpinner();
         CallbackBridge.removeGrabListener(binding.mainTouchpad);
@@ -510,6 +557,11 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        if (requestCode == net.kdt.pojavlaunch.customcontrols.handleview.EditControlPopup.IMAGE_PICK_REQUEST
+                && resultCode == Activity.RESULT_OK && data != null) {
+            binding.mainControlLayout.onControlImagePicked(data.getData());
+            return;
+        }
         if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
             try {
                 binding.mainControlLayout.loadLayout((String) null);
@@ -576,7 +628,12 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         if(!(handleEvent = binding.mainGameRenderView.processKeyEvent(event))) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && !binding.mainTouchCharInput.isEnabled()) {
                 if(event.getAction() != KeyEvent.ACTION_UP) return true; // We eat it anyway
-                sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+                String action = com.movtery.zalithlauncher.setting.AllSettings.getAndroidBackAction().getValue();
+                if ("launcher_menu".equals(action)) {
+                    onClickedMenu();
+                } else if (!"disabled".equals(action)) {
+                    sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+                }
                 return true;
             }
         }

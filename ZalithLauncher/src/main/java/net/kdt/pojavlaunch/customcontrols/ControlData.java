@@ -61,6 +61,9 @@ public class ControlData {
     public String dynamicX, dynamicY;
     public boolean isToggle, passThruEnabled;
     public String name;
+    /** Optional app-owned images for dynamic control button states. */
+    public String idleImagePath;
+    public String pressedImagePath;
     public int[] keycodes;      //Should store up to 4 keys
     public float opacity;       //Alpha value from 0 to 1;
     public int bgColor;
@@ -156,6 +159,8 @@ public class ControlData {
                 controlData.isSwipeable,
                 controlData.passThruEnabled
         );
+        this.idleImagePath = controlData.idleImagePath;
+        this.pressedImagePath = controlData.pressedImagePath;
     }
 
     public static ControlData[] getSpecialButtons(Context context) {

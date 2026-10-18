@@ -772,7 +772,12 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
             // otherwise also route it into SDL's native key queue,
             // double-handling the same press.
             if (event.getAction() != android.view.KeyEvent.ACTION_UP) return true;
-            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+            String action = com.movtery.zalithlauncher.setting.AllSettings.getAndroidBackAction().getValue();
+            if ("launcher_menu".equals(action)) {
+                onClickedMenu();
+            } else if (!"disabled".equals(action)) {
+                CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE);
+            }
             return true;
         }
         // Every other key MUST go through SDLActivity's own dispatchKeyEvent --

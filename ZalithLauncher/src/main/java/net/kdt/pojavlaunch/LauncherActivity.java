@@ -61,6 +61,7 @@ import com.movtery.zalithlauncher.feature.notice.CheckNewNotice;
 import com.movtery.zalithlauncher.feature.notice.NoticeInfo;
 import com.movtery.zalithlauncher.feature.update.UpdateUtils;
 import com.movtery.zalithlauncher.feature.version.Version;
+import com.movtery.zalithlauncher.feature.version.VersionInfo;
 import com.movtery.zalithlauncher.feature.version.VersionsManager;
 import com.movtery.zalithlauncher.feature.version.install.GameInstaller;
 import com.movtery.zalithlauncher.feature.version.install.InstallTask;
@@ -222,24 +223,20 @@ public class LauncherActivity extends BaseActivity {
      *
      * Decision tree:
      *  1. Version < 26.2 → launch normally, no checks needed.
-     *  2. Version ≥ 26.2 AND forceOpenGlForNewVersions is ON → silently override
-     *     the renderer to Krypton Wrapper and launch without showing a dialog.
+     *  2. Version ≥ 26.2 AND forceOpenGlForNewVersions is ON → write Minecraft's
+     *     preferredGraphicsBackend option as opengl and launch without a dialog.
      *  3. Version ≥ 26.2 AND ignoreVulkanWarning is ON → skip the dialog and
      *     launch with whatever renderer the user has configured.
      *  4. Otherwise → show the Vulkan warning dialog so the user can test first.
      */
     private void checkVulkanCompatAndLaunch(Version version) {
-        String versionName = version.getVersionName();
+        String versionName = getEffectiveMinecraftVersionName(version);
         if (!isVersionAtLeast26_2(versionName)) {
             launchGame(version);
             return;
         }
 
-        // FIX: was AllSettings.forceOpenGlForNewVersions.getValue() — direct field
-        //      access failed because the field was not visible at the call site.
-        //      Now routed through the @JvmStatic getter added to AllSettings.
         if (AllSettings.getForceOpenGlForNewVersions().getValue()) {
-            applyOpenGlOverride(version);
             launchGame(version);
             return;
         }
@@ -253,32 +250,14 @@ public class LauncherActivity extends BaseActivity {
         showVulkanWarningDialog(version, versionName);
     }
 
-    /**
-     * Overrides the given version's renderer to Krypton Wrapper for this launch.
-     *
-     * Writes into VersionConfig in memory only — save() is NOT called — so the
-     * user's persisted renderer choice is left untouched.
-     *
-     * Renderer settings store registry UUIDs, not renderer IDs like "opengles2".
-     * The setter lives on VersionConfig, accessed via version.getVersionConfig().
-     */
-    private void applyOpenGlOverride(Version version) {
-        final String KRYPTON_RENDERER_ID = "c47a1e6d-3f92-4b8a-9e15-7d2c6a4f0b83";
-
-        try {
-            String current = version.getRenderer();
-            if (!KRYPTON_RENDERER_ID.equals(current)) {
-                version.getVersionConfig().setRenderer(KRYPTON_RENDERER_ID);
-                Logging.i("LauncherActivity",
-                        "Force-OpenGL override: " + version.getVersionName()
-                        + " (was: " + current + " -> now: " + KRYPTON_RENDERER_ID + ")");
-            }
-            Toast.makeText(this,
-                    getString(R.string.setting_force_opengl_active_toast, version.getVersionName()),
-                    Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Logging.e("LauncherActivity", "Failed to apply OpenGL renderer override", e);
+    /** Returns the actual Minecraft version for modded/profile directory names. */
+    private String getEffectiveMinecraftVersionName(Version version) {
+        VersionInfo versionInfo = version.getVersionInfo();
+        if (versionInfo != null && versionInfo.getMinecraftVersion() != null
+                && !versionInfo.getMinecraftVersion().isEmpty()) {
+            return versionInfo.getMinecraftVersion();
         }
+        return version.getVersionName();
     }
 
     /**
@@ -648,7 +627,7 @@ public class LauncherActivity extends BaseActivity {
     private void launchGame(Version version) {
         // This is the common launch entry point, so re-apply the preference on
         // every launch in case Minecraft or another tool changed options.txt.
-        if (isVersionAtLeast26_2(version.getVersionName())
+        if (isVersionAtLeast26_2(getEffectiveMinecraftVersionName(version))
                 && AllSettings.getForceOpenGlForNewVersions().getValue()) {
             ensurePreferredGraphicsBackend(version);
         }

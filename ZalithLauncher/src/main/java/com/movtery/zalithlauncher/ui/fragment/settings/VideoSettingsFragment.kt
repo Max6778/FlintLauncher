@@ -14,6 +14,7 @@ import com.movtery.anim.animations.Animations
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.databinding.SettingsFragmentVideoBinding
 import com.movtery.zalithlauncher.event.single.LauncherIgnoreNotchEvent
+import com.movtery.zalithlauncher.event.value.SettingsPageSwapEvent
 import com.movtery.zalithlauncher.feature.log.Logging
 import com.movtery.zalithlauncher.plugins.driver.DriverPluginManager
 import com.movtery.zalithlauncher.plugins.renderer.RendererPluginManager
@@ -36,11 +37,13 @@ import net.kdt.pojavlaunch.Tools
 import net.kdt.pojavlaunch.contracts.OpenDocumentWithExtension
 import org.apache.commons.io.FileUtils
 import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
 import java.io.File
 
 class VideoSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragment_video, SettingCategory.VIDEO) {
     private lateinit var binding: SettingsFragmentVideoBinding
     private lateinit var openDocumentLauncher: ActivityResultLauncher<Any>
+    private var settingsInitialized = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,11 +102,22 @@ class VideoSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragmen
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = SettingsFragmentVideoBinding.inflate(layoutInflater)
+        binding = SettingsFragmentVideoBinding.inflate(inflater)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+    }
+
+    @Subscribe
+    fun initializeWhenSelected(event: SettingsPageSwapEvent) {
+        if (event.index == SettingCategory.VIDEO.ordinal) binding.root.post { initializeSettings() }
+    }
+
+    private fun initializeSettings() {
+        if (settingsInitialized || !isAdded) return
+        settingsInitialized = true
         val context = requireActivity()
 
         val renderers = Renderers.getCompatibleRenderers(context).first
@@ -250,7 +264,7 @@ class VideoSettingsFragment : AbstractSettingsFragment(R.layout.settings_fragmen
 
     override fun onChange() {
         super.onChange()
-        computeVisibility()
+        if (settingsInitialized) computeVisibility()
     }
 
     private fun computeVisibility() {

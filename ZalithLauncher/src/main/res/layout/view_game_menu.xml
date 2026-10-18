@@ -114,8 +114,28 @@
                     android:layout_height="wrap_content"
                     android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
-                    android:checked="true" />
+                    android:checked="false" />
             </com.movtery.zalithlauncher.ui.layout.AnimRelativeLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:text="@string/recording_resolution"
+                android:textColor="@color/black_or_white" />
+
+            <Spinner
+                android:id="@+id/record_resolution"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:entries="@array/recording_resolutions"
+                android:spinnerMode="dropdown" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/recording_output_path"
+                android:textColor="@color/black_or_white" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -124,23 +144,11 @@
                 android:text="@string/recording_format"
                 android:textColor="@color/black_or_white" />
 
-            <RadioGroup
-                android:id="@+id/record_format_group"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <RadioButton
-                    android:id="@+id/record_format_mp4"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="@string/recording_format_mp4" />
-                <RadioButton
-                    android:id="@+id/record_format_webm"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/recording_format_webm" />
-            </RadioGroup>
+                android:text="@string/recording_format_mp4"
+                android:textColor="@color/black_or_white" />
 
             <TextView
                 android:id="@+id/record_duration"

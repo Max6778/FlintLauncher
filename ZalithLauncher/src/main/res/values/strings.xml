@@ -66,20 +66,21 @@
     <string name="option_log_out">Log Output</string>
     <string name="option_send_custom_key">Send Custom Key Code</string>
     <string name="recording_title">Screen recording</string>
-    <string name="recording_keep_controls">Keep controls and HUD visible</string>
+    <string name="recording_keep_controls">Include touchscreen controls in video</string>
+    <string name="recording_resolution">Recording resolution</string>
+    <string name="recording_output_path">Saved to DCIM/FlintLauncher</string>
     <string name="recording_format">Video format</string>
     <string name="recording_format_mp4">MP4 (H.264)</string>
-    <string name="recording_format_webm">WebM (VP8)</string>
-    <string name="recording_start">Choose destination and start</string>
+    <string name="recording_start">Start recording</string>
     <string name="recording_pause">Pause recording</string>
     <string name="recording_resume">Resume recording</string>
     <string name="recording_stop">Stop recording</string>
     <string name="recording_idle">Not recording</string>
     <string name="recording_elapsed">Recorded: %1$02d:%2$02d</string>
-    <string name="recording_saved">Video saved</string>
+    <string name="recording_saved">Video saved to DCIM/FlintLauncher</string>
     <string name="recording_notification_channel">Screen recording</string>
     <string name="recording_notification_title">Recording gameplay</string>
-    <string name="recording_notification_text">FlintLauncher is capturing the screen</string>
+    <string name="recording_notification_text">FlintLauncher is capturing Minecraft</string>
     <string name="option_edit_controls">Edit Control Layout</string>
     <string name="option_hotbar_type">Hotbar Detection Mode</string>
     <string name="option_hotbar_type_auto">Adaptive (may be inaccurate)</string>
@@ -790,7 +791,19 @@
 
     <!-- ── Force OpenGL for Minecraft 26.2+ setting ── -->
     <string name="setting_force_opengl_new_versions_title">Force OpenGL on 26.2+</string>
-    <string name="setting_force_opengl_new_versions_desc">Automatically overrides the renderer to Krypton Wrapper (OpenGL) for Minecraft 26.2 and newer. Use this if your device fails the Vulkan compatibility test.</string>
+    <string name="setting_force_opengl_new_versions_desc">Sets Minecraft’s graphics backend to OpenGL in options.txt for Minecraft 26.2 and newer, while keeping your selected launcher renderer.</string>
     <string name="setting_force_opengl_active_toast">Renderer overridden to OpenGL for version %s</string>
+    <string name="control_layout_style_title">Touch control style</string>
+    <string name="control_layout_style_summary">Choose Flint's original controls or responsive dynamic controls.</string>
+    <string name="control_layout_style_legacy">Legacy (Flint)</string>
+    <string name="control_layout_style_dynamic">Dynamic (Zalith / DroidBridge)</string>
+    <string name="android_back_action_title">Android Back button</string>
+    <string name="android_back_action_summary">Choose whether Back pauses Minecraft, opens Flint's in-game menu, or is disabled while Minecraft is running.</string>
+    <string name="android_back_action_pause_game">Pause Minecraft</string>
+    <string name="android_back_action_launcher_menu">Open in-game launcher menu</string>
+    <string name="android_back_action_disabled">Disabled</string>
     
+    <string name="setting_category_customization">Customization</string>
+    <string name="customctrl_idle_image">Import idle image</string>
+    <string name="customctrl_pressed_image">Import pressed image</string>
 </resources>

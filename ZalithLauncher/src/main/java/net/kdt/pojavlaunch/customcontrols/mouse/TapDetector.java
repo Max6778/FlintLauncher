@@ -1,11 +1,12 @@
 package net.kdt.pojavlaunch.customcontrols.mouse;
 
+import static android.view.MotionEvent.ACTION_CANCEL;
 import static android.view.MotionEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_MOVE;
 import static android.view.MotionEvent.ACTION_POINTER_DOWN;
 import static android.view.MotionEvent.ACTION_POINTER_UP;
 import static android.view.MotionEvent.ACTION_UP;
 
-import android.util.Log;
 import android.view.MotionEvent;
 
 import net.kdt.pojavlaunch.Tools;
@@ -23,7 +24,8 @@ public class TapDetector {
 
     private final static int TAP_MIN_DELTA_MS = -1;
     private final static int TAP_MAX_DELTA_MS = 300;
-    private final static int TAP_SLOP_SQUARE_PX = (int) Tools.dpToPx(2500);
+    private static final int TAP_SLOP_PX = Math.round(Tools.dpToPx(8));
+    private static final int TAP_SLOP_SQUARE_PX = TAP_SLOP_PX * TAP_SLOP_PX;
 
     private final int mTapNumberToDetect;
     private int mCurrentTapNumber = 0;
@@ -33,6 +35,9 @@ public class TapDetector {
     private long mLastEventTime = 0;
     private float mLastX = 9999;
     private float mLastY = 9999;
+    private int mTrackedPointerId = -1;
+    private boolean mTapMovedBeyondSlop;
+    private boolean mIgnoreUntilAllPointersUp;
 
     /**
      * @param tapNumberToDetect How many taps are needed before onTouchEvent returns True.
@@ -51,6 +56,36 @@ public class TapDetector {
      */
     public boolean onTouchEvent(MotionEvent e){
         int eventAction = e.getActionMasked();
+        if (eventAction == ACTION_CANCEL) {
+            resetTapDetectionState();
+            mIgnoreUntilAllPointersUp = false;
+            return false;
+        }
+        if (detectBothTouch() && mIgnoreUntilAllPointersUp) {
+            if (eventAction == ACTION_UP || eventAction == ACTION_CANCEL) {
+                mIgnoreUntilAllPointersUp = false;
+                resetTapDetectionState();
+            }
+            return false;
+        }
+        if (detectBothTouch() && mCurrentTapNumber > 0 && eventAction == ACTION_POINTER_DOWN) {
+            // A multi-finger gesture must not complete the down/up tap as a click.
+            resetTapDetectionState();
+            mIgnoreUntilAllPointersUp = true;
+            return false;
+        }
+        if (detectBothTouch() && mCurrentTapNumber > 0 && eventAction == ACTION_MOVE) {
+            int trackedIndex = e.findPointerIndex(mTrackedPointerId);
+            if (trackedIndex < 0) {
+                mTapMovedBeyondSlop = true;
+            } else {
+                float dx = e.getX(trackedIndex) - mLastX;
+                float dy = e.getY(trackedIndex) - mLastY;
+                if (dx * dx + dy * dy > TAP_SLOP_SQUARE_PX) mTapMovedBeyondSlop = true;
+            }
+            return false;
+        }
+
         int pointerIndex = -1;
 
         //Get the event to look forward
@@ -64,6 +99,10 @@ public class TapDetector {
         }
 
         if(pointerIndex == -1) return false; // Useless event
+        if (detectBothTouch() && (eventAction == ACTION_DOWN || eventAction == ACTION_POINTER_DOWN)) {
+            mTrackedPointerId = e.getPointerId(pointerIndex);
+            mTapMovedBeyondSlop = false;
+        }
 
         //Store current event info
         float eventX = e.getX(pointerIndex);
@@ -90,16 +129,10 @@ public class TapDetector {
             // SEPARATE taps (DETECTION_METHOD_DOWN/UP, e.g. HotbarView's double-tap),
             // where it's kept as-is.
             boolean tooSlow = !detectBothTouch() && (deltaTime < TAP_MIN_DELTA_MS || deltaTime > TAP_MAX_DELTA_MS);
-            boolean movedTooFar = (deltaX*deltaX + deltaY*deltaY) > TAP_SLOP_SQUARE_PX;
-            Log.d("TapDebug", "action=" + eventAction + " deltaTime=" + deltaTime
-                    + " deltaX=" + deltaX + " deltaY=" + deltaY
-                    + " slopSquare=" + TAP_SLOP_SQUARE_PX
-                    + " tooSlow=" + tooSlow + " movedTooFar=" + movedTooFar
-                    + " currentTapNumber=" + mCurrentTapNumber + " needed=" + mTapNumberToDetect);
+            boolean movedTooFar = mTapMovedBeyondSlop || (deltaX*deltaX + deltaY*deltaY) > TAP_SLOP_SQUARE_PX;
             if (tooSlow || movedTooFar) {
                 if (mDetectionMethod == DETECTION_METHOD_BOTH && (eventAction == ACTION_UP || eventAction == ACTION_POINTER_UP)) {
                     // For the both method, the user is expected to start with a down action.
-                    Log.d("TapDebug", "REJECTED tap (BOTH mode, invalidated on UP) tooSlow=" + tooSlow + " movedTooFar=" + movedTooFar);
                     resetTapDetectionState();
                     return false;
                 } else {
@@ -107,20 +140,16 @@ public class TapDetector {
                     mCurrentTapNumber = 0;
                 }
             }
-        } else {
-            Log.d("TapDebug", "action=" + eventAction + " first event of gesture, currentTapNumber=0");
         }
 
         //A worthy tap happened
         mCurrentTapNumber += 1;
         if(mCurrentTapNumber >= mTapNumberToDetect){
-           Log.d("TapDebug", "ACCEPTED tap, returning true");
            resetTapDetectionState();
            return true;
         }
 
         //If not enough taps are reached
-        Log.d("TapDebug", "tap counted (" + mCurrentTapNumber + "/" + mTapNumberToDetect + "), waiting for more");
         return false;
     }
 
@@ -132,6 +161,8 @@ public class TapDetector {
        mLastEventTime = 0;
        mLastX = 9999;
        mLastY = 9999;
+       mTrackedPointerId = -1;
+       mTapMovedBeyondSlop = false;
    }
 
    private boolean detectDownTouch(){

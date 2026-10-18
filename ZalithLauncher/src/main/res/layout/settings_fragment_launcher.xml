@@ -271,7 +271,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="@dimen/_12sdp"
-                android:text="@string/setting_category_personalization"
+                android:text="@string/setting_category_customization"
                 android:textColor="@color/settings_category" />
 
             <!-- Launcher Language Picker — FlintLauncher feature -->

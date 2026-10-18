@@ -6,6 +6,10 @@ import static org.lwjgl.glfw.CallbackBridge.sendMouseButton;
 
 import android.annotation.SuppressLint;
 import android.graphics.Canvas;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.RectF;
+import android.graphics.Path;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.TypedValue;
@@ -30,6 +34,11 @@ public class ControlButton extends TextView implements ControlInterface {
     private final Paint mRectPaint = new Paint();
     protected ControlData mProperties;
     private final ControlLayout mControlLayout;
+    private Bitmap mIdleImage, mPressedImage;
+    private String mLoadedIdlePath, mLoadedPressedPath;
+    private final RectF mImageBounds = new RectF();
+    private final Path mImageClip = new Path();
+    private final Paint mImagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
 
     /* Cache value from the ControlData radius for drawing purposes */
     private float mComputedRadius;
@@ -63,6 +72,8 @@ public class ControlButton extends TextView implements ControlInterface {
     }
 
     public void setProperties(ControlData properties, boolean changePos) {
+        boolean imagesChanged = !java.util.Objects.equals(mLoadedIdlePath, properties.idleImagePath)
+                || !java.util.Objects.equals(mLoadedPressedPath, properties.pressedImagePath);
         mProperties = properties;
         ControlInterface.super.setProperties(properties, changePos);
         mComputedRadius = ControlInterface.super.computeCornerRadius(mProperties.cornerRadius);
@@ -79,10 +90,21 @@ public class ControlButton extends TextView implements ControlInterface {
         }
 
         setText(properties.name);
+        if (imagesChanged) loadStateImages();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+        Bitmap stateImage = (isActivated() || mIsToggled) && mPressedImage != null ? mPressedImage : mIdleImage;
+        if (stateImage != null && !stateImage.isRecycled()) {
+            mImageBounds.set(0, 0, getWidth(), getHeight());
+            int save = canvas.save();
+            mImageClip.reset();
+            mImageClip.addRoundRect(mImageBounds, mComputedRadius, mComputedRadius, Path.Direction.CW);
+            canvas.clipPath(mImageClip);
+            canvas.drawBitmap(stateImage, null, mImageBounds, mImagePaint);
+            canvas.restoreToCount(save);
+        }
         super.onDraw(canvas);
         if (mIsToggled || (!mProperties.isToggle && isActivated()))
             canvas.drawRoundRect(0, 0, getWidth(), getHeight(), mComputedRadius, mComputedRadius, mRectPaint);
@@ -187,8 +209,47 @@ public class ControlButton extends TextView implements ControlInterface {
         return false;
     }
 
+    private void loadStateImages() {
+        if (mIdleImage != null) mIdleImage.recycle();
+        if (mPressedImage != null) mPressedImage.recycle();
+        mIdleImage = decodeImage(mProperties.idleImagePath);
+        mPressedImage = decodeImage(mProperties.pressedImagePath);
+        mLoadedIdlePath = mProperties.idleImagePath;
+        mLoadedPressedPath = mProperties.pressedImagePath;
+        invalidate();
+    }
+
+    private Bitmap decodeImage(String path) {
+        if (path == null || path.isEmpty()) return null;
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, bounds);
+            int sample = 1;
+            while (bounds.outWidth / sample > 512 || bounds.outHeight / sample > 512) sample *= 2;
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            return BitmapFactory.decodeFile(path, options);
+        } catch (RuntimeException ignored) { return null; }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if ((mIdleImage == null && mProperties.idleImagePath != null)
+                || (mPressedImage == null && mProperties.pressedImagePath != null)) loadStateImages();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (mIdleImage != null) { mIdleImage.recycle(); mIdleImage = null; }
+        if (mPressedImage != null) { mPressedImage.recycle(); mPressedImage = null; }
+        super.onDetachedFromWindow();
+    }
+
     public void sendKeyPresses(boolean isDown){
         setActivated(isDown);
+        invalidate();
         for(int keycode : mProperties.keycodes){
             if(keycode >= GLFW_KEY_UNKNOWN){
                 sendKeyPress(keycode, CallbackBridge.getCurrentMods(), isDown);

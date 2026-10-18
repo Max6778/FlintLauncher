@@ -12,19 +12,23 @@ import com.movtery.anim.AnimPlayer
 import com.movtery.anim.animations.Animations
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.databinding.SettingsFragmentControlBinding
+import com.movtery.zalithlauncher.event.value.SettingsPageSwapEvent
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.fragment.CustomMouseFragment
 import com.movtery.zalithlauncher.ui.fragment.FragmentWithAnim
 import com.movtery.zalithlauncher.ui.fragment.settings.wrapper.BaseSettingsWrapper
+import com.movtery.zalithlauncher.ui.fragment.settings.wrapper.ListSettingsWrapper
 import com.movtery.zalithlauncher.ui.fragment.settings.wrapper.SeekBarSettingsWrapper
 import com.movtery.zalithlauncher.ui.fragment.settings.wrapper.SwitchSettingsWrapper
 import com.movtery.zalithlauncher.utils.ZHTools
 import fr.spse.gamepad_remapper.Remapper
 import net.kdt.pojavlaunch.fragments.GamepadMapperFragment
+import org.greenrobot.eventbus.Subscribe
 
 class ControlSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fragment_control, SettingCategory.CONTROL) {
     private lateinit var binding: SettingsFragmentControlBinding
     private var parentFragment: FragmentWithAnim? = null
+    private var settingsInitialized = false
 
     constructor(parentFragment: FragmentWithAnim?) : this() {
         this.parentFragment = parentFragment
@@ -35,12 +39,43 @@ class ControlSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fra
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = SettingsFragmentControlBinding.inflate(layoutInflater)
+        binding = SettingsFragmentControlBinding.inflate(inflater)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+    }
+
+    @Subscribe
+    fun initializeWhenSelected(event: SettingsPageSwapEvent) {
+        if (event.index == SettingCategory.CONTROL.ordinal) binding.root.post { initializeSettings() }
+    }
+
+    private fun initializeSettings() {
+        if (settingsInitialized || !isAdded) return
+        settingsInitialized = true
         val context = requireContext()
+        ListSettingsWrapper(
+            context,
+            AllSettings.controlLayoutStyle,
+            binding.controlLayoutStyleLayout,
+            binding.controlLayoutStyleTitle,
+            binding.controlLayoutStyleValue,
+            R.array.control_layout_style_names,
+            R.array.control_layout_style_values
+        )
+
+        ListSettingsWrapper(
+            context,
+            AllSettings.androidBackAction,
+            binding.androidBackActionLayout,
+            binding.androidBackActionTitle,
+            binding.androidBackActionValue,
+            R.array.android_back_action_names,
+            R.array.android_back_action_values
+        )
+
         SwitchSettingsWrapper(
             context,
             AllSettings.disableGestures,
@@ -222,7 +257,7 @@ class ControlSettingsFragment() : AbstractSettingsFragment(R.layout.settings_fra
 
     override fun onChange() {
         super.onChange()
-        computeVisibility()
+        if (settingsInitialized) computeVisibility()
     }
 
     override fun slideIn(animPlayer: AnimPlayer) {

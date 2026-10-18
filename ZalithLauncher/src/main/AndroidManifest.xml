@@ -18,7 +18,6 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE"/>
@@ -45,11 +44,19 @@
             android:name="android.max_aspect"
             android:value="ratio_float" />
 
-        <!-- FlintLauncher branded splash — shown first on every launch -->
+        <!-- Keep the component check for first-run installs, but skip the
+             artificial branded delay on normal app startup. -->
         <activity
             android:name="com.movtery.zalithlauncher.ui.activity.FlintSplashActivity"
-            android:exported="true"
+            android:exported="false"
             android:theme="@style/AppTheme"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
+            android:screenOrientation="sensorLandscape" />
+
+        <activity
+            android:name="com.movtery.zalithlauncher.ui.activity.SplashActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
             android:screenOrientation="sensorLandscape">
             <intent-filter>
@@ -57,14 +64,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Component installer — launched by FlintSplashActivity -->
-        <activity
-            android:name="com.movtery.zalithlauncher.ui.activity.SplashActivity"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation"
-            android:screenOrientation="sensorLandscape" />
 
         <activity
             android:name="net.kdt.pojavlaunch.MissingStorageActivity"
@@ -143,7 +142,10 @@
             android:name="net.kdt.pojavlaunch.services.ScreenRecordingService"
             android:process=":game"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated recording of Minecraft's render surface to an MP4 file." />
+        </service>
     </application>
 
     <queries>

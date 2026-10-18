@@ -8,6 +8,10 @@ import static net.kdt.pojavlaunch.Tools.currentDisplayMetrics;
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -40,11 +44,16 @@ import net.kdt.pojavlaunch.customcontrols.buttons.ControlDrawer;
 import net.kdt.pojavlaunch.customcontrols.buttons.ControlInterface;
 
 import java.util.List;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 
 /**
  * Class providing a sort of popup on top of a Layout, allowing to edit a given ControlButton
  */
 public class EditControlPopup {
+    public static final int IMAGE_PICK_REQUEST = 7137;
+    private boolean pendingPressedImage;
     private final Context context;
     protected final Spinner[] mKeycodeSpinners = new Spinner[4];
     private KeyboardDialog keyboardDialog;
@@ -82,6 +91,7 @@ public class EditControlPopup {
     protected SeekBar mStrokeWidthSeekbar, mCornerRadiusSeekbar, mAlphaSeekbar;
     protected TextView mStrokePercentTextView, mCornerRadiusPercentTextView, mAlphaPercentTextView;
     protected TextView mSelectBackgroundColor, mSelectStrokeColor;
+    private TextView mIdleImageButton, mPressedImageButton;
     protected ArrayAdapter<String> mAdapter;
     protected List<String> mSpecialArray;
     protected CheckBox mDisplayInGameCheckbox, mDisplayInMenuCheckbox;
@@ -231,6 +241,42 @@ public class EditControlPopup {
     public void destroy() {
         ((ViewGroup) mScrollView.getParent()).removeView(mColorSelector.getRootView());
         ((ViewGroup) mScrollView.getParent()).removeView(mScrollView);
+    }
+
+    private void requestButtonImage(boolean pressed) {
+        if (!(context instanceof Activity)) return;
+        pendingPressedImage = pressed;
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        ((Activity) context).startActivityForResult(intent, IMAGE_PICK_REQUEST);
+    }
+
+    public void acceptButtonImage(Uri uri) {
+        if (uri == null || mCurrentlyEditedButton == null) return;
+        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+            if (input == null) return;
+            File directory = new File(context.getFilesDir(), "control_button_images");
+            if (!directory.exists() && !directory.mkdirs()) return;
+            File image = new File(directory, "button_" + System.currentTimeMillis() + ".img");
+            try (FileOutputStream output = new FileOutputStream(image)) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            }
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(image.getAbsolutePath(), bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                image.delete();
+                return;
+            }
+            if (pendingPressedImage) mCurrentlyEditedButton.getProperties().pressedImagePath = image.getAbsolutePath();
+            else mCurrentlyEditedButton.getProperties().idleImagePath = image.getAbsolutePath();
+            mCurrentlyEditedButton.updateProperties();
+        } catch (Exception e) {
+            Logging.e("ControlImage", "Unable to import control image: " + e);
+        }
     }
 
     private void loadAdapter() {
@@ -405,6 +451,10 @@ public class EditControlPopup {
         mAlphaSeekbar = mScrollView.findViewById(R.id.editButtonOpacity_seekbar);
         mSelectBackgroundColor = mScrollView.findViewById(R.id.editBackgroundColor_textView);
         mSelectStrokeColor = mScrollView.findViewById(R.id.editStrokeColor_textView);
+        mIdleImageButton = mScrollView.findViewById(R.id.editIdleImage);
+        mPressedImageButton = mScrollView.findViewById(R.id.editPressedImage);
+        mIdleImageButton.setOnClickListener(v -> requestButtonImage(false));
+        mPressedImageButton.setOnClickListener(v -> requestButtonImage(true));
         mStrokePercentTextView = mScrollView.findViewById(R.id.editStrokeWidth_textView_percent);
         mAlphaPercentTextView = mScrollView.findViewById(R.id.editButtonOpacity_textView_percent);
         mCornerRadiusPercentTextView = mScrollView.findViewById(R.id.editCornerRadius_textView_percent);

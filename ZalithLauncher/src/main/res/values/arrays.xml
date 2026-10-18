@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="recording_resolutions">
+        <item>Source resolution</item>
+        <item>1080p maximum</item>
+        <item>720p maximum</item>
+        <item>480p maximum</item>
+    </string-array>
+    <string-array name="android_back_action_names">
+        <item>@string/android_back_action_pause_game</item>
+        <item>@string/android_back_action_launcher_menu</item>
+        <item>@string/android_back_action_disabled</item>
+    </string-array>
+    <string-array name="android_back_action_values">
+        <item>pause_game</item>
+        <item>launcher_menu</item>
+        <item>disabled</item>
+    </string-array>
+    <string-array name="control_layout_style_names">
+        <item>@string/control_layout_style_legacy</item>
+        <item>@string/control_layout_style_dynamic</item>
+    </string-array>
+    <string-array name="control_layout_style_values">
+        <item>legacy</item>
+        <item>dynamic</item>
+    </string-array>
+</resources>

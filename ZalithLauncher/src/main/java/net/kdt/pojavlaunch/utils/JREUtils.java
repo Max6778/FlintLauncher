@@ -36,6 +36,7 @@ import com.oracle.dalvik.VMLauncher;
 
 import net.kdt.pojavlaunch.Architecture;
 import net.kdt.pojavlaunch.Logger;
+import net.kdt.pojavlaunch.JMinecraftVersionList;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.multirt.MultiRTUtils;
 import net.kdt.pojavlaunch.multirt.Runtime;
@@ -341,6 +342,40 @@ public final class JREUtils {
         }
     }
 
+    /** Applies upstream MobileGlues workarounds only to that renderer and affected Minecraft versions. */
+    private static void addMobileGluesCompatibilityEnv(Map<String, String> envMap, Version gameVersion) {
+        RendererPlugin selectedPlugin = RendererPluginManager.getSelectedRendererPlugin();
+        if (selectedPlugin == null || !"com.fcl.plugin.mobileglues".equals(selectedPlugin.getUniqueIdentifier())) return;
+
+        String versionId = gameVersion.getVersionName();
+        VersionInfo detectedVersion = gameVersion.getVersionInfo();
+        if (detectedVersion != null && detectedVersion.getMinecraftVersion() != null
+                && !detectedVersion.getMinecraftVersion().isEmpty()) {
+            versionId = detectedVersion.getMinecraftVersion();
+        }
+        try {
+            JMinecraftVersionList.Version metadata = Tools.getVersionInfo(gameVersion);
+            if ((versionId.equals(gameVersion.getVersionName()) || versionId.isEmpty()) && metadata != null) {
+                if (metadata.inheritsFrom != null && !metadata.inheritsFrom.isEmpty()) versionId = metadata.inheritsFrom;
+                else if (metadata.id != null && !metadata.id.isEmpty()) versionId = metadata.id;
+            }
+        } catch (Exception ignored) {
+            // The installed version folder name is a safe fallback when metadata is unavailable.
+        }
+        String normalized = versionId.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace('_', '-').replace(' ', '-');
+        if (normalized.matches("26\\.2(?:[-.]|$).*|26\\.3(?:[-.]|$).*")) {
+            envMap.put("DROIDBRIDGE_MOBILEGLUES_ZERO_TO_ONE_DEPTH", "1");
+            Logging.i("MobileGluesCompat", "Enabled zero-to-one depth compatibility for Minecraft " + versionId);
+        }
+        java.util.regex.Matcher snapshot = java.util.regex.Pattern
+                .compile("26\\.3-snapshot-(\\d+)").matcher(normalized);
+        if (snapshot.find() && Integer.parseInt(snapshot.group(1)) >= 5) {
+            envMap.put("DROIDBRIDGE_MOBILEGLUES_SHADER_IDENTIFIER_FIX", "1");
+            Logging.i("MobileGluesCompat", "Enabled snapshot shader identifier compatibility for Minecraft " + versionId);
+        }
+    }
+
     private static void setCustomEnv(Map<String, String> envMap) throws Throwable {
         File customEnvFile = new File(PathManager.DIR_GAME_HOME, "custom_env.txt");
         if (customEnvFile.exists() && customEnvFile.isFile()) {
@@ -387,6 +422,7 @@ public final class JREUtils {
 
             if (Renderers.INSTANCE.isCurrentRendererValid()) {
                 setRendererEnv(envMap);
+                addMobileGluesCompatibilityEnv(envMap, gameVersion);
             }
 
             envMap.put("ZALITH_VERSION_CODE", String.valueOf(ZHTools.getVersionCode()));

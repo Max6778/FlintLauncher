@@ -72,10 +72,20 @@ public class ControlLayout extends FrameLayout {
 
 	public void loadLayout(String jsonPath) throws IOException, JsonSyntaxException {
 		File jsonFile = jsonPath != null ? new File(jsonPath) : new File(AllSettings.getDefaultCtrl().getValue());
+		boolean dynamicControls = "dynamic".equals(AllSettings.getControlLayoutStyle().getValue());
+		File defaultLegacyLayout = new File(PathManager.FILE_CTRLDEF_FILE);
+		boolean usingLegacyDefault = jsonPath == null || jsonFile.getAbsoluteFile().equals(defaultLegacyLayout.getAbsoluteFile());
+		if (dynamicControls && usingLegacyDefault) {
+			Tools.copyAssetFile(getContext(), "touch_controls/droidbridge_default.json",
+					PathManager.DIR_CTRLMAP_PATH, "dynamic_default.json", false);
+			jsonFile = new File(PathManager.DIR_CTRLMAP_PATH, "dynamic_default.json");
+		}
 
 		CustomControls layout;
 		if (jsonFile.exists()) {
 			layout = LayoutConverter.loadAndConvertIfNecessary(getContext(), jsonFile.getAbsolutePath());
+		} else if (dynamicControls) {
+			layout = LayoutConverter.loadFromAssets(getContext(), "touch_controls/droidbridge_default.json");
 		} else {
 			layout = LayoutConverter.loadFromAssets(getContext(), "default.json");
 		}
@@ -350,6 +360,10 @@ public class ControlLayout extends FrameLayout {
 		mHandleView.setControlButton(button);
 
 		//mHandleView.show();
+	}
+
+	public void onControlImagePicked(android.net.Uri uri) {
+		if (mControlPopup != null) mControlPopup.acceptButtonImage(uri);
 	}
 
 	/** Swap the panel if the button position requires it */

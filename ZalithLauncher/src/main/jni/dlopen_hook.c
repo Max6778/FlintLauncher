@@ -138,7 +138,18 @@ static void *dlsym_core_function_from_loaded_renderer(const char *name) {
             }
         }
     }
-    return NULL;
+
+    // JREUtils loads the selected renderer with RTLD_GLOBAL. Android may not
+    // let RTLD_NOLOAD find it by its short soname when loaded from a full path
+    // or linker namespace, while RTLD_DEFAULT can resolve its exported core
+    // GL symbols in the active namespace.
+    void *sym = dlsym(RTLD_DEFAULT, name);
+    if (sym != NULL) {
+        __android_log_print(ANDROID_LOG_INFO, "dlopen_hook",
+            "Resolved core GL function '%s' from RTLD_DEFAULT after renderer soname lookup failed",
+            name);
+    }
+    return sym;
 }
 
 static void *custom_sdl_gl_getprocaddress(const char *proc) {

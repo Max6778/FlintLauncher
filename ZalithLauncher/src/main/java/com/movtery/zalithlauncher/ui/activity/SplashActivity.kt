@@ -11,6 +11,7 @@ import com.movtery.zalithlauncher.InfoCenter
 import com.movtery.zalithlauncher.InfoDistributor
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.databinding.ActivitySplashBinding
+import com.movtery.zalithlauncher.feature.profile.AutoPerformanceManager
 import com.movtery.zalithlauncher.feature.unpack.Components
 import com.movtery.zalithlauncher.feature.unpack.Jre
 import com.movtery.zalithlauncher.feature.unpack.UnpackComponentsTask
@@ -33,6 +34,9 @@ class SplashActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // FlintSplashActivity is intentionally skipped during normal startup;
+        // preserve its one-time device optimization here.
+        AutoPerformanceManager.applyIfFirstLaunch(this)
         initItems()
 
         binding = ActivitySplashBinding.inflate(layoutInflater)

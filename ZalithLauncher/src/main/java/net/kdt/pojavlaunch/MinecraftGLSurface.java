@@ -8,6 +8,7 @@ import static org.lwjgl.glfw.CallbackBridge.windowWidth;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.os.Parcel;
 import android.util.AttributeSet;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -19,6 +20,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.NonNull;
 
 import com.movtery.zalithlauncher.event.single.RefreshHotbarEvent;
@@ -369,6 +371,32 @@ public class MinecraftGLSurface extends View implements GrabListener {
 
 
 
+
+    /**
+     * Returns the game's actual render target for Flint's in-app recorder.
+     * SDL and GLFW both render through this same surface.
+     */
+    @Nullable
+    public Surface getRecordingSurface() {
+        if (mSurface instanceof SurfaceView) {
+            Surface source = ((SurfaceView) mSurface).getHolder().getSurface();
+            if (source == null || !source.isValid()) return null;
+            Parcel parcel = Parcel.obtain();
+            try {
+                source.writeToParcel(parcel, 0);
+                parcel.setDataPosition(0);
+                return Surface.CREATOR.createFromParcel(parcel);
+            } finally {
+                parcel.recycle();
+            }
+        }
+        if (mSurface instanceof TextureView) {
+            TextureView view = (TextureView) mSurface;
+            SurfaceTexture texture = view.getSurfaceTexture();
+            return texture != null ? new Surface(texture) : null;
+        }
+        return null;
+    }
 
     /** Called when the size need to be set at any point during the surface lifecycle **/
     public void refreshSize() {

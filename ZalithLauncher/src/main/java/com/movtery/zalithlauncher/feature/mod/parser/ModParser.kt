@@ -3,6 +3,8 @@ package com.movtery.zalithlauncher.feature.mod.parser
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import com.moandjiezana.toml.Toml
@@ -148,39 +150,36 @@ class ModParser {
     }
 
     @Throws(Exception::class)
-    private fun parseFabricMod(modFile: File, jarStream: JarInputStream): ModInfo {
+    private fun parseFabricMod(modFile: File, jarStream: JarInputStream): ModInfo? {
         val content = jarStream.bufferedReader().use(BufferedReader::readText)
         val jsonObject = JsonParser.parseString(content).asJsonObject
+        val modId = jsonObject.stringOrNull("id") ?: return null
         return ModInfo(
-            jsonObject["id"].asString,
-            jsonObject["version"].asString,
-            jsonObject["name"].asString,
-            jsonObject["description"].asString,
-            jsonObject.get("authors").asJsonArray.let { authorsArray ->
-                val authorsList = mutableListOf<String>()
-                authorsArray.forEach { authorElement ->
-                    val authorName: String = (
-                            if (authorElement.isJsonObject) authorElement.asJsonObject?.get("name")?.asString
-                            else authorElement.asString
-                            ) ?: return@forEach
-                    authorsList.add(authorName)
-                }
-                authorsList.toTypedArray()
-            }
+            modId,
+            jsonObject.stringOrNull("version") ?: "unknown",
+            jsonObject.stringOrNull("name") ?: modId,
+            jsonObject.stringOrNull("description") ?: "",
+            jsonObject["authors"]?.takeIf { it.isJsonArray }?.asJsonArray?.let { authorsArray ->
+                authorsArray.mapNotNull { authorElement ->
+                    if (authorElement.isJsonObject) authorElement.asJsonObject.stringOrNull("name")
+                    else authorElement.primitiveStringOrNull()
+                }.toTypedArray()
+            } ?: emptyArray()
         ).apply { file = modFile }
     }
 
     @Throws(Exception::class)
-    private fun parseQuiltMod(modFile: File, jarStream: JarInputStream): ModInfo {
+    private fun parseQuiltMod(modFile: File, jarStream: JarInputStream): ModInfo? {
         val content = jarStream.bufferedReader().use(BufferedReader::readText)
         val quiltLoader = JsonParser.parseString(content).asJsonObject["quilt_loader"].asJsonObject
-        val metadata = quiltLoader["metadata"].asJsonObject
+        val modId = quiltLoader.stringOrNull("id") ?: return null
+        val metadata = quiltLoader["metadata"]?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
         return ModInfo(
-            quiltLoader["id"].asString,
-            quiltLoader["version"].asString,
-            metadata["name"].asString,
-            metadata["description"].asString,
-            metadata["contributors"].asJsonObject.keySet().toTypedArray()
+            modId,
+            quiltLoader.stringOrNull("version") ?: "unknown",
+            metadata.stringOrNull("name") ?: modId,
+            metadata.stringOrNull("description") ?: "",
+            metadata["contributors"]?.takeIf { it.isJsonObject }?.asJsonObject?.keySet()?.toTypedArray() ?: emptyArray()
         ).apply { file = modFile }
     }
 
@@ -192,24 +191,20 @@ class ModParser {
 
         return ModInfo(
             modEntry.getString("modId") ?: return null,
-            modEntry.getString("version") ?: return null,
-            modEntry.getString("displayName") ?: return null,
+            modEntry.getString("version") ?: "unknown",
+            modEntry.getString("displayName") ?: modEntry.getString("modId") ?: return null,
             modEntry.getString("description") ?: "",
             parseForgeAuthors(modEntry)
         ).apply { file = modFile }
     }
 
-    private fun parseForgeAuthors(modEntry: Toml): Array<String> {
-        return when {
-            modEntry.contains("authors") -> {
-                modEntry.getString("authors")
-                    ?.split(",")
-                    ?.map { it.trim() }
-                    ?.toTypedArray() ?: emptyArray()
-            }
-            else -> emptyArray()
-        }
-    }
+    private fun parseForgeAuthors(modEntry: Toml): Array<String> = runCatching {
+        modEntry.getString("authors")
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.toTypedArray()
+    }.getOrNull() ?: emptyArray()
 
     @Throws(Exception::class)
     private fun parseLegacyForgeMod(modFile: File, jarStream: JarInputStream): ModInfo? {
@@ -217,26 +212,30 @@ class ModParser {
         val jsonArray = JsonParser.parseString(content).asJsonArray
         val mainEntry = jsonArray[0].asJsonObject
 
+        val modId = mainEntry.stringOrNull("modid") ?: return null
         return ModInfo(
-            mainEntry["modid"].asString ?: return null,
-            mainEntry["version"].asString ?: return null,
-            mainEntry["name"].asString ?: return null,
-            mainEntry["description"]?.asString ?: "",
+            modId,
+            mainEntry.stringOrNull("version") ?: "unknown",
+            mainEntry.stringOrNull("name") ?: modId,
+            mainEntry.stringOrNull("description") ?: "",
             parseLegacyForgeAuthors(mainEntry)
         ).apply { file = modFile }
     }
 
     private fun parseLegacyForgeAuthors(entry: com.google.gson.JsonObject): Array<String> {
-        return when {
-            entry.has("authorList") -> entry["authorList"].asJsonArray.toStringArray()
-            entry.has("authors") -> entry["authors"].asJsonArray.toStringArray()
-            else -> emptyArray()
-        }
+        val authors = entry["authorList"] ?: entry["authors"] ?: return emptyArray()
+        return authors.takeIf { it.isJsonArray }?.asJsonArray?.toStringArray() ?: emptyArray()
     }
 
     private fun JsonArray.toStringArray(): Array<String> {
-        return this.map { it.asString }.toTypedArray()
+        return this.mapNotNull { it.primitiveStringOrNull() }.toTypedArray()
     }
+
+    private fun JsonObject.stringOrNull(name: String): String? = get(name)?.primitiveStringOrNull()
+
+    private fun JsonElement.primitiveStringOrNull(): String? = runCatching {
+        if (isJsonNull || !isJsonPrimitive || !asJsonPrimitive.isString) null else asString
+    }.getOrNull()?.takeIf { it.isNotBlank() }
 
     private fun loadCache(gson: Gson, cacheFile: File): Map<String, ModInfoCache> {
         return cacheFile.takeIf { it.exists() }?.let {

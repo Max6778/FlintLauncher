@@ -54,6 +54,9 @@ public class LayoutConverter {
     }
 
     private static CustomControls loadAndConvertIfNecessary(Context ctx, JSONObject layoutJobj, String jsonLayoutData, String jsonPath, boolean showError) throws Exception {
+        if (DynamicControlsConverter.isDynamicProfile(layoutJobj)) {
+            return DynamicControlsConverter.convert(ctx, layoutJobj);
+        }
         if (!layoutJobj.has("version")) { //v1 layout
             CustomControls layout = LayoutConverter.convertV1Layout(layoutJobj);
             if (jsonPath != null) layout.save(jsonPath);
@@ -79,6 +82,14 @@ public class LayoutConverter {
                 Tools.showError(ctx, ctx.getString(R.string.controls_unsupported_layout_version), ioException);
             }
             return null;
+        }
+    }
+
+    public static boolean isDynamicProfileFile(String jsonPath) {
+        try {
+            return DynamicControlsConverter.isDynamicProfile(new JSONObject(Tools.read(jsonPath)));
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
