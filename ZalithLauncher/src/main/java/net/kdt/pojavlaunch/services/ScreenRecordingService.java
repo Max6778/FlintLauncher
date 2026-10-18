@@ -391,7 +391,7 @@ public final class ScreenRecordingService extends Service {
                 .setOngoing(true)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .addAction(pauseIcon, getString(pauseLabel), createActionIntent(pauseAction))
-                .addAction(android.R.drawable.ic_media_stop,
+                .addAction(com.movtery.zalithlauncher.R.drawable.ic_recording_stop,
                         getString(com.movtery.zalithlauncher.R.string.recording_stop), createActionIntent(ACTION_STOP))
                 .build();
     }
