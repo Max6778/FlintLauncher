@@ -794,11 +794,11 @@
     <string name="setting_force_opengl_new_versions_desc">Sets Minecraft’s graphics backend to OpenGL in options.txt for Minecraft 26.2 and newer, while keeping your selected launcher renderer.</string>
     <string name="setting_force_opengl_active_toast">Renderer overridden to OpenGL for version %s</string>
     <string name="control_layout_style_title">Touch control style</string>
-    <string name="control_layout_style_summary">Choose Flint's original controls or responsive dynamic controls.</string>
+    <string name="control_layout_style_summary">Choose Flint\'s original controls or responsive dynamic controls.</string>
     <string name="control_layout_style_legacy">Legacy (Flint)</string>
     <string name="control_layout_style_dynamic">Dynamic (Zalith / DroidBridge)</string>
     <string name="android_back_action_title">Android Back button</string>
-    <string name="android_back_action_summary">Choose whether Back pauses Minecraft, opens Flint's in-game menu, or is disabled while Minecraft is running.</string>
+    <string name="android_back_action_summary">Choose whether Back pauses Minecraft, opens Flint\'s in-game menu, or is disabled while Minecraft is running.</string>
     <string name="android_back_action_pause_game">Pause Minecraft</string>
     <string name="android_back_action_launcher_menu">Open in-game launcher menu</string>
     <string name="android_back_action_disabled">Disabled</string>
