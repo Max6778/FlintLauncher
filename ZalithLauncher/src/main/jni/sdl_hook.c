@@ -57,6 +57,15 @@ static SDL_Window *reuse_sdl_primary_window(void) {
 }
 
 static void register_sdl_primary_window(SDL_Window *window) {
+    // The bytehook replacement and dlsym proxy can both observe the same
+    // underlying SDL_CreateWindow call. Do not reset the reference count
+    // when the outer layer reports the pointer already registered by the
+    // inner layer.
+    if (window == sdl_primary_window) {
+        __android_log_print(ANDROID_LOG_DEBUG, "sdl_hook",
+            "Primary SDL window %p already registered", window);
+        return;
+    }
     sdl_primary_window = window;
     sdl_primary_window_refs = 1;
     __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Registered primary SDL window %p", window);

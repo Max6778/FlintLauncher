@@ -12,10 +12,16 @@ public class SDL {
 
     // This function should be called first and sets up the native code
     // so it can call into the Java classes
-    static public void setupJNI() {
+    private static boolean jniReady;
+
+    static public synchronized void setupJNI() {
+        if (jniReady) {
+            return;
+        }
         SDLActivity.nativeSetupJNI();
         SDLAudioManager.nativeSetupJNI();
         SDLControllerManager.nativeSetupJNI();
+        jniReady = true;
     }
 
     // This function should be called each time the activity is started
