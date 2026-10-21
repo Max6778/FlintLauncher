@@ -1,10 +1,14 @@
 package com.movtery.zalithlauncher.ui.fragment.settings
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import com.movtery.anim.AnimPlayer
 import com.movtery.anim.animations.Animations
@@ -33,6 +37,35 @@ class LauncherSettingsFragment() :
 
     private lateinit var binding: SettingsFragmentLauncherBinding
     private var parentFragment: FragmentWithAnim? = null
+    private var catImagePicker: ActivityResultLauncher<Array<String>>? = null
+
+    private val catImagePreferences
+        get() = requireContext().getSharedPreferences("flint_launcher_ui", android.content.Context.MODE_PRIVATE)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        catImagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            uri?.let {
+                val resolver = requireContext().contentResolver
+                try {
+                    resolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.flint_cat_image_pick_failed,
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@let
+                }
+                releaseCatImagePermission(except = it)
+                catImagePreferences.edit()
+                    .putString("cat_image_uri", it.toString())
+                    .putBoolean("cat_image_hidden", false)
+                    .apply()
+                refreshCatImageSummary()
+            }
+        }
+    }
 
     constructor(parentFragment: FragmentWithAnim?) : this() {
         this.parentFragment = parentFragment
@@ -47,8 +80,68 @@ class LauncherSettingsFragment() :
         return binding.root
     }
 
+    private fun releaseCatImagePermission(except: Uri? = null) {
+        val oldUriString = catImagePreferences.getString("cat_image_uri", null) ?: return
+        val oldUri = Uri.parse(oldUriString)
+        if (oldUri == except) return
+        try {
+            requireContext().contentResolver.releasePersistableUriPermission(
+                oldUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            // A provider may have revoked the grant already.
+        }
+    }
+
+    private fun refreshCatImageSummary() {
+        if (!::binding.isInitialized || view == null) return
+        val preferences = catImagePreferences
+        binding.catImageSummary.text = when {
+            preferences.getBoolean("cat_image_hidden", false) -> getString(R.string.flint_cat_image_removed)
+            preferences.contains("cat_image_uri") -> getString(R.string.flint_cat_image_custom)
+            else -> getString(R.string.flint_cat_image_default)
+        }
+    }
+
+    private fun showCatImageOptions() {
+        val options = arrayOf(
+            getString(R.string.flint_cat_image_choose),
+            getString(R.string.flint_cat_image_default_action),
+            getString(R.string.flint_cat_image_remove)
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.flint_cat_image_title)
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> catImagePicker?.launch(arrayOf("image/*"))
+                    1 -> {
+                        releaseCatImagePermission()
+                        catImagePreferences.edit()
+                            .remove("cat_image_uri")
+                            .putBoolean("cat_image_hidden", false)
+                            .apply()
+                        refreshCatImageSummary()
+                    }
+                    2 -> {
+                        releaseCatImagePermission()
+                        catImagePreferences.edit()
+                            .remove("cat_image_uri")
+                            .putBoolean("cat_image_hidden", true)
+                            .apply()
+                        refreshCatImageSummary()
+                    }
+                }
+                dialog.dismiss()
+            }
+            .show()
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val context = requireContext()
+
+        binding.catImageLayout.setOnClickListener { showCatImageOptions() }
+        refreshCatImageSummary()
 
         SwitchSettingsWrapper(
             context,

@@ -744,6 +744,17 @@
     <string name="flint_nav_settings">Settings</string>
     <string name="flint_nav_about">About</string>
 
+    <string name="flint_donate">Donate to FlintLauncher</string>
+    <string name="flint_cat_image_title">Home screen image</string>
+    <string name="flint_cat_image_customize">Customize</string>
+    <string name="flint_cat_image_default">Using the default cat GIF</string>
+    <string name="flint_cat_image_custom">Custom image selected</string>
+    <string name="flint_cat_image_removed">Image hidden</string>
+    <string name="flint_cat_image_choose">Choose an image</string>
+    <string name="flint_cat_image_default_action">Use default cat GIF</string>
+    <string name="flint_cat_image_remove">Remove image</string>
+    <string name="flint_cat_image_pick_failed">Could not keep access to this image. Please choose another image.</string>
+
     <!-- ── Status panel ── -->
     <string name="flint_status_ram">RAM</string>
     <string name="flint_status_jre">JRE</string>

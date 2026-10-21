@@ -537,6 +537,14 @@ public class LauncherActivity extends BaseActivity {
                 ZHTools.swapFragmentWithAnim(fragment, DownloadFragment.class, DownloadFragment.TAG, null);
             }
         });
+        binding.donateButton.setOnClickListener(v -> {
+            ViewAnimUtils.setViewAnim(binding.donateButton, Animations.Pulse);
+            Intent donateIntent = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://ko-fi.com/flintlauncher")
+            );
+            startActivity(Intent.createChooser(donateIntent, getString(R.string.flint_donate)));
+        });
         binding.settingButton.setOnClickListener(v -> {
             ViewAnimUtils.setViewAnim(binding.settingButton, Animations.Pulse);
             Fragment fragment = getSupportFragmentManager().findFragmentById(binding.containerFragment.getId());
@@ -788,6 +796,7 @@ public class LauncherActivity extends BaseActivity {
                 ColorStateList colorStateList = ColorStateList.valueOf(mutedColor);
                 binding.appTitleText.setTextColor(mutedColor);
                 binding.downloadButton.setImageTintList(colorStateList);
+                binding.donateButton.setImageTintList(colorStateList);
                 binding.settingButton.setImageTintList(colorStateList);
 
                 return;
@@ -797,6 +806,7 @@ public class LauncherActivity extends BaseActivity {
         binding.appTitleText.setTextColor(ContextCompat.getColor(this, R.color.menu_bar_text));
         ColorStateList colorStateList = ColorStateList.valueOf(0xFFFFFFFF);
         binding.downloadButton.setImageTintList(colorStateList);
+        binding.donateButton.setImageTintList(colorStateList);
         binding.settingButton.setImageTintList(colorStateList);
     }
 

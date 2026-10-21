@@ -2,11 +2,14 @@ package net.kdt.pojavlaunch.fragments;
 
 import static com.movtery.zalithlauncher.event.single.RefreshVersionsEvent.MODE.END;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+
+import com.bumptech.glide.Glide;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,13 +31,10 @@ import com.movtery.zalithlauncher.renderer.RendererInterface;
 import com.movtery.zalithlauncher.renderer.Renderers;
 import com.movtery.zalithlauncher.task.TaskExecutors;
 import com.movtery.zalithlauncher.ui.fragment.AboutFragment;
-import com.movtery.zalithlauncher.ui.fragment.ControlButtonFragment;
-import com.movtery.zalithlauncher.ui.fragment.FilesFragment;
 import com.movtery.zalithlauncher.ui.fragment.FragmentWithAnim;
 import com.movtery.zalithlauncher.ui.fragment.VersionManagerFragment;
 import com.movtery.zalithlauncher.ui.fragment.VersionsListFragment;
 import com.movtery.zalithlauncher.ui.subassembly.account.AccountViewWrapper;
-import com.movtery.zalithlauncher.utils.path.PathManager;
 import com.movtery.zalithlauncher.utils.ZHTools;
 import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 
@@ -48,6 +48,9 @@ import org.greenrobot.eventbus.ThreadMode;
 
 public class MainMenuFragment extends FragmentWithAnim {
     public static final String TAG = "MainMenuFragment";
+    private static final String HOME_IMAGE_PREFERENCES = "flint_launcher_ui";
+    private static final String HOME_IMAGE_URI = "cat_image_uri";
+    private static final String HOME_IMAGE_HIDDEN = "cat_image_hidden";
     private FragmentLauncherBinding binding;
     private AccountViewWrapper accountViewWrapper;
 
@@ -71,44 +74,12 @@ public class MainMenuFragment extends FragmentWithAnim {
         binding.aboutButton.setOnClickListener(v ->
                 ZHTools.swapFragmentWithAnim(this, AboutFragment.class, AboutFragment.TAG, null));
 
-        // ── Controls ──
-        binding.customControlButton.setOnClickListener(v ->
-                ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
-
-        // ── Files ──
-        binding.openMainDirButton.setOnClickListener(v -> {
-            Bundle bundle = new Bundle();
-            bundle.putString(FilesFragment.BUNDLE_LIST_PATH, PathManager.DIR_GAME_HOME);
-            ZHTools.swapFragmentWithAnim(this, FilesFragment.class, FilesFragment.TAG, bundle);
-        });
-
         // ── Install JAR ──
         binding.installJarButton.setOnClickListener(v -> runInstallerWithConfirmation(false));
         binding.installJarButton.setOnLongClickListener(v -> {
             runInstallerWithConfirmation(true);
             return true;
         });
-
-        // ── Share Logs ──
-        binding.shareLogsButton.setOnClickListener(v -> ZHTools.shareLogs(requireActivity()));
-
-        // Left sidebar — Versions button
-        if (binding.navItemVersions != null) {
-            binding.navItemVersions.setOnClickListener(v -> {
-                if (!checkTaskRunning()) {
-                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
-                } else {
-                    ViewAnimUtils.setViewAnim(binding.navItemVersions, Animations.Shake);
-                    showTaskRunningToast();
-                }
-            });
-        }
-
-        // Left sidebar — Download button
-        if (binding.navItemDownload != null) {
-            binding.navItemDownload.setOnClickListener(v ->
-                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null));
-        }
 
         // Version card
         binding.version.setOnClickListener(v -> {
@@ -134,40 +105,12 @@ public class MainMenuFragment extends FragmentWithAnim {
         binding.playButton.setOnClickListener(v ->
                 EventBus.getDefault().post(new LaunchGameEvent()));
 
-        // Quick buttons
-        if (binding.quickVersionsButton != null) {
-            binding.quickVersionsButton.setOnClickListener(v -> {
-                if (!checkTaskRunning()) {
-                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
-                } else {
-                    showTaskRunningToast();
-                }
-            });
-        }
-
-        if (binding.quickControlsButton != null) {
-            binding.quickControlsButton.setOnClickListener(v ->
-                    ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
-        }
-
-        if (binding.quickFilesButton != null) {
-            binding.quickFilesButton.setOnClickListener(v -> {
-                Bundle bundle = new Bundle();
-                bundle.putString(FilesFragment.BUNDLE_LIST_PATH, PathManager.DIR_GAME_HOME);
-                ZHTools.swapFragmentWithAnim(this, FilesFragment.class, FilesFragment.TAG, bundle);
-            });
-        }
-
-        if (binding.quickLogsButton != null) {
-            binding.quickLogsButton.setOnClickListener(v ->
-                    ZHTools.shareLogs(requireActivity()));
-        }
-
         binding.versionName.setSelected(true);
         binding.versionInfo.setSelected(true);
 
         refreshCurrentVersion();
         refreshStatusPanel();
+        refreshCatImage();
     }
 
     private void refreshCurrentVersion() {
@@ -187,18 +130,36 @@ public class MainMenuFragment extends FragmentWithAnim {
             new VersionIconUtils(version).start(binding.versionIcon);
             binding.managerProfileButton.setVisibility(View.VISIBLE);
 
-            if (binding.versionTagReady != null) {
-                binding.versionTagReady.setVisibility(View.VISIBLE);
-            }
+
 
         } else {
             binding.versionName.setText(R.string.version_no_versions);
             binding.versionInfo.setVisibility(View.GONE);
             binding.managerProfileButton.setVisibility(View.GONE);
 
-            if (binding.versionTagReady != null) {
-                binding.versionTagReady.setVisibility(View.GONE);
-            }
+
+        }
+    }
+
+    private void refreshCatImage() {
+        if (binding == null || !isAdded()) return;
+
+        android.content.SharedPreferences preferences = requireContext().getSharedPreferences(
+                HOME_IMAGE_PREFERENCES,
+                android.content.Context.MODE_PRIVATE
+        );
+        if (preferences.getBoolean(HOME_IMAGE_HIDDEN, false)) {
+            binding.catImage.setVisibility(View.GONE);
+            Glide.with(binding.catImage).clear(binding.catImage);
+            return;
+        }
+
+        binding.catImage.setVisibility(View.VISIBLE);
+        String customImage = preferences.getString(HOME_IMAGE_URI, null);
+        if (customImage == null) {
+            Glide.with(binding.catImage).load(R.raw.cat).centerCrop().into(binding.catImage);
+        } else {
+            Glide.with(binding.catImage).load(Uri.parse(customImage)).centerCrop().into(binding.catImage);
         }
     }
 
@@ -299,6 +260,7 @@ public class MainMenuFragment extends FragmentWithAnim {
     public void onStart() {
         super.onStart();
         EventBus.getDefault().register(this);
+        refreshCatImage();
     }
 
     @Override
