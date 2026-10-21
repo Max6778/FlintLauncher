@@ -171,8 +171,7 @@ public final class FlintAccentUtils {
         Drawable target = drawable.mutate();
         if (target instanceof RippleDrawable) {
             RippleDrawable ripple = (RippleDrawable) target;
-            ColorStateList mapped = mapDrawableColors(ripple.getColor(), previousColor, accentColor, darkMode);
-            if (mapped != null) ripple.setColor(mapped);
+            ripple.setColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
             for (int i = 0; i < ripple.getNumberOfLayers(); i++) {
                 recolorDrawable(ripple.getDrawable(i), previousColor, accentColor, darkMode);
             }
