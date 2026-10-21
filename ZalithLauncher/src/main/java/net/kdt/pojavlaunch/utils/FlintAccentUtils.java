@@ -13,6 +13,7 @@ import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.StateListDrawable;
 import com.movtery.zalithlauncher.R;
 import com.google.android.material.tabs.TabLayout;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -28,7 +29,16 @@ public final class FlintAccentUtils {
             Color.rgb(30, 30, 38), Color.rgb(35, 35, 46), Color.rgb(46, 46, 61)
     };
     private static final float[] DARK_SURFACE_BRIGHTNESS = {0.085f, 0.12f, 0.16f, 0.19f, 0.22f, 0.27f};
+    private static final int[] EXTRA_DARK_ACCENT_SURFACES = {
+            Color.rgb(26, 26, 46), Color.rgb(46, 74, 126), Color.rgb(30, 58, 110)
+    };
+    private static final int[] EXTRA_DARK_SURFACE_INDEX = {2, 4, 3};
+    private static final int[] LIGHT_ACCENT_SURFACES = {
+            Color.rgb(230, 234, 242), Color.rgb(203, 215, 232), Color.rgb(184, 203, 232)
+    };
+    private static final float[] LIGHT_ACCENT_BLEND = {0.08f, 0.14f, 0.20f};
     private static final WeakHashMap<View, Integer> APPLIED_COLORS = new WeakHashMap<>();
+    private static final WeakHashMap<RecyclerView, Boolean> RECYCLER_LISTENERS = new WeakHashMap<>();
 
     private FlintAccentUtils() {}
 
@@ -107,6 +117,25 @@ public final class FlintAccentUtils {
         }
         if (root instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) root;
+            if (group instanceof RecyclerView) {
+                RecyclerView recyclerView = (RecyclerView) group;
+                boolean register;
+                synchronized (RECYCLER_LISTENERS) {
+                    register = !RECYCLER_LISTENERS.containsKey(recyclerView);
+                    if (register) RECYCLER_LISTENERS.put(recyclerView, Boolean.TRUE);
+                }
+                if (register) {
+                    recyclerView.addOnChildAttachStateChangeListener(new RecyclerView.OnChildAttachStateChangeListener() {
+                        @Override
+                        public void onChildViewAttachedToWindow(View child) {
+                            applyAccentColor(child, getAccentColor(child.getContext()));
+                        }
+
+                        @Override
+                        public void onChildViewDetachedFromWindow(View child) {}
+                    });
+                }
+            }
             for (int i = 0; i < group.getChildCount(); i++) {
                 applyAccentColor(group.getChildAt(i), accentColor);
             }
@@ -184,6 +213,20 @@ public final class FlintAccentUtils {
                     return withAlpha(color, darkSurfaceColor(accentColor, i));
                 }
             }
+            for (int i = 0; i < EXTRA_DARK_ACCENT_SURFACES.length; i++) {
+                int index = EXTRA_DARK_SURFACE_INDEX[i];
+                if (rgb == (EXTRA_DARK_ACCENT_SURFACES[i] & 0x00FFFFFF)
+                        || rgb == (darkSurfaceColor(previousColor, index) & 0x00FFFFFF)) {
+                    return withAlpha(color, darkSurfaceColor(accentColor, index));
+                }
+            }
+        } else {
+            for (int i = 0; i < LIGHT_ACCENT_SURFACES.length; i++) {
+                if (rgb == (LIGHT_ACCENT_SURFACES[i] & 0x00FFFFFF)
+                        || rgb == (lightAccentSurfaceColor(previousColor, i) & 0x00FFFFFF)) {
+                    return withAlpha(color, lightAccentSurfaceColor(accentColor, i));
+                }
+            }
         }
         return mapAccentColor(color, previousColor, accentColor);
     }
@@ -198,6 +241,14 @@ public final class FlintAccentUtils {
         hsv[1] = Math.max(0.42f, Math.min(hsv[1], 0.78f));
         hsv[2] = DARK_SURFACE_BRIGHTNESS[index];
         return Color.HSVToColor(hsv);
+    }
+
+    private static int lightAccentSurfaceColor(int accentColor, int index) {
+        float amount = LIGHT_ACCENT_BLEND[index];
+        return Color.rgb(
+                Math.round(255 + (Color.red(accentColor) - 255) * amount),
+                Math.round(255 + (Color.green(accentColor) - 255) * amount),
+                Math.round(255 + (Color.blue(accentColor) - 255) * amount));
     }
 
     private static int contrastTextColor(int backgroundColor) {
