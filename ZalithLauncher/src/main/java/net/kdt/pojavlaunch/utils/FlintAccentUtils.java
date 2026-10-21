@@ -8,7 +8,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
-import android.graphics.drawable.RippleDrawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -98,11 +97,6 @@ public final class FlintAccentUtils {
                 ColorStateList mapped = mapColors(fill, previousColor, accentColor);
                 if (mapped != null) gradient.setColor(mapped);
             }
-        }
-        if (target instanceof RippleDrawable) {
-            RippleDrawable ripple = (RippleDrawable) target;
-            ColorStateList mapped = mapColors(ripple.getColor(), previousColor, accentColor);
-            if (mapped != null) ripple.setColor(mapped);
         }
         if (target instanceof LayerDrawable) {
             LayerDrawable layers = (LayerDrawable) target;
