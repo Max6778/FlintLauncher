@@ -220,11 +220,6 @@ public final class FlintAccentUtils {
                 ColorStateList mapped = mapDrawableColors(fill, previousColor, accentColor, darkMode);
                 if (mapped != null) gradient.setColor(mapped);
             }
-            ColorStateList stroke = gradient.getStrokeColor();
-            if (stroke != null) {
-                ColorStateList mapped = mapDrawableColors(stroke, previousColor, accentColor, darkMode);
-                if (mapped != null) gradient.setStroke(gradient.getStrokeWidth(), mapped.getDefaultColor());
-            }
         }
         if (target instanceof LayerDrawable) {
             LayerDrawable layers = (LayerDrawable) target;
