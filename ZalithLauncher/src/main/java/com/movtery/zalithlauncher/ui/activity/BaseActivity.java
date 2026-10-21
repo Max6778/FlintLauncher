@@ -4,9 +4,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.movtery.zalithlauncher.context.ContextExecutor;
 import com.movtery.zalithlauncher.context.LocaleHelper;
@@ -17,6 +20,8 @@ import com.movtery.zalithlauncher.plugins.PluginLoader;
 import com.movtery.zalithlauncher.renderer.Renderers;
 import com.movtery.zalithlauncher.setting.AllSettings;
 import com.movtery.zalithlauncher.utils.StoragePermissionsUtils;
+
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 
 import net.kdt.pojavlaunch.MissingStorageActivity;
 import net.kdt.pojavlaunch.Tools;
@@ -34,6 +39,14 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getSupportFragmentManager().registerFragmentLifecycleCallbacks(
+                new FragmentManager.FragmentLifecycleCallbacks() {
+                    @Override
+                    public void onFragmentViewCreated(FragmentManager fragmentManager, Fragment fragment,
+                                                      View view, Bundle savedInstanceState) {
+                        FlintAccentUtils.applyAccentColor(view, FlintAccentUtils.getAccentColor(view.getContext()));
+                    }
+                }, true);
         LocaleHelper.Companion.setLocale(this);
         Tools.setFullscreen(this);
         Tools.updateWindowSize(this);
@@ -66,6 +79,8 @@ public abstract class BaseActivity extends AppCompatActivity {
         super.onPostResume();
         Tools.setFullscreen(this);
         Tools.ignoreNotch(shouldIgnoreNotch(),this);
+        FlintAccentUtils.applyAccentColor(
+                getWindow().getDecorView(), FlintAccentUtils.getAccentColor(this));
     }
 
     @Override

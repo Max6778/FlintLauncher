@@ -107,7 +107,7 @@ class LauncherSettingsFragment() :
     private fun applyAccentColor(color: Int) {
         catImagePreferences.edit().putInt("accent_color", color).apply()
         refreshAccentSummary()
-        if (::binding.isInitialized) FlintAccentUtils.applyAccentColor(binding.root, color)
+        FlintAccentUtils.applyAccentColor(requireActivity().window.decorView, color)
     }
 
     private fun showCustomAccentDialog() {
@@ -213,7 +213,7 @@ class LauncherSettingsFragment() :
         refreshCatImageSummary()
         refreshAccentSummary()
         FlintAccentUtils.applyAccentColor(
-            view,
+            requireActivity().window.decorView,
             catImagePreferences.getInt("accent_color", Color.rgb(59, 130, 246))
         )
 

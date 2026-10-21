@@ -2,6 +2,7 @@ package net.kdt.pojavlaunch.utils;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -18,6 +19,11 @@ import java.util.WeakHashMap;
 public final class FlintAccentUtils {
     private static final int DEFAULT_BLUE = Color.rgb(59, 130, 246);
     private static final int DEFAULT_LIGHT_BLUE = Color.rgb(147, 197, 253);
+    private static final int[] DARK_SURFACES = {
+            Color.rgb(10, 10, 12), Color.rgb(17, 17, 21), Color.rgb(24, 24, 30),
+            Color.rgb(30, 30, 38), Color.rgb(35, 35, 46), Color.rgb(46, 46, 61)
+    };
+    private static final float[] DARK_SURFACE_BRIGHTNESS = {0.085f, 0.12f, 0.16f, 0.19f, 0.22f, 0.27f};
     private static final WeakHashMap<View, Integer> APPLIED_COLORS = new WeakHashMap<>();
 
     private FlintAccentUtils() {}
@@ -29,6 +35,8 @@ public final class FlintAccentUtils {
 
     public static void applyAccentColor(View root, int accentColor) {
         if (root == null) return;
+        boolean darkMode = (root.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         int previousColor;
         synchronized (APPLIED_COLORS) {
             Integer previous = APPLIED_COLORS.get(root);
@@ -36,24 +44,24 @@ public final class FlintAccentUtils {
         }
         if (root instanceof TextView) {
             TextView text = (TextView) root;
-            ColorStateList colors = mapColors(text.getTextColors(), previousColor, accentColor);
+            ColorStateList colors = mapAccentColors(text.getTextColors(), previousColor, accentColor);
             if (colors != null) text.setTextColor(colors);
         }
         if (root instanceof ImageView) {
             ImageView image = (ImageView) root;
-            ColorStateList tint = mapColors(image.getImageTintList(), previousColor, accentColor);
+            ColorStateList tint = mapAccentColors(image.getImageTintList(), previousColor, accentColor);
             if (tint != null) image.setImageTintList(tint);
         }
         if (root instanceof ProgressBar) {
             ProgressBar progress = (ProgressBar) root;
-            ColorStateList progressTint = mapColors(progress.getProgressTintList(), previousColor, accentColor);
-            ColorStateList indeterminateTint = mapColors(progress.getIndeterminateTintList(), previousColor, accentColor);
+            ColorStateList progressTint = mapAccentColors(progress.getProgressTintList(), previousColor, accentColor);
+            ColorStateList indeterminateTint = mapAccentColors(progress.getIndeterminateTintList(), previousColor, accentColor);
             if (progressTint != null) progress.setProgressTintList(progressTint);
             if (indeterminateTint != null) progress.setIndeterminateTintList(indeterminateTint);
         }
-        ColorStateList backgroundTint = mapColors(root.getBackgroundTintList(), previousColor, accentColor);
+        ColorStateList backgroundTint = mapAccentColors(root.getBackgroundTintList(), previousColor, accentColor);
         if (backgroundTint != null) root.setBackgroundTintList(backgroundTint);
-        recolorDrawable(root.getBackground(), previousColor, accentColor);
+        recolorDrawable(root.getBackground(), previousColor, accentColor, darkMode);
 
         synchronized (APPLIED_COLORS) {
             APPLIED_COLORS.put(root, accentColor);
@@ -66,45 +74,83 @@ public final class FlintAccentUtils {
         }
     }
 
-    private static ColorStateList mapColors(ColorStateList source, int previousColor, int accentColor) {
+    private static ColorStateList mapAccentColors(ColorStateList source, int previousColor, int accentColor) {
         if (source == null) return null;
         int current = source.getDefaultColor();
-        int mapped = mapColor(current, previousColor, accentColor);
+        int mapped = mapAccentColor(current, previousColor, accentColor);
         return mapped == current ? null : ColorStateList.valueOf(mapped);
     }
 
-    private static int mapColor(int color, int previousColor, int accentColor) {
+    private static int mapAccentColor(int color, int previousColor, int accentColor) {
         int rgb = color & 0x00FFFFFF;
         if (rgb == (DEFAULT_BLUE & 0x00FFFFFF)
                 || rgb == (DEFAULT_LIGHT_BLUE & 0x00FFFFFF)
                 || rgb == (previousColor & 0x00FFFFFF)) {
-            return Color.argb(Color.alpha(color), Color.red(accentColor),
-                    Color.green(accentColor), Color.blue(accentColor));
+            return withAlpha(color, accentColor);
         }
         return color;
     }
 
-    private static void recolorDrawable(Drawable drawable, int previousColor, int accentColor) {
+    private static void recolorDrawable(Drawable drawable, int previousColor, int accentColor, boolean darkMode) {
         if (drawable == null) return;
         Drawable target = drawable.mutate();
         if (target instanceof ColorDrawable) {
             ColorDrawable colorDrawable = (ColorDrawable) target;
-            colorDrawable.setColor(mapColor(colorDrawable.getColor(), previousColor, accentColor));
+            colorDrawable.setColor(mapDrawableColor(
+                    colorDrawable.getColor(), previousColor, accentColor, darkMode));
         } else if (target instanceof GradientDrawable) {
             GradientDrawable gradient = (GradientDrawable) target;
             ColorStateList fill = gradient.getColor();
             if (fill != null) {
-                ColorStateList mapped = mapColors(fill, previousColor, accentColor);
+                ColorStateList mapped = mapDrawableColors(fill, previousColor, accentColor, darkMode);
                 if (mapped != null) gradient.setColor(mapped);
             }
         }
         if (target instanceof LayerDrawable) {
             LayerDrawable layers = (LayerDrawable) target;
             for (int i = 0; i < layers.getNumberOfLayers(); i++) {
-                recolorDrawable(layers.getDrawable(i), previousColor, accentColor);
+                recolorDrawable(layers.getDrawable(i), previousColor, accentColor, darkMode);
             }
         } else if (target instanceof InsetDrawable) {
-            recolorDrawable(((InsetDrawable) target).getDrawable(), previousColor, accentColor);
+            recolorDrawable(((InsetDrawable) target).getDrawable(), previousColor, accentColor, darkMode);
         }
+    }
+
+    private static ColorStateList mapDrawableColors(ColorStateList source, int previousColor,
+                                                     int accentColor, boolean darkMode) {
+        if (source == null) return null;
+        int current = source.getDefaultColor();
+        int mapped = mapDrawableColor(current, previousColor, accentColor, darkMode);
+        return mapped == current ? null : ColorStateList.valueOf(mapped);
+    }
+
+    private static int mapDrawableColor(int color, int previousColor, int accentColor, boolean darkMode) {
+        int rgb = color & 0x00FFFFFF;
+        if (darkMode) {
+            for (int i = 0; i < DARK_SURFACES.length; i++) {
+                if (rgb == (DARK_SURFACES[i] & 0x00FFFFFF)
+                        || rgb == (darkSurfaceColor(previousColor, i) & 0x00FFFFFF)) {
+                    return withAlpha(color, darkSurfaceColor(accentColor, i));
+                }
+            }
+        }
+        return mapAccentColor(color, previousColor, accentColor);
+    }
+
+    private static int darkSurfaceColor(int accentColor, int index) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(accentColor, hsv);
+        if (hsv[1] < 0.08f) {
+            int gray = Math.round(DARK_SURFACE_BRIGHTNESS[index] * 255f);
+            return Color.rgb(gray, gray, gray);
+        }
+        hsv[1] = Math.max(0.42f, Math.min(hsv[1], 0.78f));
+        hsv[2] = DARK_SURFACE_BRIGHTNESS[index];
+        return Color.HSVToColor(hsv);
+    }
+
+    private static int withAlpha(int source, int replacement) {
+        return Color.argb(Color.alpha(source), Color.red(replacement),
+                Color.green(replacement), Color.blue(replacement));
     }
 }

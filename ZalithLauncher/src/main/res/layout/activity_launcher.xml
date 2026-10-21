@@ -44,7 +44,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/donate_button"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="#FFF" />
+            app:tint="@color/menu_bar_text" />
 
         <ImageButton
             android:id="@+id/donate_button"
@@ -59,7 +59,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/setting_button"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="#FFF" />
+            app:tint="@color/menu_bar_text" />
 
         <ImageButton
             android:id="@+id/setting_button"
@@ -70,6 +70,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_menu_settings"
+            app:tint="@color/menu_bar_text"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
