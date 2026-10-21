@@ -31,6 +31,9 @@ import com.movtery.zalithlauncher.renderer.RendererInterface;
 import com.movtery.zalithlauncher.renderer.Renderers;
 import com.movtery.zalithlauncher.task.TaskExecutors;
 import com.movtery.zalithlauncher.ui.fragment.AboutFragment;
+import com.movtery.zalithlauncher.utils.path.PathManager;
+import com.movtery.zalithlauncher.ui.fragment.FilesFragment;
+import com.movtery.zalithlauncher.ui.fragment.ControlButtonFragment;
 import com.movtery.zalithlauncher.ui.fragment.FragmentWithAnim;
 import com.movtery.zalithlauncher.ui.fragment.VersionManagerFragment;
 import com.movtery.zalithlauncher.ui.fragment.VersionsListFragment;
@@ -106,6 +109,35 @@ public class MainMenuFragment extends FragmentWithAnim {
                 EventBus.getDefault().post(new LaunchGameEvent()));
 
         binding.versionName.setSelected(true);
+        // Quick buttons
+        if (binding.quickVersionsButton != null) {
+            binding.quickVersionsButton.setOnClickListener(v -> {
+                if (!checkTaskRunning()) {
+                    ZHTools.swapFragmentWithAnim(this, VersionsListFragment.class, VersionsListFragment.TAG, null);
+                } else {
+                    showTaskRunningToast();
+                }
+            });
+        }
+
+        if (binding.quickControlsButton != null) {
+            binding.quickControlsButton.setOnClickListener(v ->
+                    ZHTools.swapFragmentWithAnim(this, ControlButtonFragment.class, ControlButtonFragment.TAG, null));
+        }
+
+        if (binding.quickFilesButton != null) {
+            binding.quickFilesButton.setOnClickListener(v -> {
+                Bundle bundle = new Bundle();
+                bundle.putString(FilesFragment.BUNDLE_LIST_PATH, PathManager.DIR_GAME_HOME);
+                ZHTools.swapFragmentWithAnim(this, FilesFragment.class, FilesFragment.TAG, bundle);
+            });
+        }
+
+        if (binding.quickLogsButton != null) {
+            binding.quickLogsButton.setOnClickListener(v ->
+                    ZHTools.shareLogs(requireActivity()));
+        }
+
         binding.versionInfo.setSelected(true);
 
         refreshCurrentVersion();
@@ -157,9 +189,9 @@ public class MainMenuFragment extends FragmentWithAnim {
         binding.catImage.setVisibility(View.VISIBLE);
         String customImage = preferences.getString(HOME_IMAGE_URI, null);
         if (customImage == null) {
-            Glide.with(binding.catImage).load(R.raw.cat).centerInside().into(binding.catImage);
+            Glide.with(binding.catImage).load(R.raw.cat).fitCenter().into(binding.catImage);
         } else {
-            Glide.with(binding.catImage).load(Uri.parse(customImage)).centerInside().into(binding.catImage);
+            Glide.with(binding.catImage).load(Uri.parse(customImage)).fitCenter().into(binding.catImage);
         }
     }
 

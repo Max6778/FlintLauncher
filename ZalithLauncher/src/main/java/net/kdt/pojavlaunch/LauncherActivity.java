@@ -21,6 +21,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -539,11 +540,17 @@ public class LauncherActivity extends BaseActivity {
         });
         binding.donateButton.setOnClickListener(v -> {
             ViewAnimUtils.setViewAnim(binding.donateButton, Animations.Pulse);
-            Intent donateIntent = new Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://ko-fi.com/flintlauncher")
-            );
-            startActivity(Intent.createChooser(donateIntent, getString(R.string.flint_donate)));
+            new AlertDialog.Builder(this, R.style.CustomAlertDialogTheme)
+                    .setMessage(R.string.flint_donate_prompt)
+                    .setNegativeButton(android.R.string.no, null)
+                    .setPositiveButton(android.R.string.yes, (dialog, which) -> {
+                        Intent donateIntent = new Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://ko-fi.com/flintlauncher")
+                        );
+                        startActivity(Intent.createChooser(donateIntent, getString(R.string.flint_donate)));
+                    })
+                    .show();
         });
         binding.settingButton.setOnClickListener(v -> {
             ViewAnimUtils.setViewAnim(binding.settingButton, Animations.Pulse);

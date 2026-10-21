@@ -745,6 +745,7 @@
     <string name="flint_nav_about">About</string>
 
     <string name="flint_donate">Donate to FlintLauncher</string>
+    <string name="flint_donate_prompt">Would You like to Donate to support the project</string>
     <string name="flint_accent_color_title">Launcher accent color</string>
     <string name="flint_accent_color_desc">Blue by default · tap to choose a preset or enter a custom hex color</string>
     <string name="flint_accent_color_pick_failed">Enter a valid hex color such as #3B82F6.</string>
