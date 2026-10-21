@@ -1,6 +1,7 @@
 package net.kdt.pojavlaunch.utils;
 
 import android.content.Context;
+import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -11,8 +12,10 @@ import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.Build;
 import com.movtery.zalithlauncher.R;
 import com.google.android.material.tabs.TabLayout;
+import com.angcyo.tablayout.DslTabLayout;
 import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -88,6 +91,9 @@ public final class FlintAccentUtils {
             ImageView image = (ImageView) root;
             ColorStateList tint = mapAccentColors(image.getImageTintList(), previousColor, accentColor);
             if (tint != null) image.setImageTintList(tint);
+            if (image.getId() == R.id.favorite) {
+                image.setImageTintList(ColorStateList.valueOf(accentColor));
+            }
             if (image.getId() == R.id.download_button || image.getId() == R.id.donate_button
                     || image.getId() == R.id.setting_button || image.getId() == R.id.progress_flip_arrow
                     || image.getId() == R.id.controller_mapper_expand_button) {
@@ -107,6 +113,13 @@ public final class FlintAccentUtils {
             TabLayout tabs = (TabLayout) root;
             tabs.setSelectedTabIndicatorColor(accentColor);
             tabs.setTabRippleColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
+        }
+        if (root instanceof DslTabLayout) {
+            ((DslTabLayout) root).getTabIndicator().setIndicatorColor(accentColor);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            tintScrollbar(root, true, accentColor);
+            tintScrollbar(root, false, accentColor);
         }
         if (root instanceof ProgressBar) {
             ProgressBar progress = (ProgressBar) root;
@@ -147,6 +160,22 @@ public final class FlintAccentUtils {
                 applyAccentColor(group.getChildAt(i), accentColor);
             }
         }
+    }
+
+    private static void tintScrollbar(View view, boolean vertical, int accentColor) {
+        Drawable thumb = vertical ? view.getVerticalScrollbarThumbDrawable()
+                : view.getHorizontalScrollbarThumbDrawable();
+        if (thumb == null) return;
+        thumb = thumb.mutate();
+        thumb.setTint(accentColor);
+        if (vertical) view.setVerticalScrollbarThumbDrawable(thumb);
+        else view.setHorizontalScrollbarThumbDrawable(thumb);
+    }
+
+    public static void applyAccentToDialog(Dialog dialog) {
+        if (dialog == null || dialog.getWindow() == null) return;
+        View decor = dialog.getWindow().getDecorView();
+        decor.post(() -> applyAccentColor(decor, getAccentColor(dialog.getContext())));
     }
 
     private static ColorStateList mapAccentColors(ColorStateList source, int previousColor, int accentColor) {
@@ -190,6 +219,11 @@ public final class FlintAccentUtils {
             if (fill != null) {
                 ColorStateList mapped = mapDrawableColors(fill, previousColor, accentColor, darkMode);
                 if (mapped != null) gradient.setColor(mapped);
+            }
+            ColorStateList stroke = gradient.getStrokeColor();
+            if (stroke != null) {
+                ColorStateList mapped = mapDrawableColors(stroke, previousColor, accentColor, darkMode);
+                if (mapped != null) gradient.setStroke(gradient.getStrokeWidth(), mapped.getDefaultColor());
             }
         }
         if (target instanceof LayerDrawable) {

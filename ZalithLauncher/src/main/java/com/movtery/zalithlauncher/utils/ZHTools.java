@@ -36,6 +36,7 @@ import androidx.fragment.app.FragmentTransaction;
 import com.movtery.zalithlauncher.BuildConfig;
 import com.movtery.zalithlauncher.InfoDistributor;
 import com.movtery.zalithlauncher.R;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 import com.movtery.zalithlauncher.context.ContextExecutor;
 import com.movtery.zalithlauncher.feature.log.Logging;
 import com.movtery.zalithlauncher.setting.AllSettings;
@@ -319,12 +320,14 @@ public final class ZHTools {
     public static AlertDialog showTaskRunningDialog(Context context) {
         AlertDialog dialog = createTaskRunningDialog(context);
         dialog.show();
+        FlintAccentUtils.applyAccentToDialog(dialog);
         return dialog;
     }
 
     public static AlertDialog showTaskRunningDialog(Context context, String message) {
         AlertDialog dialog = createTaskRunningDialog(context, message);
         dialog.show();
+        FlintAccentUtils.applyAccentToDialog(dialog);
         return dialog;
     }
 

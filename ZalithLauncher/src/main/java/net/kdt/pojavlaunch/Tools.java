@@ -50,6 +50,7 @@ import net.kdt.pojavlaunch.memory.MemoryHoleFinder;
 import net.kdt.pojavlaunch.memory.SelfMapsParser;
 import net.kdt.pojavlaunch.multirt.MultiRTUtils;
 import net.kdt.pojavlaunch.utils.FileUtils;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 import net.kdt.pojavlaunch.value.DependentLibrary;
 import net.kdt.pojavlaunch.value.MinecraftLibraryArtifact;
 
@@ -344,7 +345,8 @@ public final class Tools {
                     })
                     .setCancelable(!exitIfOk);
             try {
-                builder.show();
+                AlertDialog dialog = builder.show();
+                FlintAccentUtils.applyAccentToDialog(dialog);
             } catch (Throwable th) {
                 th.printStackTrace();
             }

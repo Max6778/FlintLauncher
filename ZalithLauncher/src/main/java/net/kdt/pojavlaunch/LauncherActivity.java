@@ -542,7 +542,7 @@ public class LauncherActivity extends BaseActivity {
         });
         binding.donateButton.setOnClickListener(v -> {
             ViewAnimUtils.setViewAnim(binding.donateButton, Animations.Pulse);
-            new AlertDialog.Builder(this, R.style.CustomAlertDialogTheme)
+            AlertDialog donateDialog = new AlertDialog.Builder(this, R.style.CustomAlertDialogTheme)
                     .setMessage(R.string.flint_donate_prompt)
                     .setNegativeButton(android.R.string.no, null)
                     .setPositiveButton(android.R.string.yes, (dialog, which) -> {
@@ -552,7 +552,9 @@ public class LauncherActivity extends BaseActivity {
                         );
                         startActivity(Intent.createChooser(donateIntent, getString(R.string.flint_donate)));
                     })
-                    .show();
+                    .create();
+            donateDialog.show();
+            FlintAccentUtils.applyAccentToDialog(donateDialog);
         });
         binding.settingButton.setOnClickListener(v -> {
             ViewAnimUtils.setViewAnim(binding.settingButton, Animations.Pulse);

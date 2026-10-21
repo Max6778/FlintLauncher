@@ -8,10 +8,18 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import com.movtery.zalithlauncher.R
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 
 abstract class FullScreenDialog(context: Context) : Dialog(context, R.style.CustomDialogStyle) {
     override fun onCreate(savedInstanceState: Bundle?) {
         setupFullScreenDialog()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        window?.decorView?.post {
+            FlintAccentUtils.applyAccentColor(window?.decorView, FlintAccentUtils.getAccentColor(context))
+        }
     }
 
     private fun setupFullScreenDialog() {

@@ -10,6 +10,7 @@ import com.movtery.zalithlauncher.R;
 import com.movtery.zalithlauncher.setting.AllSettings;
 
 import net.kdt.pojavlaunch.ShowErrorActivity;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 import net.kdt.pojavlaunch.lifecycle.ContextExecutorTask;
 
 public class MirrorTamperedException extends Exception implements ContextExecutorTask {
@@ -22,7 +23,8 @@ public class MirrorTamperedException extends Exception implements ContextExecuto
         builder.setMessage(Html.fromHtml(activity.getString(R.string.dl_tampered_manifest)));
         addButtons(builder);
         ShowErrorActivity.installRemoteDialogHandling(activity, builder);
-        builder.show();
+        AlertDialog dialog = builder.show();
+        FlintAccentUtils.applyAccentToDialog(dialog);
     }
 
     private void addButtons(AlertDialog.Builder builder) {

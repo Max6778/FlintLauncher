@@ -2,6 +2,7 @@ package com.movtery.zalithlauncher.ui.subassembly.version
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -27,6 +28,7 @@ import com.movtery.zalithlauncher.ui.fragment.FilesFragment
 import com.movtery.zalithlauncher.utils.ZHTools
 import com.movtery.zalithlauncher.utils.file.FileDeletionHandler
 import net.kdt.pojavlaunch.Tools
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 
 class VersionAdapter(
     private val parentFragment: Fragment,
@@ -156,6 +158,7 @@ class VersionAdapter(
                         else R.drawable.ic_favorite_border
                     )
                 )
+                favorite.imageTintList = ColorStateList.valueOf(FlintAccentUtils.getAccentColor(mContext))
 
                 operate.setOnClickListener { _ ->
                     showPopupWindow(operate, version)

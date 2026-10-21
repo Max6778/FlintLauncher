@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.movtery.zalithlauncher.R;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 
 public class MultiRTConfigDialog {
     private AlertDialog mDialog;
@@ -21,6 +22,7 @@ public class MultiRTConfigDialog {
     public void show() {
         refresh();
         mDialog.show();
+        FlintAccentUtils.applyAccentToDialog(mDialog);
     }
 
     @SuppressLint("NotifyDataSetChanged")

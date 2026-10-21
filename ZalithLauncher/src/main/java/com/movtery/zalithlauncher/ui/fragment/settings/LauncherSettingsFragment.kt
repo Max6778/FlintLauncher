@@ -133,7 +133,7 @@ class LauncherSettingsFragment() :
                     ).show()
                 }
             }
-            .show()
+            .show().also { FlintAccentUtils.applyAccentToDialog(it) }
     }
 
     private fun showAccentColorOptions() {
@@ -159,7 +159,7 @@ class LauncherSettingsFragment() :
                 else showCustomAccentDialog()
                 dialog.dismiss()
             }
-            .show()
+            .show().also { FlintAccentUtils.applyAccentToDialog(it) }
     }
 
     private fun refreshCatImageSummary() {
@@ -202,7 +202,7 @@ class LauncherSettingsFragment() :
                 }
                 dialog.dismiss()
             }
-            .show()
+            .show().also { FlintAccentUtils.applyAccentToDialog(it) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -307,7 +307,7 @@ class LauncherSettingsFragment() :
                         Toast.LENGTH_LONG
                     ).show()
                 }
-                .show()
+                .show().also { FlintAccentUtils.applyAccentToDialog(it) }
         }
 
         BaseSettingsWrapper(

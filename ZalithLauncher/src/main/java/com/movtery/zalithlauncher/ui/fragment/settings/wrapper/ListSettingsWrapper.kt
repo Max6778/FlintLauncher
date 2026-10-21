@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import com.movtery.zalithlauncher.R
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 import com.movtery.zalithlauncher.setting.unit.StringSettingUnit
 
 @SuppressLint("UseSwitchCompatOrMaterialCode")
@@ -52,7 +53,7 @@ class ListSettingsWrapper(
                 dialog.dismiss()
             }
             .setPositiveButton(android.R.string.cancel, null)
-            .show()
+            .show().also { FlintAccentUtils.applyAccentToDialog(it) }
     }
 
     private fun updateListViewValue() {

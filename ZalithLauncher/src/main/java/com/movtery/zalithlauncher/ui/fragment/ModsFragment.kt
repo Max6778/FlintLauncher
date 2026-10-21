@@ -31,6 +31,7 @@ import com.movtery.zalithlauncher.utils.file.FileCopyHandler
 import com.movtery.zalithlauncher.utils.file.FileTools
 import com.movtery.zalithlauncher.utils.file.PasteFile
 import net.kdt.pojavlaunch.Tools
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 import net.kdt.pojavlaunch.contracts.OpenDocumentWithExtension
 import java.io.File
 import java.util.function.Consumer
@@ -241,6 +242,9 @@ class ModsFragment : FragmentWithAnim(R.layout.fragment_mods) {
         }
 
         startNewbieGuide()
+        view.post {
+            FlintAccentUtils.applyAccentColor(view, FlintAccentUtils.getAccentColor(view.context))
+        }
     }
 
     private fun startNewbieGuide() {

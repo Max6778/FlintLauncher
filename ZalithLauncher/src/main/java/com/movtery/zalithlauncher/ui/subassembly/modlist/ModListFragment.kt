@@ -21,6 +21,7 @@ import com.movtery.zalithlauncher.databinding.FragmentModDownloadBinding
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.fragment.FragmentWithAnim
 import com.movtery.zalithlauncher.utils.ZHTools
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 import com.movtery.zalithlauncher.utils.anim.AnimUtils
 import com.movtery.zalithlauncher.utils.anim.AnimUtils.Companion.playVisibilityAnim
 import com.movtery.zalithlauncher.utils.stringutils.StringUtils
@@ -78,6 +79,9 @@ abstract class ModListFragment : FragmentWithAnim(R.layout.fragment_mod_download
             init()
         }
         refreshCreatedView()
+        view.post {
+            FlintAccentUtils.applyAccentColor(view, FlintAccentUtils.getAccentColor(view.context))
+        }
     }
 
     @CallSuper
