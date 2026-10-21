@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -73,6 +74,7 @@ import com.movtery.zalithlauncher.task.Task;
 import com.movtery.zalithlauncher.task.TaskExecutors;
 import com.movtery.zalithlauncher.ui.activity.BaseActivity;
 import com.movtery.zalithlauncher.ui.activity.ErrorActivity;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 import com.movtery.zalithlauncher.ui.dialog.EditTextDialog;
 import com.movtery.zalithlauncher.ui.dialog.TipDialog;
 import com.movtery.zalithlauncher.ui.fragment.AccountFragment;
@@ -800,7 +802,12 @@ public class LauncherActivity extends BaseActivity {
                         palette.getLightMutedColor(0xFFFFFFFF) :
                         palette.getDarkMutedColor(0xFFFFFFFF);
 
-                ColorStateList colorStateList = ColorStateList.valueOf(mutedColor);
+                int topBarBackgroundColor = binding.topLayout.getBackground() instanceof ColorDrawable
+                        ? ((ColorDrawable) binding.topLayout.getBackground()).getColor()
+                        : backgroundMenuTop;
+                int topBarIconColor = FlintAccentUtils.getAccessibleAccentColor(
+                        FlintAccentUtils.getAccentColor(this), topBarBackgroundColor);
+                ColorStateList colorStateList = ColorStateList.valueOf(topBarIconColor);
                 binding.appTitleText.setTextColor(mutedColor);
                 binding.downloadButton.setImageTintList(colorStateList);
                 binding.donateButton.setImageTintList(colorStateList);
@@ -811,7 +818,9 @@ public class LauncherActivity extends BaseActivity {
         }
         binding.topLayout.setBackgroundColor(backgroundMenuTop);
         binding.appTitleText.setTextColor(ContextCompat.getColor(this, R.color.menu_bar_text));
-        ColorStateList colorStateList = ColorStateList.valueOf(0xFFFFFFFF);
+        int topBarIconColor = FlintAccentUtils.getAccessibleAccentColor(
+                FlintAccentUtils.getAccentColor(this), ContextCompat.getColor(this, R.color.background_menu_top));
+        ColorStateList colorStateList = ColorStateList.valueOf(topBarIconColor);
         binding.downloadButton.setImageTintList(colorStateList);
         binding.donateButton.setImageTintList(colorStateList);
         binding.settingButton.setImageTintList(colorStateList);

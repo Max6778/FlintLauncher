@@ -37,6 +37,19 @@ public final class FlintAccentUtils {
                 .getInt("accent_color", DEFAULT_BLUE);
     }
 
+    public static int getAccessibleAccentColor(int accentColor, int backgroundColor) {
+        if (contrastRatio(accentColor, backgroundColor) >= 3.0) return accentColor;
+        float[] hsv = new float[3];
+        Color.colorToHSV(accentColor, hsv);
+        boolean lightBackground = luminance(backgroundColor) > 0.5;
+        for (int i = 0; i < 50; i++) {
+            hsv[2] = Math.max(0f, Math.min(1f, hsv[2] + (lightBackground ? -0.02f : 0.02f)));
+            int adjusted = Color.HSVToColor(Color.alpha(accentColor), hsv);
+            if (contrastRatio(adjusted, backgroundColor) >= 3.0) return adjusted;
+        }
+        return lightBackground ? Color.BLACK : Color.WHITE;
+    }
+
     public static void applyAccentColor(View root, int accentColor) {
         if (root == null) return;
         boolean darkMode = (root.getResources().getConfiguration().uiMode
@@ -58,6 +71,20 @@ public final class FlintAccentUtils {
             ImageView image = (ImageView) root;
             ColorStateList tint = mapAccentColors(image.getImageTintList(), previousColor, accentColor);
             if (tint != null) image.setImageTintList(tint);
+            if (image.getId() == R.id.download_button || image.getId() == R.id.donate_button
+                    || image.getId() == R.id.setting_button || image.getId() == R.id.progress_flip_arrow
+                    || image.getId() == R.id.controller_mapper_expand_button) {
+                int surface = Color.WHITE;
+                if (image.getParent() instanceof View) {
+                    Drawable parentBackground = ((View) image.getParent()).getBackground();
+                    if (parentBackground instanceof ColorDrawable) {
+                        surface = ((ColorDrawable) parentBackground).getColor();
+                    } else {
+                        surface = image.getContext().getColor(R.color.background_menu_top);
+                    }
+                }
+                image.setImageTintList(ColorStateList.valueOf(getAccessibleAccentColor(accentColor, surface)));
+            }
         }
         if (root instanceof TabLayout) {
             TabLayout tabs = (TabLayout) root;
@@ -183,6 +210,18 @@ public final class FlintAccentUtils {
 
     private static double linear(double channel) {
         return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    }
+
+    private static double luminance(int color) {
+        return 0.2126 * linear(Color.red(color) / 255.0)
+                + 0.7152 * linear(Color.green(color) / 255.0)
+                + 0.0722 * linear(Color.blue(color) / 255.0);
+    }
+
+    private static double contrastRatio(int first, int second) {
+        double a = luminance(first);
+        double b = luminance(second);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     }
 
     private static int withAlpha(int source, int replacement) {
