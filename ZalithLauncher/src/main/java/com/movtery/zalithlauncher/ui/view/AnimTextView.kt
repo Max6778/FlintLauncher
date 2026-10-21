@@ -7,8 +7,8 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.RippleDrawable
 import android.util.AttributeSet
 import androidx.appcompat.widget.AppCompatTextView
-import androidx.core.content.ContextCompat
 import com.movtery.zalithlauncher.R
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 
 @SuppressLint("Recycle")
 class AnimTextView @JvmOverloads constructor(
@@ -33,7 +33,7 @@ class AnimTextView @JvmOverloads constructor(
 
     private fun setRipple() {
         val rippleDrawable = RippleDrawable(
-            ColorStateList.valueOf(ContextCompat.getColor(context, R.color.background_ripple_effect)),
+            ColorStateList.valueOf((FlintAccentUtils.getAccentColor(context) and 0x00FFFFFF) or 0x40000000),
             background,
             null
         )

@@ -9,6 +9,10 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.graphics.drawable.StateListDrawable;
+import com.movtery.zalithlauncher.R;
+import com.google.android.material.tabs.TabLayout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -46,11 +50,19 @@ public final class FlintAccentUtils {
             TextView text = (TextView) root;
             ColorStateList colors = mapAccentColors(text.getTextColors(), previousColor, accentColor);
             if (colors != null) text.setTextColor(colors);
+            if (text.getId() == R.id.play_button) {
+                text.setTextColor(contrastTextColor(accentColor));
+            }
         }
         if (root instanceof ImageView) {
             ImageView image = (ImageView) root;
             ColorStateList tint = mapAccentColors(image.getImageTintList(), previousColor, accentColor);
             if (tint != null) image.setImageTintList(tint);
+        }
+        if (root instanceof TabLayout) {
+            TabLayout tabs = (TabLayout) root;
+            tabs.setSelectedTabIndicatorColor(accentColor);
+            tabs.setTabRippleColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
         }
         if (root instanceof ProgressBar) {
             ProgressBar progress = (ProgressBar) root;
@@ -94,7 +106,19 @@ public final class FlintAccentUtils {
     private static void recolorDrawable(Drawable drawable, int previousColor, int accentColor, boolean darkMode) {
         if (drawable == null) return;
         Drawable target = drawable.mutate();
-        if (target instanceof ColorDrawable) {
+        if (target instanceof RippleDrawable) {
+            RippleDrawable ripple = (RippleDrawable) target;
+            ColorStateList mapped = mapDrawableColors(ripple.getColor(), previousColor, accentColor, darkMode);
+            if (mapped != null) ripple.setColor(mapped);
+            for (int i = 0; i < ripple.getNumberOfLayers(); i++) {
+                recolorDrawable(ripple.getDrawable(i), previousColor, accentColor, darkMode);
+            }
+        } else if (target instanceof StateListDrawable) {
+            StateListDrawable states = (StateListDrawable) target;
+            for (int i = 0; i < states.getStateCount(); i++) {
+                recolorDrawable(states.getStateDrawable(i), previousColor, accentColor, darkMode);
+            }
+        } else if (target instanceof ColorDrawable) {
             ColorDrawable colorDrawable = (ColorDrawable) target;
             colorDrawable.setColor(mapDrawableColor(
                     colorDrawable.getColor(), previousColor, accentColor, darkMode));
@@ -147,6 +171,18 @@ public final class FlintAccentUtils {
         hsv[1] = Math.max(0.42f, Math.min(hsv[1], 0.78f));
         hsv[2] = DARK_SURFACE_BRIGHTNESS[index];
         return Color.HSVToColor(hsv);
+    }
+
+    private static int contrastTextColor(int backgroundColor) {
+        double red = linear(Color.red(backgroundColor) / 255.0);
+        double green = linear(Color.green(backgroundColor) / 255.0);
+        double blue = linear(Color.blue(backgroundColor) / 255.0);
+        double luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        return luminance > 0.42 ? Color.BLACK : Color.WHITE;
+    }
+
+    private static double linear(double channel) {
+        return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
     }
 
     private static int withAlpha(int source, int replacement) {

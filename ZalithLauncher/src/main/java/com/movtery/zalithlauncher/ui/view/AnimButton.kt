@@ -6,9 +6,9 @@ import android.content.res.ColorStateList
 import android.graphics.drawable.RippleDrawable
 import android.util.AttributeSet
 import androidx.appcompat.widget.AppCompatButton
-import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.movtery.zalithlauncher.R
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 import net.kdt.pojavlaunch.Tools
 
 open class AnimButton @JvmOverloads constructor(
@@ -33,7 +33,7 @@ open class AnimButton @JvmOverloads constructor(
 
     private fun setRipple() {
         val rippleDrawable = RippleDrawable(
-            ColorStateList.valueOf(ContextCompat.getColor(context, R.color.background_ripple_effect)),
+            ColorStateList.valueOf((FlintAccentUtils.getAccentColor(context) and 0x00FFFFFF) or 0x40000000),
             ResourcesCompat.getDrawable(resources, R.drawable.button_background, context.theme),
             null
         )
