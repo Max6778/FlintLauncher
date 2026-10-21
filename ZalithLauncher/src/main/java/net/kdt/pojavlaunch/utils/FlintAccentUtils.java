@@ -34,9 +34,16 @@ public final class FlintAccentUtils {
     };
     private static final int[] EXTRA_DARK_SURFACE_INDEX = {2, 4, 3};
     private static final int[] LIGHT_ACCENT_SURFACES = {
+            Color.rgb(246, 247, 251), Color.WHITE,
+            Color.rgb(240, 242, 247), Color.rgb(231, 234, 241),
+            Color.rgb(217, 222, 232), Color.rgb(197, 204, 218),
+            Color.rgb(233, 236, 242), Color.rgb(226, 230, 239),
             Color.rgb(230, 234, 242), Color.rgb(203, 215, 232), Color.rgb(184, 203, 232)
     };
-    private static final float[] LIGHT_ACCENT_BLEND = {0.08f, 0.14f, 0.20f};
+    private static final float[] LIGHT_ACCENT_BLEND = {
+            0.04f, 0.03f, 0.07f, 0.10f, 0.14f, 0.18f,
+            0.09f, 0.12f, 0.09f, 0.15f, 0.21f
+    };
     private static final WeakHashMap<View, Integer> APPLIED_COLORS = new WeakHashMap<>();
     private static final WeakHashMap<RecyclerView, Boolean> RECYCLER_LISTENERS = new WeakHashMap<>();
 
