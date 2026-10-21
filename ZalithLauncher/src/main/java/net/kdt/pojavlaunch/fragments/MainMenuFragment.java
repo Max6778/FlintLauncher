@@ -40,7 +40,6 @@ import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.progresskeeper.ProgressKeeper;
-import net.kdt.pojavlaunch.multirt.MultiRTUtils;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -157,9 +156,9 @@ public class MainMenuFragment extends FragmentWithAnim {
         binding.catImage.setVisibility(View.VISIBLE);
         String customImage = preferences.getString(HOME_IMAGE_URI, null);
         if (customImage == null) {
-            Glide.with(binding.catImage).load(R.raw.cat).centerCrop().into(binding.catImage);
+            Glide.with(binding.catImage).load(R.raw.cat).centerInside().into(binding.catImage);
         } else {
-            Glide.with(binding.catImage).load(Uri.parse(customImage)).centerCrop().into(binding.catImage);
+            Glide.with(binding.catImage).load(Uri.parse(customImage)).centerInside().into(binding.catImage);
         }
     }
 
@@ -175,28 +174,6 @@ public class MainMenuFragment extends FragmentWithAnim {
                     binding.statRamValue.setText(ram + " MB alloc");
                 } catch (Exception e) {
                     binding.statRamValue.setText("RAM");
-                }
-            }
-
-            // Active JRE
-            // AllSettings.defaultRuntime is a @JvmStatic val StringSettingUnit — access as a field, not a method.
-            if (binding.statJreValue != null) {
-                try {
-                    String defaultRuntime = AllSettings.getDefaultRuntime().getValue();
-
-                    if (defaultRuntime != null && !defaultRuntime.isEmpty()) {
-                        net.kdt.pojavlaunch.multirt.Runtime rt =
-                                MultiRTUtils.forceReread(defaultRuntime);
-
-                        binding.statJreValue.setText(
-                                rt != null ? rt.name : defaultRuntime
-                        );
-                    } else {
-                        binding.statJreValue.setText("Java");
-                    }
-
-                } catch (Exception e) {
-                    binding.statJreValue.setText("Java");
                 }
             }
 

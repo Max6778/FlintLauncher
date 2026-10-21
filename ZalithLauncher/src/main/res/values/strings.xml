@@ -757,7 +757,6 @@
 
     <!-- ── Status panel ── -->
     <string name="flint_status_ram">RAM</string>
-    <string name="flint_status_jre">JRE</string>
     <string name="flint_status_renderer">Renderer</string>
     <string name="flint_perf_profile">Profile: %1$s</string>
 

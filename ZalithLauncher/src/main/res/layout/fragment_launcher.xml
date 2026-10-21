@@ -339,7 +339,7 @@
             android:textAllCaps="true"
             android:layout_marginBottom="@dimen/_8sdp" />
 
-        <!-- RAM stat -->
+        <!-- Renderer stat -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -351,75 +351,40 @@
             <View android:layout_width="@dimen/_7sdp" android:layout_height="@dimen/_7sdp"
                 android:background="@drawable/flint_accent_dot"
                 android:layout_marginEnd="@dimen/_8sdp" />
-            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:orientation="vertical">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/flint_status_renderer"
+                    android:textColor="@color/flint_text" android:textSize="@dimen/_10ssp" android:textStyle="bold" />
+                <TextView android:id="@+id/stat_renderer_value"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:maxLines="2" android:ellipsize="end"
+                    android:textColor="@color/flint_text_dim" android:textSize="@dimen/_8ssp"
+                    tools:text="GL4ES 1.1.5" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- RAM allocation stat -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/flint_bg_card"
+            android:padding="@dimen/_8sdp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="@dimen/_6sdp">
+            <View android:layout_width="@dimen/_7sdp" android:layout_height="@dimen/_7sdp"
+                android:background="@drawable/flint_accent_dot"
+                android:layout_marginEnd="@dimen/_8sdp" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="@string/flint_status_ram"
                     android:textColor="@color/flint_text" android:textSize="@dimen/_10ssp" android:textStyle="bold" />
                 <TextView android:id="@+id/stat_ram_value"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:textColor="@color/flint_text_dim" android:textSize="@dimen/_8ssp"
                     tools:text="2048 MB alloc" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- JRE and renderer -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="@dimen/_6sdp">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="@dimen/_3sdp"
-                android:background="@drawable/flint_bg_card"
-                android:padding="@dimen/_7sdp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/flint_status_jre"
-                    android:textColor="@color/flint_text"
-                    android:textSize="@dimen/_10ssp"
-                    android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/stat_jre_value"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLines="2"
-                    android:ellipsize="end"
-                    android:textColor="@color/flint_text_dim"
-                    android:textSize="@dimen/_8ssp"
-                    tools:text="Java 21" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="@dimen/_3sdp"
-                android:background="@drawable/flint_bg_card"
-                android:padding="@dimen/_7sdp"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/flint_status_renderer"
-                    android:textColor="@color/flint_text"
-                    android:textSize="@dimen/_10ssp"
-                    android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/stat_renderer_value"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLines="2"
-                    android:ellipsize="end"
-                    android:textColor="@color/flint_text_dim"
-                    android:textSize="@dimen/_8ssp"
-                    tools:text="GL4ES 1.1.5" />
             </LinearLayout>
         </LinearLayout>
 
@@ -432,7 +397,8 @@
             android:layout_marginTop="@dimen/_2sdp"
             android:layout_marginBottom="@dimen/_8sdp"
             android:background="@drawable/flint_bg_card"
-            android:scaleType="centerCrop"
+            android:adjustViewBounds="false"
+            android:scaleType="centerInside"
             android:contentDescription="@string/flint_cat_image_title"
             android:clipToOutline="true" />
 
