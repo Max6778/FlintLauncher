@@ -36,6 +36,7 @@ import com.movtery.zalithlauncher.ui.fragment.VersionManagerFragment;
 import com.movtery.zalithlauncher.ui.fragment.VersionsListFragment;
 import com.movtery.zalithlauncher.ui.subassembly.account.AccountViewWrapper;
 import com.movtery.zalithlauncher.utils.ZHTools;
+import net.kdt.pojavlaunch.utils.FlintAccentUtils;
 import com.movtery.zalithlauncher.utils.anim.ViewAnimUtils;
 
 import net.kdt.pojavlaunch.Tools;
@@ -238,6 +239,10 @@ public class MainMenuFragment extends FragmentWithAnim {
         super.onStart();
         EventBus.getDefault().register(this);
         refreshCatImage();
+        FlintAccentUtils.applyAccentColor(
+                binding.getRoot(),
+                FlintAccentUtils.getAccentColor(requireContext())
+        );
     }
 
     @Override

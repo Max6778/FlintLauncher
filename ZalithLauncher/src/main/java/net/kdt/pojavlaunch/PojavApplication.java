@@ -80,9 +80,13 @@ public class PojavApplication extends Application {
 			startActivity(ferrorIntent);
 		}
 
-		// BUG 8 FIX: FlintLauncher ALWAYS forces dark mode — ignore user setting
-		// This makes the dark theme apply across ALL screens and fragments
-		AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+		String launcherTheme = AllSettings.getLauncherTheme().getValue();
+		int nightMode = "light".equalsIgnoreCase(launcherTheme)
+				? AppCompatDelegate.MODE_NIGHT_NO
+				: "system".equalsIgnoreCase(launcherTheme)
+						? AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+						: AppCompatDelegate.MODE_NIGHT_YES;
+		AppCompatDelegate.setDefaultNightMode(nightMode);
 	}
 
 	@Override

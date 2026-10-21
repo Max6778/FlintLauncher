@@ -2,7 +2,7 @@
 <!--
     FlintLauncher colors_night.xml
     Place at: ZalithLauncher/src/main/res/values-night/colors_night.xml
-    Night mode = same as day since FlintLauncher is always dark.
+    Dark palette used when the launcher theme is Dark or Follow System resolves to night.
 -->
 <resources>
     <color name="black_or_white">#FFFFFF</color>
@@ -40,4 +40,25 @@
     <color name="settings_category">#3B82F6</color>
     <color name="icon_color">#93C5FD</color>
     <color name="primary_text">#EEEDF5</color>
+
+    <!-- Flint dark palette -->
+    <color name="flint_bg">#0A0A0C</color>
+    <color name="flint_surface">#111115</color>
+    <color name="flint_surface2">#18181E</color>
+    <color name="flint_surface3">#1E1E26</color>
+    <color name="flint_border">#23232E</color>
+    <color name="flint_border2">#2E2E3D</color>
+    <color name="flint_accent">#3B82F6</color>
+    <color name="flint_accent2">#93C5FD</color>
+    <color name="flint_accent_dim">#263B82F6</color>
+    <color name="flint_accent_glow">#4D3B82F6</color>
+    <color name="flint_text">#EEEDF5</color>
+    <color name="flint_text_dim">#7E7D90</color>
+    <color name="flint_text_mute">#3A3948</color>
+    <color name="flint_green">#34D399</color>
+    <color name="flint_green_dim">#1F34D399</color>
+    <color name="flint_red">#F87171</color>
+    <color name="flint_yellow">#F59E0B</color>
+    <color name="favorite_color">#F87171</color>
+    <color name="white">#FFFFFF</color>
 </resources>

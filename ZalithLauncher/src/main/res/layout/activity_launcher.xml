@@ -54,7 +54,7 @@
             android:layout_marginVertical="@dimen/_3sdp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:scaleType="fitCenter"
-            android:src="@drawable/ic_favorite"
+            android:src="@drawable/ic_coffee"
             android:contentDescription="@string/flint_donate"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/setting_button"

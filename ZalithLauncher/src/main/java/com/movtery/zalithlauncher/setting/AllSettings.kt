@@ -173,7 +173,7 @@ class AllSettings {
         val maxDownloadThreads = IntSettingUnit("maxDownloadThreads", 64)
 
         @JvmStatic
-        val launcherTheme = StringSettingUnit("launcherTheme", "system")
+        val launcherTheme = StringSettingUnit("launcherTheme", "dark")
 
         @JvmStatic
         val animation = BooleanSettingUnit("animation", true)

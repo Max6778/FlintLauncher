@@ -1,11 +1,14 @@
 package com.movtery.zalithlauncher.ui.fragment.settings
 
 import android.content.Intent
+import android.graphics.Color
+import android.text.InputType
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +30,7 @@ import com.movtery.zalithlauncher.ui.fragment.settings.wrapper.SwitchSettingsWra
 import com.movtery.zalithlauncher.utils.CleanUpCache.Companion.start
 import com.movtery.zalithlauncher.utils.ZHTools
 import net.kdt.pojavlaunch.LauncherActivity
+import net.kdt.pojavlaunch.utils.FlintAccentUtils
 import org.greenrobot.eventbus.EventBus
 
 class LauncherSettingsFragment() :
@@ -94,6 +98,70 @@ class LauncherSettingsFragment() :
         }
     }
 
+    private fun refreshAccentSummary() {
+        if (!::binding.isInitialized || view == null) return
+        val color = catImagePreferences.getInt("accent_color", Color.rgb(59, 130, 246))
+        binding.launcherAccentSummary.text = "#%06X".format(color and 0xFFFFFF)
+    }
+
+    private fun applyAccentColor(color: Int) {
+        catImagePreferences.edit().putInt("accent_color", color).apply()
+        refreshAccentSummary()
+        if (::binding.isInitialized) FlintAccentUtils.applyAccentColor(binding.root, color)
+    }
+
+    private fun showCustomAccentDialog() {
+        val input = EditText(requireContext()).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            setSingleLine(true)
+            hint = "#RRGGBB"
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.flint_accent_color_custom)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                try {
+                    val value = input.text.toString().trim()
+                    val hex = if (value.startsWith("#")) value else "#$value"
+                    applyAccentColor(Color.parseColor(hex))
+                } catch (_: IllegalArgumentException) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.flint_accent_color_pick_failed,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun showAccentColorOptions() {
+        val labels = arrayOf(
+            getString(R.string.flint_accent_color_blue),
+            getString(R.string.flint_accent_color_pink),
+            getString(R.string.flint_accent_color_green),
+            getString(R.string.flint_accent_color_red),
+            getString(R.string.flint_accent_color_white),
+            getString(R.string.flint_accent_color_custom)
+        )
+        val colors = intArrayOf(
+            Color.rgb(59, 130, 246),
+            Color.rgb(236, 72, 153),
+            Color.rgb(34, 197, 94),
+            Color.rgb(239, 68, 68),
+            Color.WHITE
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.flint_accent_color_title)
+            .setItems(labels) { dialog, which ->
+                if (which < colors.size) applyAccentColor(colors[which])
+                else showCustomAccentDialog()
+                dialog.dismiss()
+            }
+            .show()
+    }
+
     private fun refreshCatImageSummary() {
         if (!::binding.isInitialized || view == null) return
         val preferences = catImagePreferences
@@ -141,7 +209,13 @@ class LauncherSettingsFragment() :
         val context = requireContext()
 
         binding.catImageLayout.setOnClickListener { showCatImageOptions() }
+        binding.launcherAccentLayout.setOnClickListener { showAccentColorOptions() }
         refreshCatImageSummary()
+        refreshAccentSummary()
+        FlintAccentUtils.applyAccentColor(
+            view,
+            catImagePreferences.getInt("accent_color", Color.rgb(59, 130, 246))
+        )
 
         SwitchSettingsWrapper(
             context,

@@ -3,20 +3,20 @@
     FlintLauncher colors.xml
     Place at: ZalithLauncher/src/main/res/values/colors.xml
     This replaces the original ZalithLauncher colors entirely.
-    All screens use these by default (light mode = dark by design).
+    Light launcher palette; dark mode values are defined in values-night/colors_night.xml.
 -->
 <resources>
     <color name="black_or_white">#000000</color>
 
     <!-- ── Core Backgrounds ── -->
-    <color name="flint_bg">#0A0A0C</color>
-    <color name="flint_surface">#111115</color>
-    <color name="flint_surface2">#18181E</color>
-    <color name="flint_surface3">#1E1E26</color>
+    <color name="flint_bg">#F6F7FB</color>
+    <color name="flint_surface">#FFFFFF</color>
+    <color name="flint_surface2">#F0F2F7</color>
+    <color name="flint_surface3">#E7EAF1</color>
 
     <!-- ── Borders ── -->
-    <color name="flint_border">#23232E</color>
-    <color name="flint_border2">#2E2E3D</color>
+    <color name="flint_border">#D9DEE8</color>
+    <color name="flint_border2">#C5CCDA</color>
 
     <!-- ── Accent (Blue) ── -->
     <color name="flint_accent">#3B82F6</color>
@@ -25,9 +25,9 @@
     <color name="flint_accent_glow">#4D3B82F6</color>
 
     <!-- ── Text ── -->
-    <color name="flint_text">#EEEDF5</color>
-    <color name="flint_text_dim">#7E7D90</color>
-    <color name="flint_text_mute">#3A3948</color>
+    <color name="flint_text">#171923</color>
+    <color name="flint_text_dim">#52586A</color>
+    <color name="flint_text_mute">#747C8E</color>
 
     <!-- ── Status Colors ── -->
     <color name="flint_green">#34D399</color>
@@ -36,40 +36,40 @@
     <color name="flint_yellow">#F59E0B</color>
 
     <!-- ── Keep legacy names working (mapped to Flint dark theme) ── -->
-    <color name="background_app">#0A0A0C</color>
-    <color name="background_app_error">#2D1A1A</color>
-    <color name="background_overlay">#18181E</color>
-    <color name="background_status_bar">#0A0A0C</color>
-    <color name="background_menu_top">#111115</color>
-    <color name="background_menu_top_error">#2D1A1A</color>
+    <color name="background_app">#F6F7FB</color>
+    <color name="background_app_error">#FCE8E8</color>
+    <color name="background_overlay">#FFFFFF</color>
+    <color name="background_status_bar">#F6F7FB</color>
+    <color name="background_menu_top">#FFFFFF</color>
+    <color name="background_menu_top_error">#FCE8E8</color>
     <color name="background_menu_element">#3B82F6</color>
     <color name="background_ripple_effect">#3B82F6</color>
 
-    <color name="button_background">#18181E</color>
-    <color name="button_background_selected">#23232E</color>
-    <color name="dialog_background">#111115</color>
+    <color name="button_background">#FFFFFF</color>
+    <color name="button_background_selected">#E9ECF2</color>
+    <color name="dialog_background">#FFFFFF</color>
 
-    <color name="menu_bar">#111115</color>
-    <color name="menu_bar_text">#EEEDF5</color>
-    <color name="menu_overlay">#E0111115</color>
+    <color name="menu_bar">#FFFFFF</color>
+    <color name="menu_bar_text">#171923</color>
+    <color name="menu_overlay">#E0FFFFFF</color>
     <color name="menu_progress">#3B82F6</color>
 
-    <color name="background_item">#BF18181E</color>
-    <color name="background_item_selected">#D823232E</color>
-    <color name="background_item_disabled">#D82D1A1A</color>
-    <color name="background_sponsor_intermediate">#CC2E4A7E</color>
-    <color name="background_sponsor_advanced">#CC1E3A6E</color>
+    <color name="background_item">#BFFFFFFF</color>
+    <color name="background_item_selected">#D8E9ECF2</color>
+    <color name="background_item_disabled">#D8FCE8E8</color>
+    <color name="background_sponsor_intermediate">#CCCBD7E8</color>
+    <color name="background_sponsor_advanced">#CCB8CBE8</color>
 
-    <color name="edit_box_fill">#18181E</color>
-    <color name="edit_box_fill_selected">#23232E</color>
+    <color name="edit_box_fill">#F0F2F7</color>
+    <color name="edit_box_fill_selected">#E2E6EF</color>
 
-    <color name="mod_category_fill">#801A1A2E</color>
-    <color name="text_background_fill">#B318181E</color>
+    <color name="mod_category_fill">#80E6EAF2</color>
+    <color name="text_background_fill">#B3FFFFFF</color>
 
     <color name="settings_category">#3B82F6</color>
     <color name="favorite_color">#F87171</color>
-    <color name="icon_color">#93C5FD</color>
-    <color name="primary_text">#EEEDF5</color>
+    <color name="icon_color">#3B82F6</color>
+    <color name="primary_text">#171923</color>
 
     <!-- White for buttons etc. -->
     <color name="white">#FFFFFF</color>

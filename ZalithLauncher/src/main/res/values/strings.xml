@@ -527,7 +527,7 @@
     <string name="setting_set_game_language_system">Follow System Language</string>
     <string name="setting_set_game_language_overridden_title">Override Game Language</string>
     <string name="setting_set_game_language_overridden_desc">Ignore the language set in the game and force it to be the language set in the launcher</string>
-    <string name="setting_launcher_theme">Launcher Theme</string>
+    <string name="setting_launcher_theme">Light / Dark Mode</string>
     <string name="setting_launcher_theme_system">Follow System Theme</string>
     <string name="setting_launcher_theme_light">Light Mode</string>
     <string name="setting_launcher_theme_dark">Dark Mode</string>
@@ -745,6 +745,15 @@
     <string name="flint_nav_about">About</string>
 
     <string name="flint_donate">Donate to FlintLauncher</string>
+    <string name="flint_accent_color_title">Launcher accent color</string>
+    <string name="flint_accent_color_desc">Blue by default · tap to choose a preset or enter a custom hex color</string>
+    <string name="flint_accent_color_pick_failed">Enter a valid hex color such as #3B82F6.</string>
+    <string name="flint_accent_color_custom">Custom hex color…</string>
+    <string name="flint_accent_color_blue">Blue (default)</string>
+    <string name="flint_accent_color_pink">Pink</string>
+    <string name="flint_accent_color_green">Green</string>
+    <string name="flint_accent_color_red">Red</string>
+    <string name="flint_accent_color_white">White</string>
     <string name="flint_cat_image_title">Home screen image</string>
     <string name="flint_cat_image_customize">Customize</string>
     <string name="flint_cat_image_default">Using the default cat GIF</string>

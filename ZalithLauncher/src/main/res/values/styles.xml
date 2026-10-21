@@ -5,10 +5,7 @@
       ZalithLauncher/src/main/res/values/styles.xml
       ZalithLauncher/src/main/res/values-night/styles.xml
 
-    BUG 2 & 8 FIX:
-    Parent changed to DayNight.NoActionBar. Combined with
-    AppCompatDelegate.MODE_NIGHT_YES in PojavApplication.java,
-    this forces ALL screens into dark mode globally.
+    DayNight theme follows the mode selected in Launcher Settings.
 -->
 <resources>
 
