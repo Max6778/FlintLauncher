@@ -6,6 +6,26 @@ on:
   pull_request:
     branches: [ Official, master ]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: APK type to build
+        required: true
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
+      architecture:
+        description: APK architecture (all creates a universal APK)
+        required: true
+        type: choice
+        options:
+          - all
+          - arm
+          - arm64
+          - x86
+          - x86_64
+        default: all
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -58,17 +78,37 @@ jobs:
         run: ./gradlew :jre_lwjgl3glfw:clean :jre_lwjgl3glfw_341:clean :jre_lwjgl3glfw:jar :jre_lwjgl3glfw_341:jar --stacktrace --no-daemon
 
       - name: Build Debug APK
-        run: ./gradlew :ZalithLauncher:assembleDebug --stacktrace --no-daemon
+        if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'
+        run: ./gradlew :ZalithLauncher:assembleDebug -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
+          FL_BUILD_TYPE: DEBUG
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+
+      - name: Build Release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
+        run: ./gradlew :ZalithLauncher:assembleRelease -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
+          FL_BUILD_TYPE: RELEASE
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+          MOVTERY_KEYSTORE_PASSWORD: ${{ secrets.MOVTERY_KEYSTORE_PASSWORD }}
 
       # This is a debug build for testing, not a product release. GitHub Actions
       # stores workflow artifacts as ZIPs; the APK is inside and can be installed
       # after extracting it.
       - name: Upload DEBUG APK for testing
+        if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-DEBUG-APK-${{ github.run_number }}
           path: ZalithLauncher/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload Release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlintLauncher-RELEASE-APK-${{ github.run_number }}
+          path: ZalithLauncher/build/outputs/apk/release/*.apk
           retention-days: 14
