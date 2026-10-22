@@ -79,7 +79,7 @@ jobs:
 
       - name: Build Debug APK
         if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'
-        run: ./gradlew :ZalithLauncher:assembleDebug -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
+        run: ./gradlew :FlintLauncher:assembleDebug -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
           FL_BUILD_TYPE: DEBUG
@@ -87,7 +87,7 @@ jobs:
 
       - name: Build Release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
-        run: ./gradlew :ZalithLauncher:assembleRelease -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
+        run: ./gradlew :FlintLauncher:assembleRelease -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
           FL_BUILD_TYPE: RELEASE
@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-DEBUG-APK-${{ github.run_number }}
-          path: ZalithLauncher/build/outputs/apk/debug/*.apk
+          path: FlintLauncher/build/outputs/apk/debug/*.apk
           retention-days: 14
 
       - name: Upload Release APK
@@ -110,5 +110,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FlintLauncher-RELEASE-APK-${{ github.run_number }}
-          path: ZalithLauncher/build/outputs/apk/release/*.apk
+          path: FlintLauncher/build/outputs/apk/release/*.apk
           retention-days: 14

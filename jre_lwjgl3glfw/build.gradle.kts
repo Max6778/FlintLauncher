@@ -14,9 +14,9 @@ tasks.jar {
     // getLWJGL3ClassPath() on the app side pick between "lwjgl3/3.3.3" and
     // "lwjgl3/3.4.1" at runtime from the org.lwjgl:lwjgl: version in the
     // launched version's JSON, same detection Amethyst uses.
-    destinationDirectory.set(file("../ZalithLauncher/src/main/assets/components/lwjgl3/3.3.3/"))
+    destinationDirectory.set(file("../FlintLauncher/src/main/assets/components/lwjgl3/3.3.3/"))
     doLast {
-        val versionFile = file("../ZalithLauncher/src/main/assets/components/lwjgl3/3.3.3/version")
+        val versionFile = file("../FlintLauncher/src/main/assets/components/lwjgl3/3.3.3/version")
         versionFile.writeText(System.currentTimeMillis().toString())
     }
     from({

@@ -109,7 +109,7 @@ FlintLauncher uses GitHub Actions for cloud builds — no PC required.
 Or build locally with Android Studio:
 
 ```bash
-git clone https://github.com/FlintLauncherDev/FlintLauncher.git
+git clone https://github.com/Max6778/FlintLauncher.git
 cd FlintLauncher
 ./gradlew assembleDebug
 ```

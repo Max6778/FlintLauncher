@@ -26,9 +26,9 @@ configurations.getByName("default").isCanBeResolved = true
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("lwjgl-glfw-classes")
-    destinationDirectory.set(file("../ZalithLauncher/src/main/assets/components/lwjgl3/3.4.1/"))
+    destinationDirectory.set(file("../FlintLauncher/src/main/assets/components/lwjgl3/3.4.1/"))
     doLast {
-        val versionFile = file("../ZalithLauncher/src/main/assets/components/lwjgl3/3.4.1/version")
+        val versionFile = file("../FlintLauncher/src/main/assets/components/lwjgl3/3.4.1/version")
         versionFile.writeText(System.currentTimeMillis().toString())
     }
     from({

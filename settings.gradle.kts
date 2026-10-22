@@ -14,9 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Zalith Launcher"
-include(":jre_lwjgl3glfw")
-include(":ZalithLauncher")
+rootProject.name = "FlintLauncher"
 include(":jre_lwjgl3glfw")
 include(":jre_lwjgl3glfw_341")
-include(":ZalithLauncher")
+include(":FlintLauncher")

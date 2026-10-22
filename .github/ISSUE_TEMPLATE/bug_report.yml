@@ -62,8 +62,8 @@ body:
     attributes:
       label: Android Version / Android 版本
       description: |
-        Zalith Launcher does not support running on devices with Android 7 or lower!
-        Zalith Launcher 不支持运行在 Android 7 或更低版本的设备上！
+        FlintLauncher does not support running on devices with Android 7 or lower!
+        FlintLauncher 不支持运行在 Android 7 或更低版本的设备上！
       options:
         - '16'
         - '15'
@@ -82,8 +82,8 @@ body:
     attributes:
       label: App Version / 应用版本
       description: |
-        Which version of Zalith Launcher did you encounter this issue in? You can check this on the "About Zalith Launcher" page.
-        遇到此问题的版本是？你可以在“关于 Zalith Launcher”页面内查看。
+        Which version of FlintLauncher did you encounter this issue in? You can check this on the "About FlintLauncher" page.
+        遇到此问题的版本是？你可以在“关于 FlintLauncher”页面内查看。
       placeholder: 1.4.1.2
     validations:
       required: true

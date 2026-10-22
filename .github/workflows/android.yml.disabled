@@ -7,7 +7,7 @@ on:
 
 jobs:
   BuildRelease:
-    if: github.repository_owner == 'ZalithLauncher' && !startsWith(github.ref, 'refs/pull/') && github.ref_name == 'main'
+    if: github.repository_owner == 'Max6778' && !startsWith(github.ref, 'refs/pull/') && github.ref_name == 'main'
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -52,14 +52,14 @@ jobs:
           MOVTERY_KEYSTORE_PASSWORD: ${{ secrets.MOVTERY_KEYSTORE_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew ZalithLauncher:assemblerelease -Darch=${{ matrix.arch }}
+          ./gradlew FlintLauncher:assemblerelease -Darch=${{ matrix.arch }}
 
       - name: Upload Release ${{matrix.arch}}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: ZalithLauncher(Release) ${{ matrix.arch }}
-          path: ZalithLauncher/build/outputs/apk/release/*
+          name: FlintLauncher(Release) ${{ matrix.arch }}
+          path: FlintLauncher/build/outputs/apk/release/*
 
   BuildDebug:
     if: startsWith(github.ref, 'refs/pull/') || github.ref_name != 'main'
@@ -88,10 +88,10 @@ jobs:
       - name: Build Debug ${{matrix.arch}}
         run: |
           chmod +x gradlew
-          ./gradlew ZalithLauncher:assembleDebug -Darch=${{ matrix.arch }}
+          ./gradlew FlintLauncher:assembleDebug -Darch=${{ matrix.arch }}
 
       - name: Upload Debug ${{matrix.arch}}
         uses: actions/upload-artifact@v4
         with:
-          name: ZalithLauncher(Debug) ${{ matrix.arch }}
-          path: ZalithLauncher/build/outputs/apk/debug/*
+          name: FlintLauncher(Debug) ${{ matrix.arch }}
+          path: FlintLauncher/build/outputs/apk/debug/*

@@ -30,20 +30,20 @@ jobs:
 
       - name: Download SPIRV-Cross natives
         run: |
-          mkdir -p ZalithLauncher/libs
+          mkdir -p FlintLauncher/libs
 
           curl -fL --retry 5 --retry-delay 3 \
-            -o ZalithLauncher/libs/spirv-cross-natives.aar \
+            -o FlintLauncher/libs/spirv-cross-natives.aar \
             "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/v3_openjdk/app_pojavlauncher/libs/spirv-cross-natives.aar"
 
       - name: Verify downloaded file
         run: |
-          test -s ZalithLauncher/libs/spirv-cross-natives.aar
+          test -s FlintLauncher/libs/spirv-cross-natives.aar
 
           echo "Downloaded file:"
-          ls -lh ZalithLauncher/libs/spirv-cross-natives.aar
+          ls -lh FlintLauncher/libs/spirv-cross-natives.aar
 
-          SIZE=$(stat -c%s ZalithLauncher/libs/spirv-cross-natives.aar)
+          SIZE=$(stat -c%s FlintLauncher/libs/spirv-cross-natives.aar)
 
           echo "Size: $SIZE bytes"
 
