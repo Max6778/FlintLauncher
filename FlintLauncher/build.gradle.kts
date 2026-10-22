@@ -54,10 +54,11 @@ android {
 
     signingConfigs {
         create("releaseBuild") {
-            val pwd = System.getenv("MOVTERY_KEYSTORE_PASSWORD")
-            storeFile = file("movtery-key.jks")
+            val pwd = System.getenv("FLINT_RELEASE_KEYSTORE_PASSWORD")
+            val keyStorePath = System.getenv("FLINT_RELEASE_KEYSTORE_PATH") ?: "flint-release.jks"
+            storeFile = file(keyStorePath)
             storePassword = pwd
-            keyAlias = "mtp"
+            keyAlias = "flintlauncher"
             keyPassword = pwd
         }
         create("customDebug") {

@@ -85,6 +85,15 @@ jobs:
           FL_BUILD_TYPE: DEBUG
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
+      - name: Restore release signing key
+        if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
+        env:
+          FLINT_RELEASE_KEYSTORE_BASE64: ${{ secrets.FLINT_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$FLINT_RELEASE_KEYSTORE_BASE64" || { echo "Missing FLINT_RELEASE_KEYSTORE_BASE64 repository secret"; exit 1; }
+          printf '%s' "$FLINT_RELEASE_KEYSTORE_BASE64" | base64 --decode > FlintLauncher/flint-release.jks
+          chmod 600 FlintLauncher/flint-release.jks
+
       - name: Build Release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_type == 'release'
         run: ./gradlew :FlintLauncher:assembleRelease -Darch=${{ inputs.architecture || 'all' }} --stacktrace --no-daemon
@@ -92,7 +101,11 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m"
           FL_BUILD_TYPE: RELEASE
           CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
-          MOVTERY_KEYSTORE_PASSWORD: ${{ secrets.MOVTERY_KEYSTORE_PASSWORD }}
+          FLINT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.FLINT_RELEASE_KEYSTORE_PASSWORD }}
+
+      - name: Remove temporary release signing key
+        if: always()
+        run: rm -f FlintLauncher/flint-release.jks
 
       # This is a debug build for testing, not a product release. GitHub Actions
       # stores workflow artifacts as ZIPs; the APK is inside and can be installed

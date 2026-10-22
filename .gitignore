@@ -8,3 +8,6 @@ local.properties
 /FlintLauncher/.cxx/
 /FlintLauncher/src/main/assets/components/lwjgl3/
 /FlintLauncher/release/
+
+/FlintLauncher/flint-release.jks
+/FlintLauncher/movtery-key.jks
