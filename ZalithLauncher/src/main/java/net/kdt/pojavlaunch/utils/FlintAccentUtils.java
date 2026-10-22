@@ -6,6 +6,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.ColorStateListDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
@@ -19,6 +20,7 @@ import com.angcyo.tablayout.DslTabLayout;
 import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -109,6 +111,11 @@ public final class FlintAccentUtils {
                 image.setImageTintList(ColorStateList.valueOf(getAccessibleAccentColor(accentColor, surface)));
             }
         }
+        if (root instanceof CompoundButton) {
+            CompoundButton button = (CompoundButton) root;
+            ColorStateList buttonTint = mapAccentColors(button.getButtonTintList(), previousColor, accentColor);
+            if (buttonTint != null) button.setButtonTintList(buttonTint);
+        }
         if (root instanceof TabLayout) {
             TabLayout tabs = (TabLayout) root;
             tabs.setSelectedTabIndicatorColor(accentColor);
@@ -130,7 +137,14 @@ public final class FlintAccentUtils {
         }
         ColorStateList backgroundTint = mapAccentColors(root.getBackgroundTintList(), previousColor, accentColor);
         if (backgroundTint != null) root.setBackgroundTintList(backgroundTint);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ColorStateList foregroundTint = mapAccentColors(root.getForegroundTintList(), previousColor, accentColor);
+            if (foregroundTint != null) root.setForegroundTintList(foregroundTint);
+        }
         recolorDrawable(root.getBackground(), previousColor, accentColor, darkMode);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            recolorDrawable(root.getForeground(), previousColor, accentColor, darkMode);
+        }
 
         synchronized (APPLIED_COLORS) {
             APPLIED_COLORS.put(root, accentColor);
@@ -180,9 +194,15 @@ public final class FlintAccentUtils {
 
     private static ColorStateList mapAccentColors(ColorStateList source, int previousColor, int accentColor) {
         if (source == null) return null;
-        int current = source.getDefaultColor();
-        int mapped = mapAccentColor(current, previousColor, accentColor);
-        return mapped == current ? null : ColorStateList.valueOf(mapped);
+        int[] colors = source.getColors();
+        int[][] states = source.getStates();
+        int[] mappedColors = new int[colors.length];
+        boolean changed = false;
+        for (int i = 0; i < colors.length; i++) {
+            mappedColors[i] = mapAccentColor(colors[i], previousColor, accentColor);
+            changed |= mappedColors[i] != colors[i];
+        }
+        return changed ? new ColorStateList(states, mappedColors) : null;
     }
 
     private static int mapAccentColor(int color, int previousColor, int accentColor) {
@@ -198,7 +218,12 @@ public final class FlintAccentUtils {
     private static void recolorDrawable(Drawable drawable, int previousColor, int accentColor, boolean darkMode) {
         if (drawable == null) return;
         Drawable target = drawable.mutate();
-        if (target instanceof RippleDrawable) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && target instanceof ColorStateListDrawable) {
+            ColorStateListDrawable colorStates = (ColorStateListDrawable) target;
+            ColorStateList mapped = mapDrawableColors(
+                    colorStates.getColorStateList(), previousColor, accentColor, darkMode);
+            if (mapped != null) colorStates.setColorStateList(mapped);
+        } else if (target instanceof RippleDrawable) {
             RippleDrawable ripple = (RippleDrawable) target;
             ripple.setColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
             for (int i = 0; i < ripple.getNumberOfLayers(); i++) {
@@ -234,9 +259,15 @@ public final class FlintAccentUtils {
     private static ColorStateList mapDrawableColors(ColorStateList source, int previousColor,
                                                      int accentColor, boolean darkMode) {
         if (source == null) return null;
-        int current = source.getDefaultColor();
-        int mapped = mapDrawableColor(current, previousColor, accentColor, darkMode);
-        return mapped == current ? null : ColorStateList.valueOf(mapped);
+        int[] colors = source.getColors();
+        int[][] states = source.getStates();
+        int[] mappedColors = new int[colors.length];
+        boolean changed = false;
+        for (int i = 0; i < colors.length; i++) {
+            mappedColors[i] = mapDrawableColor(colors[i], previousColor, accentColor, darkMode);
+            changed |= mappedColors[i] != colors[i];
+        }
+        return changed ? new ColorStateList(states, mappedColors) : null;
     }
 
     private static int mapDrawableColor(int color, int previousColor, int accentColor, boolean darkMode) {

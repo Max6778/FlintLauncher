@@ -50,6 +50,13 @@ abstract class ModListFragment : FragmentWithAnim(R.layout.fragment_mod_download
         return binding.root
     }
 
+    override fun onResume() {
+        super.onResume()
+        view?.post {
+            view?.let { FlintAccentUtils.applyAccentColor(it, FlintAccentUtils.getAccentColor(it.context)) }
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         binding.apply {
             recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {

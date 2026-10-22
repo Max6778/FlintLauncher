@@ -27,7 +27,7 @@
 
     <color name="background_item">#BF18181E</color>
     <color name="background_item_selected">#D823232E</color>
-    <color name="background_item_disabled">#D82D1A1A</color>
+    <color name="background_item_disabled">#D823232E</color>
     <color name="background_sponsor_intermediate">#CC2E4A7E</color>
     <color name="background_sponsor_advanced">#CC1E3A6E</color>
 

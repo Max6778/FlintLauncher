@@ -78,6 +78,13 @@ class ModsFragment : FragmentWithAnim(R.layout.fragment_mods) {
         return binding.root
     }
 
+    override fun onResume() {
+        super.onResume()
+        view?.post {
+            view?.let { FlintAccentUtils.applyAccentColor(it, FlintAccentUtils.getAccentColor(it.context)) }
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         initViews()
         parseBundle()
