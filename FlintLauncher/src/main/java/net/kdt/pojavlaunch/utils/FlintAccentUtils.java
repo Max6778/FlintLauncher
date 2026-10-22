@@ -38,6 +38,13 @@ public final class FlintAccentUtils {
             Color.rgb(26, 26, 46), Color.rgb(46, 74, 126), Color.rgb(30, 58, 110)
     };
     private static final int[] EXTRA_DARK_SURFACE_INDEX = {2, 4, 3};
+    // Legacy error surfaces can leak into reused/list backgrounds and look like
+    // red cards when a non-red accent is selected. Treat those surfaces like
+    // other theme surfaces while keeping semantic red text and icons intact.
+    private static final int[] LEGACY_ERROR_SURFACES = {
+            Color.rgb(45, 26, 26),  // #2D1A1A (dark)
+            Color.rgb(252, 232, 232) // #FCE8E8 (light)
+    };
     private static final int[] LIGHT_ACCENT_SURFACES = {
             Color.rgb(246, 247, 251), Color.WHITE,
             Color.rgb(240, 242, 247), Color.rgb(231, 234, 241),
@@ -267,6 +274,14 @@ public final class FlintAccentUtils {
 
     private static int mapDrawableColor(int color, int previousColor, int accentColor, boolean darkMode) {
         int rgb = color & 0x00FFFFFF;
+        for (int errorSurface : LEGACY_ERROR_SURFACES) {
+            if (rgb == (errorSurface & 0x00FFFFFF)) {
+                int replacement = darkMode
+                        ? darkSurfaceColor(accentColor, 2)
+                        : lightAccentSurfaceColor(accentColor, 3);
+                return withAlpha(color, replacement);
+            }
+        }
         if (darkMode) {
             for (int i = 0; i < DARK_SURFACES.length; i++) {
                 if (rgb == (DARK_SURFACES[i] & 0x00FFFFFF)
