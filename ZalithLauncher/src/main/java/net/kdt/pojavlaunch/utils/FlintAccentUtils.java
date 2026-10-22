@@ -194,15 +194,9 @@ public final class FlintAccentUtils {
 
     private static ColorStateList mapAccentColors(ColorStateList source, int previousColor, int accentColor) {
         if (source == null) return null;
-        int[] colors = source.getColors();
-        int[][] states = source.getStates();
-        int[] mappedColors = new int[colors.length];
-        boolean changed = false;
-        for (int i = 0; i < colors.length; i++) {
-            mappedColors[i] = mapAccentColor(colors[i], previousColor, accentColor);
-            changed |= mappedColors[i] != colors[i];
-        }
-        return changed ? new ColorStateList(states, mappedColors) : null;
+        int current = source.getDefaultColor();
+        int mapped = mapAccentColor(current, previousColor, accentColor);
+        return mapped == current ? null : ColorStateList.valueOf(mapped);
     }
 
     private static int mapAccentColor(int color, int previousColor, int accentColor) {
@@ -259,15 +253,9 @@ public final class FlintAccentUtils {
     private static ColorStateList mapDrawableColors(ColorStateList source, int previousColor,
                                                      int accentColor, boolean darkMode) {
         if (source == null) return null;
-        int[] colors = source.getColors();
-        int[][] states = source.getStates();
-        int[] mappedColors = new int[colors.length];
-        boolean changed = false;
-        for (int i = 0; i < colors.length; i++) {
-            mappedColors[i] = mapDrawableColor(colors[i], previousColor, accentColor, darkMode);
-            changed |= mappedColors[i] != colors[i];
-        }
-        return changed ? new ColorStateList(states, mappedColors) : null;
+        int current = source.getDefaultColor();
+        int mapped = mapDrawableColor(current, previousColor, accentColor, darkMode);
+        return mapped == current ? null : ColorStateList.valueOf(mapped);
     }
 
     private static int mapDrawableColor(int color, int previousColor, int accentColor, boolean darkMode) {
