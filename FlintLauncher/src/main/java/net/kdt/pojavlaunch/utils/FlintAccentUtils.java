@@ -177,8 +177,15 @@ public final class FlintAccentUtils {
     }
 
     private static void tintScrollbar(View view, boolean vertical, int accentColor) {
-        Drawable thumb = vertical ? view.getVerticalScrollbarThumbDrawable()
-                : view.getHorizontalScrollbarThumbDrawable();
+        if (vertical ? !view.isVerticalScrollBarEnabled() : !view.isHorizontalScrollBarEnabled()) return;
+        Drawable thumb;
+        try {
+            thumb = vertical ? view.getVerticalScrollbarThumbDrawable()
+                    : view.getHorizontalScrollbarThumbDrawable();
+        } catch (NullPointerException ignored) {
+            // Some Android views report enabled scrollbars before their ScrollBarDrawable exists.
+            return;
+        }
         if (thumb == null) return;
         thumb = thumb.mutate();
         thumb.setTint(accentColor);
