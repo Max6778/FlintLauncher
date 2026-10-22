@@ -439,41 +439,68 @@ public final class Tools {
             library.downloads = new DependentLibrary.LibraryDownloads(new MinecraftLibraryArtifact());
     }
 
-    public static String[] generateLibClasspath(JMinecraftVersionList.Version info) {
-    List<String> libDir = new ArrayList<>();
-    for (DependentLibrary libItem : info.libraries) {
-        if (!checkRules(libItem.rules)) continue;
-        String libName = libItem.name;
-        if (libName == null) continue;
+    private static int parseLwjglVersion(String libraryName) {
+        final String lwjgl3Prefix = "org.lwjgl:lwjgl:";
+        final String lwjgl2Prefix = "org.lwjgl.lwjgl:lwjgl:";
+        final int versionStart;
+        if (libraryName.startsWith(lwjgl3Prefix)) {
+            versionStart = lwjgl3Prefix.length();
+        } else if (libraryName.startsWith(lwjgl2Prefix)) {
+            // Legacy Minecraft metadata uses org.lwjgl.lwjgl coordinates.
+            // Its LWJGL 2 version still selects Flint's compatible 3.3.3 runtime.
+            versionStart = lwjgl2Prefix.length();
+        } else {
+            return 0;
+        }
 
-        if (libName.startsWith("org.lwjgl:lwjgl:")) {
-            int offset = libName.indexOf(":lwjgl:") + ":lwjgl:".length();
-            if (iLwjglVersion < 200 || iLwjglVersion > 999) {
-                while (offset < libName.length()) {
-                    char c = libName.charAt(offset);
-                    if (c >= '0' && c <= '9') iLwjglVersion = iLwjglVersion * 10 + (c - '0');
-                    else if (c != '.') break;
-                    offset++;
-                }
+        int version = 0;
+        for (int i = versionStart; i < libraryName.length(); i++) {
+            char c = libraryName.charAt(i);
+            if (c >= '0' && c <= '9') {
+                version = version * 10 + (c - '0');
+            } else if (c != '.') {
+                break;
             }
         }
-
-        if (libName.contains("org.lwjgl") ||
-            libName.contains("jinput-platform") ||
-            libName.contains("twitch-platform")
-        ) {
-            Logging.d(InfoDistributor.LAUNCHER_NAME, "Ignored unusable dependency: " + libName);
-            continue;
-        }
-        String libArtifactPath = artifactToPath(libItem);
-        if (libArtifactPath == null) continue;
-        libDir.add(ProfilePathHome.getLibrariesHome() + "/" + libArtifactPath);
+        return version >= 200 && version <= 999 ? version : 0;
     }
-    if (iLwjglVersion < 200 || iLwjglVersion > 999)
-        throw new RuntimeException("Unable to determine LWJGL version, JSON may be corrupt.");
-    sLwjglVersion = iLwjglVersion >= 341 ? "3.4.1" : "3.3.3";
-    return libDir.toArray(new String[0]);
+
+    public static String[] generateLibClasspath(JMinecraftVersionList.Version info) {
+        List<String> libDir = new ArrayList<>();
+        int detectedLwjglVersion = 0;
+        for (DependentLibrary libItem : info.libraries) {
+            if (!checkRules(libItem.rules)) continue;
+            String libName = libItem.name;
+            if (libName == null) continue;
+
+            if (detectedLwjglVersion == 0) {
+                detectedLwjglVersion = parseLwjglVersion(libName);
             }
+
+            if (libName.contains("org.lwjgl") ||
+                libName.contains("jinput-platform") ||
+                libName.contains("twitch-platform")
+            ) {
+                Logging.d(InfoDistributor.LAUNCHER_NAME, "Ignored unusable dependency: " + libName);
+                continue;
+            }
+            String libArtifactPath = artifactToPath(libItem);
+            if (libArtifactPath == null) continue;
+            libDir.add(ProfilePathHome.getLibrariesHome() + "/" + libArtifactPath);
+        }
+
+        if (detectedLwjglVersion == 0) {
+            // Some old or custom version manifests omit LWJGL from their library
+            // list. Flint supplies the Android LWJGL runtime itself; prefer the
+            // backward-compatible bundled version instead of aborting launch.
+            Logging.w(InfoDistributor.LAUNCHER_NAME,
+                    "No LWJGL dependency found in version metadata; using bundled LWJGL 3.3.3");
+            detectedLwjglVersion = 333;
+        }
+        iLwjglVersion = detectedLwjglVersion;
+        sLwjglVersion = detectedLwjglVersion >= 341 ? "3.4.1" : "3.3.3";
+        return libDir.toArray(new String[0]);
+    }
 
     public static JMinecraftVersionList.Version getVersionInfo(Version version) {
         return getVersionInfo(version, false);
