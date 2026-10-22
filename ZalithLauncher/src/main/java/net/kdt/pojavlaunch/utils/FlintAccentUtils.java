@@ -119,7 +119,7 @@ public final class FlintAccentUtils {
         if (root instanceof TabLayout) {
             TabLayout tabs = (TabLayout) root;
             tabs.setSelectedTabIndicatorColor(accentColor);
-            tabs.setTabRippleColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
+            tabs.setTabRippleColor(ColorStateList.valueOf(rippleColor(accentColor)));
         }
         if (root instanceof DslTabLayout) {
             ((DslTabLayout) root).getTabIndicator().setIndicatorColor(accentColor);
@@ -225,7 +225,7 @@ public final class FlintAccentUtils {
             if (mapped != null) colorStates.setColorStateList(mapped);
         } else if (target instanceof RippleDrawable) {
             RippleDrawable ripple = (RippleDrawable) target;
-            ripple.setColor(ColorStateList.valueOf(withAlpha(accentColor, 0x40)));
+            ripple.setColor(ColorStateList.valueOf(rippleColor(accentColor)));
             for (int i = 0; i < ripple.getNumberOfLayers(); i++) {
                 recolorDrawable(ripple.getDrawable(i), previousColor, accentColor, darkMode);
             }
@@ -339,6 +339,10 @@ public final class FlintAccentUtils {
         double a = luminance(first);
         double b = luminance(second);
         return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+
+    private static int rippleColor(int accentColor) {
+        return Color.argb(0x40, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor));
     }
 
     private static int withAlpha(int source, int replacement) {
