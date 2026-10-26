@@ -43,15 +43,19 @@ No PC. No expensive phone. Just you and the game.
 
 ### Performance
 - **Auto RAM profiling** — detects your device's memory and sets safe JVM limits automatically
-- **GPU-based renderer switching** — picks the best renderer for your GPU (GL4ES, Zink, VirGL)
-- **Optimized JVM arguments** — tuned garbage collection and heap settings for low-end hardware
-- **CPU thread control** — prevents the JVM from choking slower processors
+- **Support for newer versions** — support for new versions that use sdl instead of glfw
+- **Mod Compatibility** — more mods work on this launcher
 
 ### Compatibility
 - Supports **Android 8.0+** (API 26+)
-- **ARM32 and ARM64** device support
+- **ARM32 and ARM64** device support (note that arm32 might have some problems)
 - Works with **Mali, Adreno, PowerVR, and Dimensity** GPUs
 - Compatible with **Forge, Fabric, Quilt, and NeoForge**
+
+### 🎨 Customizations
+- Easily change the **COLOR** of the launcher
+- A gif that you can customize in the start menu
+- And much more...
 
 ### 🌐 Open Source
 - Fully open source under **GPL-3.0**
@@ -77,18 +81,6 @@ No PC. No expensive phone. Just you and the game.
 | Very low-end | Under 2GB | Any | Not supported |
 
 > ⚠️ Devices with under 2GB RAM or Android below 8.0 are not supported. This is a hardware limitation, not a launcher limitation.
-
-### Recommended Low-End Mods (Auto-suggested on weak devices)
-
-| Mod | Effect |
-|---|---|
-| Sodium | Massive FPS boost via renderer replacement |
-| Lithium | Game logic optimization |
-| FerriteCore | Significant RAM usage reduction |
-| Starlight | Rewrites the lighting engine |
-| EntityCulling | Skips rendering entities behind walls |
-
----
 
 ## Download
 
