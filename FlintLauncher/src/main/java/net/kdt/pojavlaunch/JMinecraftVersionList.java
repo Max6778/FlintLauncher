@@ -60,13 +60,14 @@ public class JMinecraftVersionList {
             @Keep
             public static class ArgRules {
                 public String action;
-                public String features;
+                public Map<String, Boolean> features;
                 public ArgOS os;
 
                 @Keep
                 public static class ArgOS {
                     public String name;
                     public String version;
+                    public String arch;
                 }
             }
         }

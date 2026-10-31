@@ -383,23 +383,65 @@ public final class Tools {
     }
 
     private static boolean checkRules(JMinecraftVersionList.Arguments.ArgValue.ArgRules[] rules) {
-        if(rules == null) return true; // always allow
+        if (rules == null) return true;
+
+        // Mojang rules are evaluated in order, with the last matching action winning.
+        boolean allowed = false;
         for (JMinecraftVersionList.Arguments.ArgValue.ArgRules rule : rules) {
-            if (rule.action.equals("allow") && rule.os != null && rule.os.name.equals("osx")) {
-                return false; //disallow
+            if (rule == null || !ruleMatchesCurrentPlatform(rule)) continue;
+            if ("allow".equals(rule.action)) allowed = true;
+            else if ("disallow".equals(rule.action)) allowed = false;
+        }
+        return allowed;
+    }
+
+    private static boolean ruleMatchesCurrentPlatform(JMinecraftVersionList.Arguments.ArgValue.ArgRules rule) {
+        if (rule.os != null) {
+            if (rule.os.name != null && !isCurrentOperatingSystem(rule.os.name)) return false;
+            if (rule.os.version != null && !matchesRuleRegex(rule.os.version, System.getProperty("os.version", ""))) return false;
+            if (rule.os.arch != null && !matchesRuleRegex(rule.os.arch, System.getProperty("os.arch", ""))) return false;
+        }
+        // This launcher does not advertise Mojang's optional launcher feature flags.
+        if (rule.features != null) {
+            for (Boolean required : rule.features.values()) {
+                if (required == null || required) return false;
             }
         }
-        return true; // allow if none match
+        return true;
+    }
+
+    private static boolean isCurrentOperatingSystem(String expected) {
+        String actual = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
+        switch (expected.toLowerCase(java.util.Locale.ROOT)) {
+            case "linux": return actual.contains("linux") || actual.contains("android");
+            case "windows": return actual.startsWith("windows");
+            case "osx": return actual.contains("mac") || actual.contains("darwin");
+            default: return false;
+        }
+    }
+
+    private static boolean matchesRuleRegex(String regex, String value) {
+        try {
+            return java.util.regex.Pattern.compile(regex).matcher(value).find();
+        } catch (java.util.regex.PatternSyntaxException ignored) {
+            return false;
+        }
     }
 
     public static void preProcessLibraries(DependentLibrary[] libraries) {
+        if (libraries == null) return;
         for (DependentLibrary libItem : libraries) {
-            String[] version = libItem.name.split(":")[2].split("\\.");
+            if (libItem == null || libItem.name == null) continue;
+            String[] coordinates = libItem.name.split(":");
+            if (coordinates.length < 3) continue;
+            String[] version = coordinates[2].split("\\.");
+            int majorVersion = version.length > 0 ? parseLeadingNumber(version[0]) : -1;
+            int minorVersion = version.length > 1 ? parseLeadingNumber(version[1]) : -1;
             if (libItem.name.startsWith("net.java.dev.jna:jna:")) {
                 // Special handling for LabyMod 1.8.9, Forge 1.12.2(?) and oshi
                 // we have libjnidispatch 5.13.0 in jniLibs directory
-                if (Integer.parseInt(version[0]) >= 5 && Integer.parseInt(version[1]) >= 13)
-                    continue;
+                if (majorVersion > 5 || (majorVersion == 5 && minorVersion >= 13)) continue;
+                if (majorVersion < 0 || minorVersion < 0) continue;
                 Logging.d(InfoDistributor.LAUNCHER_NAME, "Library " + libItem.name + " has been changed to version 5.13.0");
                 createLibraryInfo(libItem);
                 libItem.name = "net.java.dev.jna:jna:5.13.0";
@@ -410,7 +452,7 @@ public final class Tools {
                 //if (Integer.parseInt(version[0]) >= 6 && Integer.parseInt(version[1]) >= 3) return;
                 // FIXME: ensure compatibility
 
-                if (Integer.parseInt(version[0]) != 6 || Integer.parseInt(version[1]) != 2)
+                if (majorVersion != 6 || minorVersion != 2)
                     continue;
                 Logging.d(InfoDistributor.LAUNCHER_NAME, "Library " + libItem.name + " has been changed to version 6.3.0");
                 createLibraryInfo(libItem);
@@ -422,7 +464,7 @@ public final class Tools {
                 // Early versions of the ASM library get repalced with 5.0.4 because Pojav's LWJGL is compiled for
                 // Java 8, which is not supported by old ASM versions. Mod loaders like Forge, which depend on this
                 // library, often include lwjgl in their class transformations, which causes errors with old ASM versions.
-                if (Integer.parseInt(version[0]) >= 5) continue;
+                if (majorVersion >= 5 || majorVersion < 0) continue;
                 Logging.d(InfoDistributor.LAUNCHER_NAME, "Library " + libItem.name + " has been changed to version 5.0.4");
                 createLibraryInfo(libItem);
                 libItem.name = "org.ow2.asm:asm-all:5.0.4";
@@ -431,6 +473,17 @@ public final class Tools {
                 libItem.downloads.artifact.sha1 = "e6244859997b3d4237a552669279780876228909";
                 libItem.downloads.artifact.url = "https://repo1.maven.org/maven2/org/ow2/asm/asm-all/5.0.4/asm-all-5.0.4.jar";
             }
+        }
+    }
+
+    private static int parseLeadingNumber(String value) {
+        int end = 0;
+        while (end < value.length() && Character.isDigit(value.charAt(end))) end++;
+        if (end == 0) return -1;
+        try {
+            return Integer.parseInt(value.substring(0, end));
+        } catch (NumberFormatException ignored) {
+            return -1;
         }
     }
 
@@ -468,8 +521,8 @@ public final class Tools {
     public static String[] generateLibClasspath(JMinecraftVersionList.Version info) {
         List<String> libDir = new ArrayList<>();
         int detectedLwjglVersion = 0;
-        for (DependentLibrary libItem : info.libraries) {
-            if (!checkRules(libItem.rules)) continue;
+        if (info.libraries != null) for (DependentLibrary libItem : info.libraries) {
+            if (libItem == null || !checkRules(libItem.rules)) continue;
             String libName = libItem.name;
             if (libName == null) continue;
 
@@ -528,13 +581,16 @@ public final class Tools {
                 );
 
                 // Go through the libraries, remove the ones overridden by the custom version
-                List<DependentLibrary> inheritLibraryList = new ArrayList<>(Arrays.asList(inheritsVer.libraries));
+                List<DependentLibrary> inheritLibraryList = new ArrayList<>();
+                if (inheritsVer.libraries != null) inheritLibraryList.addAll(Arrays.asList(inheritsVer.libraries));
                 outer_loop:
-                for(DependentLibrary library : customVer.libraries){
+                for(DependentLibrary library : customVer.libraries == null ? new DependentLibrary[0] : customVer.libraries){
+                    if (library == null || library.name == null || !library.name.contains(":")) continue;
                     // Clean libraries overridden by the custom version
                     String libName = library.name.substring(0, library.name.lastIndexOf(":"));
 
                     for(DependentLibrary inheritLibrary : inheritLibraryList) {
+                        if (inheritLibrary == null || inheritLibrary.name == null || !inheritLibrary.name.contains(":")) continue;
                         String inheritLibName = inheritLibrary.name.substring(0, inheritLibrary.name.lastIndexOf(":"));
 
                         if(libName.equals(inheritLibName)){
@@ -550,13 +606,14 @@ public final class Tools {
                 }
 
                 // Fuse libraries
-                inheritLibraryList.addAll(Arrays.asList(customVer.libraries));
+                if (customVer.libraries != null) inheritLibraryList.addAll(Arrays.asList(customVer.libraries));
                 inheritsVer.libraries = inheritLibraryList.toArray(new DependentLibrary[0]);
                 preProcessLibraries(inheritsVer.libraries);
 
 
                 // Inheriting Minecraft 1.13+ with append custom args
-                if (inheritsVer.arguments != null && customVer.arguments != null) {
+                if (inheritsVer.arguments != null && customVer.arguments != null
+                        && inheritsVer.arguments.game != null && customVer.arguments.game != null) {
                     List totalArgList = new ArrayList(Arrays.asList(inheritsVer.arguments.game));
 
                     int nskip = 0;
@@ -571,12 +628,12 @@ public final class Tools {
                             String perCustomArgStr = (String) perCustomArg;
                             // Check if there is a duplicate argument on combine
                             if (perCustomArgStr.startsWith("--") && totalArgList.contains(perCustomArgStr)) {
-                                perCustomArg = customVer.arguments.game[i + 1];
-                                if (perCustomArg instanceof String) {
-                                    perCustomArgStr = (String) perCustomArg;
-                                    // If the next is argument value, skip it
-                                    if (!perCustomArgStr.startsWith("--")) {
-                                        nskip++;
+                                if (i + 1 < customVer.arguments.game.length) {
+                                    perCustomArg = customVer.arguments.game[i + 1];
+                                    if (perCustomArg instanceof String) {
+                                        perCustomArgStr = (String) perCustomArg;
+                                        // If the next is argument value, skip it
+                                        if (!perCustomArgStr.startsWith("--")) nskip++;
                                     }
                                 }
                             } else {

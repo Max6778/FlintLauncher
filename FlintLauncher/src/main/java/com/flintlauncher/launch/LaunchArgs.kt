@@ -40,13 +40,6 @@ class LaunchArgs(
         argsList.addAll(getJavaArgs())
         argsList.add("-cp")
         argsList.add("${Tools.getLWJGL3ClassPath(versionInfo)}:$launchClassPath")
-         // I hate this
-        if (runtime.javaVersion > 8) {
-            argsList.add("--add-exports")
-            val pkg: String = versionInfo.mainClass.substring(0, versionInfo.mainClass.lastIndexOf("."))
-            argsList.add("$pkg/$pkg=ALL-UNNAMED")
-        }
-
         argsList.add(versionInfo.mainClass)
         argsList.addAll(getMinecraftClientArgs())
 
@@ -115,18 +108,8 @@ class LaunchArgs(
         varArgMap["version_name"] = versionInfo.id
         varArgMap["natives_directory"] = versionSpecificNativesDir.absolutePath
 
-        val minecraftArgs: MutableList<String> = java.util.ArrayList()
-        versionInfo.arguments?.let {
-            fun String.addIgnoreListIfHas(): String {
-                if (startsWith("-DignoreList=")) return "$this,$versionFileName.jar"
-                return this
-            }
-            it.jvm?.forEach { arg ->
-                if (arg is String) {
-                    minecraftArgs.add(arg.addIgnoreListIfHas())
-                }
-            }
-        }
+        val minecraftArgs = manifestArguments(versionInfo.arguments?.jvm)
+            .map { if (it.startsWith("-DignoreList=")) "$it,$versionFileName.jar" else it }
         return JSONUtils.insertJSONValueList(minecraftArgs.toTypedArray<String>(), varArgMap)
     }
 
@@ -147,19 +130,83 @@ class LaunchArgs(
 
         setLauncherInfo(verArgMap)
 
-        val minecraftArgs: MutableList<String> = ArrayList()
-        versionInfo.arguments?.apply {
-            // Support Minecraft 1.13+
-            game.forEach { if (it is String) minecraftArgs.add(it) }
+        val manifestGameArgs = versionInfo.arguments?.game
+        val minecraftArgs = if (manifestGameArgs != null) {
+            manifestArguments(manifestGameArgs).toTypedArray()
+        } else {
+            splitAndFilterEmpty(versionInfo.minecraftArguments ?: "")
         }
-
-        return JSONUtils.insertJSONValueList(
-            splitAndFilterEmpty(
-                versionInfo.minecraftArguments ?:
-                Tools.fromStringArray(minecraftArgs.toTypedArray())
-            ), verArgMap
-        )
+        return JSONUtils.insertJSONValueList(minecraftArgs, verArgMap)
     }
+
+    /** Reads both string arguments and the rule/value objects used by Mojang manifests. */
+    private fun manifestArguments(arguments: Array<*>?): List<String> {
+        if (arguments == null) return emptyList()
+        val result = ArrayList<String>()
+        for (argument in arguments) {
+            when (argument) {
+                is String -> result.add(argument)
+                is Map<*, *> -> {
+                    if (!manifestRulesAllow(argument["rules"])) continue
+                    val value = argument["value"] ?: argument["values"]
+                    when (value) {
+                        is String -> result.add(value)
+                        is Iterable<*> -> value.forEach { if (it is String) result.add(it) }
+                        is Array<*> -> value.forEach { if (it is String) result.add(it) }
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    /** Mojang applies matching rules in order; the last matching rule wins. */
+    private fun manifestRulesAllow(rawRules: Any?): Boolean {
+        if (rawRules == null) return true
+        val rules = when (rawRules) {
+            is Iterable<*> -> rawRules
+            is Array<*> -> rawRules.asIterable()
+            else -> return false
+        }
+        var allowed = false
+        for (rawRule in rules) {
+            val rule = rawRule as? Map<*, *> ?: continue
+            if (!manifestRuleMatches(rule)) continue
+            when (rule["action"] as? String) {
+                "allow" -> allowed = true
+                "disallow" -> allowed = false
+            }
+        }
+        return allowed
+    }
+
+    private fun manifestRuleMatches(rule: Map<*, *>): Boolean {
+        val os = rule["os"] as? Map<*, *>
+        if (os != null) {
+            val expectedName = os["name"] as? String
+            if (expectedName != null && !isCurrentOs(expectedName)) return false
+            val expectedVersion = os["version"] as? String
+            if (expectedVersion != null && !matchesRegex(expectedVersion, System.getProperty("os.version").orEmpty())) return false
+            val expectedArch = os["arch"] as? String
+            if (expectedArch != null && !matchesRegex(expectedArch, System.getProperty("os.arch").orEmpty())) return false
+        }
+        val features = rule["features"] as? Map<*, *> ?: return true
+        // Launcher features not explicitly provided by this launch path are false.
+        return features.all { (name, expected) -> name is String && expected is Boolean && !expected }
+    }
+
+    private fun isCurrentOs(expected: String): Boolean {
+        val actual = System.getProperty("os.name").orEmpty().lowercase()
+        return when (expected.lowercase()) {
+            "linux" -> actual.contains("linux") || actual.contains("android")
+            "windows" -> actual.startsWith("windows")
+            "osx" -> actual.contains("mac") || actual.contains("darwin")
+            else -> false
+        }
+    }
+
+    private fun matchesRegex(pattern: String, value: String): Boolean =
+        try { Regex(pattern).containsMatchIn(value) } catch (_: IllegalArgumentException) { false }
 
     private fun setLauncherInfo(verArgMap: MutableMap<String, String>) {
         verArgMap["launcher_name"] = InfoDistributor.LAUNCHER_NAME
