@@ -45,6 +45,7 @@ class GameInstaller(
                             //需要检查是否自定义了版本名，如果真实版本与自定义用户名相同，则表示用户并没有修改版本名，当前安装的就是纯原版
                             //如果没有自定义用户名，则不复制版本文件，毕竟原版文件，与目标文件现在是同一个文件！
                             if (realVersion != customVersionName && VersionsManager.isVersionExists(realVersion)) {
+                                targetVersionFolder.mkdirs()
                                 //找到原版的.json文件，在MinecraftDownloader开始时，已经下载了
                                 val vanillaJsonFile = File(vanillaVersionFolder, "${vanillaVersionFolder.name}.json")
                                 if (vanillaJsonFile.exists() && vanillaJsonFile.isFile) {

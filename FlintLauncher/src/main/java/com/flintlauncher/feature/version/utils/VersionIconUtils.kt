@@ -50,6 +50,11 @@ class VersionIconUtils(
             }
         }
 
+        if (!isIconSet && File(version.getVersionPath(), ".flint-horizon-rust").isFile) {
+            imageView.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.horizon))
+            isIconSet = true
+        }
+
         if (!isIconSet) imageView.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_minecraft))
 
         return isCustomIcon

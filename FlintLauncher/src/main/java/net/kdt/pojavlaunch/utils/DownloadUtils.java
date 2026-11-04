@@ -20,6 +20,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.io.EOFException;
+import java.io.InterruptedIOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
@@ -74,26 +78,75 @@ public class DownloadUtils {
     public static void downloadFileMonitored(String urlInput, File outputFile, @Nullable byte[] buffer,
                                              Tools.DownloaderFeedback monitor) throws IOException {
         FileUtils.ensureParentDirectory(outputFile);
+        IOException lastError = null;
 
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlInput).openConnection();
-        conn.setReadTimeout(UrlManager.TIME_OUT.getFirst());
-        InputStream readStr = conn.getInputStream();
-        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-            int current;
-            int overall = 0;
-            int length = conn.getContentLength();
+        for (int attempt = 0; attempt < 3; attempt++) {
+            HttpURLConnection conn = null;
+            InputStream readStr = null;
+            try {
+                conn = UrlManager.createHttpConnection(new URL(urlInput));
+                conn.setDoInput(true);
+                conn.connect();
+                int responseCode = conn.getResponseCode();
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    IOException responseError = new IOException("Server returned HTTP " + responseCode + " for " + urlInput);
+                    if (responseCode < 500 && responseCode != 408 && responseCode != 429) throw responseError;
+                    throw new RetryableDownloadException(responseError);
+                }
 
-            if (buffer == null) buffer = new byte[65535];
-
-            while ((current = readStr.read(buffer)) != -1) {
-                overall += current;
-                fos.write(buffer, 0, current);
-                monitor.updateProgress(overall, length);
+                readStr = conn.getInputStream();
+                int overall = 0;
+                int length = conn.getContentLength();
+                if (buffer == null) buffer = new byte[65535];
+                try (FileOutputStream fos = new FileOutputStream(outputFile, false)) {
+                    int current;
+                    while ((current = readStr.read(buffer)) != -1) {
+                        overall += current;
+                        fos.write(buffer, 0, current);
+                        monitor.updateProgress(overall, length);
+                    }
+                    fos.getFD().sync();
+                }
+                if (length >= 0 && overall != length) {
+                    throw new EOFException("Incomplete download from " + urlInput + " (" + overall + "/" + length + " bytes)");
+                }
+                return;
+            } catch (IOException error) {
+                lastError = error instanceof RetryableDownloadException ? (IOException) error.getCause() : error;
+                if (outputFile.exists() && !outputFile.delete()) {
+                    throw new IOException("Could not remove incomplete download: " + outputFile, lastError);
+                }
+                if (attempt == 2 || !isTransientDownloadError(error)) throw lastError;
+                monitor.updateProgress(0, -1);
+                try {
+                    Thread.sleep(500L * (attempt + 1));
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    InterruptedIOException interruptedError = new InterruptedIOException("Download retry interrupted");
+                    interruptedError.initCause(interrupted);
+                    throw interruptedError;
+                }
+            } finally {
+                if (readStr != null) {
+                    try { readStr.close(); } catch (IOException ignored) { }
+                }
+                if (conn != null) conn.disconnect();
             }
-            conn.disconnect();
-        } catch (SocketTimeoutException e) {
-            throw new IOException("Download timed out: " + urlInput, e);
         }
+        throw lastError == null ? new IOException("Download failed: " + urlInput) : lastError;
+    }
+
+    private static boolean isTransientDownloadError(IOException error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof UnknownHostException || cause instanceof SocketTimeoutException
+                    || cause instanceof SocketException || cause instanceof EOFException
+                    || cause instanceof RetryableDownloadException) return true;
+        }
+        return false;
+    }
+
+    private static final class RetryableDownloadException extends IOException {
+        RetryableDownloadException(IOException cause) { super(cause); }
     }
 
     public static <T> T downloadStringCached(String url, String cacheName, boolean force, ParseCallback<T> parseCallback) throws IOException, ParseException{

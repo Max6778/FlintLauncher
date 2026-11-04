@@ -91,14 +91,18 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
             quiltDelete.setOnClickListener(clickListener)
             quiltApiLayout.setOnClickListener(clickListener)
             quiltApiDelete.setOnClickListener(clickListener)
-            horizonRustOption.visibility = if (mcVersion == "26.3" && HorizonRuntime.isSupported()) View.VISIBLE else View.GONE
-            horizonRustOption.setOnClickListener {
+            horizonRustLayout.visibility = if (mcVersion == "26.3" && HorizonRuntime.isSupported()) View.VISIBLE else View.GONE
+            horizonRustLayout.setOnClickListener {
                 horizonSelected = !horizonSelected
                 if (horizonSelected) addonMap.clear()
-                horizonRustOption.isSelected = horizonSelected
-                horizonRustOption.text = getString(
-                    if (horizonSelected) R.string.version_install_horizon_rust_selected
-                    else R.string.version_install_horizon_rust
+                horizonRustLayout.isSelected = horizonSelected
+                horizonRustStatus.text = getString(
+                    if (horizonSelected) R.string.version_install_selected
+                    else R.string.version_install_not_install
+                )
+                horizonRustSelect.setImageResource(
+                    if (horizonSelected) R.drawable.ic_check
+                    else R.drawable.ic_spinner_arrow_right
                 )
                 checkIncompatible()
             }
@@ -131,7 +135,7 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
                 .firstOrNull { it != Addon.OPTIFINE || addonMap.size == 1 }
                 ?.addonName.orEmpty()
 
-            nameEdit.setText("$mcVersion $loaderName".trim())
+            nameEdit.setText(if (horizonSelected) "Rust (Horizon)" else "$mcVersion $loaderName".trim())
         }
     }
 
@@ -207,7 +211,7 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
 
     override fun onClick(v: View) {
         val activity = requireActivity()
-        if (horizonSelected && v != binding.install && v != binding.back && v != binding.horizonRustOption) {
+        if (horizonSelected && v != binding.install && v != binding.back && v != binding.horizonRustLayout) {
             android.widget.Toast.makeText(activity, R.string.version_install_horizon_exclusive, android.widget.Toast.LENGTH_SHORT).show()
             return
         }

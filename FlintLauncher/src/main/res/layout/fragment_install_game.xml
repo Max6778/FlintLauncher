@@ -655,19 +655,74 @@
 
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/horizon_rust_option"
+            <com.flintlauncher.ui.layout.AnimConstraintLayout
+                android:id="@+id/horizon_rust_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_4sdp"
+                android:layout_marginTop="@dimen/_8sdp"
                 android:background="@drawable/background_item"
                 android:clickable="true"
                 android:focusable="true"
-                android:paddingHorizontal="@dimen/_12sdp"
-                android:paddingVertical="@dimen/_14sdp"
-                android:text="@string/version_install_horizon_rust"
-                android:textStyle="bold"
-                android:visibility="gone" />
+                android:paddingHorizontal="@dimen/_8sdp"
+                android:paddingVertical="@dimen/_12sdp"
+                android:visibility="gone"
+                app:ripple_for_constraint="true">
+
+                <ImageView
+                    android:id="@+id/horizon_rust_icon"
+                    android:layout_width="@dimen/_36sdp"
+                    android:layout_height="@dimen/_36sdp"
+                    android:layout_marginStart="@dimen/_8sdp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/horizon"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/_8sdp"
+                    android:orientation="vertical"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toStartOf="@id/horizon_rust_status"
+                    app:layout_constraintStart_toEndOf="@id/horizon_rust_icon"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Rust (Horizon)"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Minecraft 26.3 Android engine"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/horizon_rust_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/_8sdp"
+                    android:text="@string/version_install_not_install"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toStartOf="@id/horizon_rust_select"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/horizon_rust_select"
+                    android:layout_width="@dimen/_32sdp"
+                    android:layout_height="@dimen/_32sdp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_spinner_arrow_right"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+            </com.flintlauncher.ui.layout.AnimConstraintLayout>
 
         </LinearLayout>
 

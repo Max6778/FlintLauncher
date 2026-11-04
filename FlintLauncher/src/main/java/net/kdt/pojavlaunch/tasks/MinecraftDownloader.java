@@ -516,7 +516,7 @@ public class MinecraftDownloader {
         public void updateProgress(long curr, long max) {
             long delta = curr - mLastCurr;
             mProcessedSizeCounter.addAndGet(delta);
-            mInternetUsageCounter.addAndGet(delta);
+            if (delta > 0) mInternetUsageCounter.addAndGet(delta);
             mLastCurr = curr;
         }
     }
