@@ -37,11 +37,23 @@ public final class HorizonRuntime {
                     "Horizon currently requires a 64-bit ARM Android device.", android.widget.Toast.LENGTH_LONG).show());
             return;
         }
-        if (account == null || !"Microsoft".equalsIgnoreCase(account.accountType)
-                || account.accessToken == null || account.accessToken.trim().isEmpty()
-                || account.profileId == null || account.username == null) {
+        boolean microsoftAccount = account != null && "Microsoft".equalsIgnoreCase(account.accountType);
+        boolean offlineAccount = account == null || "Local".equalsIgnoreCase(account.accountType);
+        if (microsoftAccount && (account.accessToken == null || account.accessToken.trim().isEmpty()
+                || account.profileId == null || account.username == null)) {
             activity.runOnUiThread(() -> android.widget.Toast.makeText(activity,
-                    "Horizon needs a signed-in Microsoft Minecraft account.", android.widget.Toast.LENGTH_LONG).show());
+                    "This Microsoft account is missing its Minecraft profile or access token. Sign in again.", android.widget.Toast.LENGTH_LONG).show());
+            return;
+        }
+        if (!microsoftAccount && !offlineAccount) {
+            activity.runOnUiThread(() -> android.widget.Toast.makeText(activity,
+                    "Horizon supports Microsoft and Local accounts. Select a Local account for offline play.", android.widget.Toast.LENGTH_LONG).show());
+            return;
+        }
+        if (offlineAccount && account != null && (account.username == null
+                || !account.username.matches("[A-Za-z0-9_]{3,16}"))) {
+            activity.runOnUiThread(() -> android.widget.Toast.makeText(activity,
+                    "Horizon offline names must be 3–16 letters, numbers, or underscores.", android.widget.Toast.LENGTH_LONG).show());
             return;
         }
 
@@ -66,15 +78,25 @@ public final class HorizonRuntime {
                         throw new IllegalStateException(error == null ? "Horizon installation did not complete" : error);
                     }
                 }
-                File session = new File(home, "flint-session.json");
-                writeSession(session, account);
+                File session = null;
+                if (microsoftAccount) {
+                    session = new File(home, "flint-session.json");
+                    writeSession(session, account);
+                } else {
+                    File staleSession = new File(home, "flint-session.json");
+                    if (staleSession.exists() && !staleSession.delete()) {
+                        throw new IllegalStateException("Cannot remove the previous Horizon sign-in session");
+                    }
+                    if (account != null) writeOfflineName(home, account.username);
+                }
+                final String sessionPath = session == null ? null : session.getAbsolutePath();
                 activity.runOnUiThread(() -> {
                     if (progress.isShowing()) progress.dismiss();
                     if (activity.isFinishing()) return;
                     Intent intent = new Intent(activity, HorizonActivity.class);
                     intent.putExtra(HorizonActivity.EXTRA_ENGINE_HOME, home.getAbsolutePath());
                     intent.putExtra(HorizonActivity.EXTRA_GAME_DIR, gameDir.getAbsolutePath());
-                    intent.putExtra(HorizonActivity.EXTRA_SESSION_FILE, session.getAbsolutePath());
+                    intent.putExtra(HorizonActivity.EXTRA_SESSION_FILE, sessionPath);
                     activity.startActivity(intent);
                 });
             } catch (Throwable error) {
@@ -123,5 +145,20 @@ public final class HorizonRuntime {
         file.setReadable(true, true);
         //noinspection ResultOfMethodCallIgnored
         file.setWritable(true, true);
+    }
+
+    private static void writeOfflineName(File home, String name) throws Exception {
+        File destination = new File(home, "horizon-player.txt");
+        File partial = new File(home, "horizon-player.txt.partial");
+        try (FileOutputStream output = new FileOutputStream(partial)) {
+            output.write(("name:" + name + "\n").getBytes(StandardCharsets.UTF_8));
+            output.getFD().sync();
+        }
+        if (destination.exists() && !destination.delete()) {
+            throw new IllegalStateException("Cannot update Horizon's offline player name");
+        }
+        if (!partial.renameTo(destination)) {
+            throw new IllegalStateException("Cannot save Horizon's offline player name");
+        }
     }
 }
