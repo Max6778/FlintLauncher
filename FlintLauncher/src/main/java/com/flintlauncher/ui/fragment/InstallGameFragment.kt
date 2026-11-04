@@ -2,7 +2,9 @@ package com.flintlauncher.ui.fragment
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +15,7 @@ import androidx.fragment.app.Fragment
 import com.movtery.anim.AnimPlayer
 import com.movtery.anim.animations.Animations
 import com.flintlauncher.R
+import dev.horizon.android.HorizonRuntime
 import com.flintlauncher.databinding.FragmentInstallGameBinding
 import com.flintlauncher.event.sticky.SelectInstallTaskEvent
 import com.flintlauncher.event.value.InstallGameEvent
@@ -50,6 +53,7 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
     private lateinit var binding: FragmentInstallGameBinding
     private lateinit var mcVersion: String
     private val addonMap: MutableMap<Addon, Pair<String, InstallTask>> = EnumMap(Addon::class.java)
+    private var horizonSelected = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -87,6 +91,17 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
             quiltDelete.setOnClickListener(clickListener)
             quiltApiLayout.setOnClickListener(clickListener)
             quiltApiDelete.setOnClickListener(clickListener)
+            horizonRustOption.visibility = if (mcVersion == "26.3" && HorizonRuntime.isSupported()) View.VISIBLE else View.GONE
+            horizonRustOption.setOnClickListener {
+                horizonSelected = !horizonSelected
+                if (horizonSelected) addonMap.clear()
+                horizonRustOption.isSelected = horizonSelected
+                horizonRustOption.text = getString(
+                    if (horizonSelected) R.string.version_install_horizon_rust_selected
+                    else R.string.version_install_horizon_rust
+                )
+                checkIncompatible()
+            }
 
             back.setOnClickListener(clickListener)
             install.setOnClickListener(clickListener)
@@ -192,6 +207,10 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
 
     override fun onClick(v: View) {
         val activity = requireActivity()
+        if (horizonSelected && v != binding.install && v != binding.back && v != binding.horizonRustOption) {
+            android.widget.Toast.makeText(activity, R.string.version_install_horizon_exclusive, android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
 
         binding.apply {
             when (v) {
@@ -233,7 +252,7 @@ class InstallGameFragment : FragmentWithAnim(R.layout.fragment_install_game), Vi
                     }
 
                     fun install() {
-                        EventBus.getDefault().post(InstallGameEvent(mcVersion, string, organizeInstallationTasks(string)))
+                        EventBus.getDefault().post(InstallGameEvent(mcVersion, string, organizeInstallationTasks(string), horizonSelected))
                         Tools.backToMainMenu(activity)
                     }
 

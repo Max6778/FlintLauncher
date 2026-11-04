@@ -22,6 +22,7 @@ class GameInstaller(
     private val realVersion: String = installEvent.minecraftVersion
     private val customVersionName: String = installEvent.customVersionName
     private val taskMap: Map<Addon, InstallTaskItem> = installEvent.taskMap
+    private val isHorizon: Boolean = installEvent.isHorizon
     private val targetVersionFolder = VersionsManager.getVersionPath(customVersionName)
     private val vanillaVersionFolder = VersionsManager.getVersionPath(realVersion)
 
@@ -51,8 +52,17 @@ class GameInstaller(
                                     FileUtils.copyFile(vanillaJsonFile, File(targetVersionFolder, "$customVersionName.json"))
                                 }
                             }
+                            if (isHorizon) {
+                                targetVersionFolder.mkdirs()
+                                File(targetVersionFolder, ".flint-horizon-rust").writeText("26.3\n")
+                            }
                             //ModLoader任务为空，接下来的无意义ModLoader任务将彻底跳过！
                             return@runTask null
+                        }
+
+                        if (isHorizon) {
+                            targetVersionFolder.mkdirs()
+                            File(targetVersionFolder, ".flint-horizon-rust").writeText("26.3\n")
                         }
 
                         //将Mod与Modloader的任务分离出来，应该先安装Mod

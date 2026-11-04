@@ -17,10 +17,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 @SuppressLint("ViewConstructor")
 public class FileRecyclerView extends LinearLayout {
-    private final AtomicInteger searchCount = new AtomicInteger(0);
+    private final AtomicInteger listingRequest = new AtomicInteger(0);
     private Context context;
     private FileRecyclerViewCreator fileRecyclerViewCreator;
     private FileIcon fileIcon = FileIcon.FILE;
@@ -113,12 +114,10 @@ public class FileRecyclerView extends LinearLayout {
         return fileRecyclerViewCreator.isNoFile();
     }
 
-    public int searchFiles(String filterString, boolean caseSensitive) {
-        searchCount.set(0);
+    public void searchFiles(String filterString, boolean caseSensitive, Consumer<Integer> onComplete) {
         this.filterString = filterString;
         this.caseSensitive = caseSensitive;
-        refreshPath();
-        return searchCount.get();
+        loadPath(fullPath, filterString, showSearchResultsOnly, caseSensitive, new AtomicInteger(0), onComplete);
     }
 
     public void setShowSearchResultsOnly(boolean showSearchResultsOnly) {
@@ -140,38 +139,50 @@ public class FileRecyclerView extends LinearLayout {
 
     @SuppressLint("UseCompatLoadingForDrawables")
     public void listFileAt(final File path) {
-        if (path != null && path.exists()) {
-            if (path.isDirectory()) {
-                fullPath = path;
-
-                List<FileItemBean> itemBeans = FileRecyclerViewCreator.loadItemBeansFromPath(context, this.filterString, showSearchResultsOnly, caseSensitive, searchCount, path, this.fileIcon, this.showFiles, this.showFolders);
-                Collections.sort(itemBeans);
-                filterString = "";
-
-                if (!path.equals(lockPath)) {
-                    FileItemBean itemBean = new FileItemBean(
-                            "..",
-                            context.getResources().getDrawable(R.drawable.ic_folder, context.getTheme())
-                    );
-                    itemBean.isCanCheck = false;
-                    itemBeans.add(0, itemBean);
-                }
-
-                if (mSetTitleListener != null) {
-                    mSetTitleListener.setTitle(path.getAbsolutePath());
-                }
-
-                TaskExecutors.runInUIThread(() -> {
-                    fileRecyclerViewCreator.loadData(itemBeans);
-                    if (mRefreshListener != null) mRefreshListener.onRefresh();
-                });
-            } else {
-                fileSelectedListener.onFileSelected(path, path.getAbsolutePath());
-            }
-        } else {
+        if (path == null || !path.exists()) {
             listFileAt(Environment.getExternalStorageDirectory());
             Toast.makeText(context, R.string.file_does_not_exist, Toast.LENGTH_SHORT).show();
+            return;
         }
+        if (!path.isDirectory()) {
+            if (fileSelectedListener != null) fileSelectedListener.onFileSelected(path, path.getAbsolutePath());
+            return;
+        }
+
+        fullPath = path;
+        if (mSetTitleListener != null) mSetTitleListener.setTitle(path.getAbsolutePath());
+        loadPath(path, filterString, showSearchResultsOnly, caseSensitive, new AtomicInteger(0), null);
+        filterString = "";
+    }
+
+    private void loadPath(final File path, final String filter, final boolean resultsOnly,
+            final boolean caseSensitive, final AtomicInteger resultCount, final Consumer<Integer> onComplete) {
+        if (path == null) return;
+        final int request = listingRequest.incrementAndGet();
+        final FileIcon icon = fileIcon;
+        final boolean includeFiles = showFiles;
+        final boolean includeFolders = showFolders;
+        final File currentLockPath = lockPath;
+        TaskExecutors.getDefault().execute(() -> {
+            List<FileItemBean> itemBeans = FileRecyclerViewCreator.loadItemBeansFromPath(
+                    context, filter, resultsOnly, caseSensitive, resultCount, path,
+                    icon, includeFiles, includeFolders);
+            Collections.sort(itemBeans);
+
+            if (!path.equals(currentLockPath)) {
+                FileItemBean parent = new FileItemBean(
+                        "..", context.getResources().getDrawable(R.drawable.ic_folder, context.getTheme()));
+                parent.isCanCheck = false;
+                itemBeans.add(0, parent);
+            }
+
+            TaskExecutors.runInUIThread(() -> {
+                if (request != listingRequest.get()) return;
+                fileRecyclerViewCreator.loadData(itemBeans);
+                if (mRefreshListener != null) mRefreshListener.onRefresh();
+                if (onComplete != null) onComplete.accept(resultCount.get());
+            });
+        });
     }
 
     public File getFullPath() {
@@ -180,6 +191,12 @@ public class FileRecyclerView extends LinearLayout {
 
     public void refreshPath() {
         listFileAt(getFullPath());
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        listingRequest.incrementAndGet();
+        super.onDetachedFromWindow();
     }
 
     public void parentDir() {

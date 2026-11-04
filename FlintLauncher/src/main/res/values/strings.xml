@@ -240,6 +240,9 @@
     <string name="version_install_new">Install new version</string>
     <string name="version_install_new_modloader">Install %s for new version</string>
     <string name="version_install_not_install">Do not install</string>
+    <string name="version_install_horizon_rust">Horizon (Rust) for Android</string>
+    <string name="version_install_horizon_rust_selected">✓ Horizon (Rust) selected</string>
+    <string name="version_install_horizon_exclusive">Horizon cannot be combined with Java mod loaders.</string>
     <string name="version_install_incompatible">Incompatible with %s</string>
     <string name="version_install_exists">A version with this name already exists!</string>
     <string name="version_install_no_versions">No versions available to choose from!</string>

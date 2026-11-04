@@ -50,6 +50,7 @@ import com.flintlauncher.event.value.MicrosoftLoginEvent;
 import com.flintlauncher.event.value.OtherLoginEvent;
 import com.flintlauncher.feature.accounts.AccountType;
 import com.flintlauncher.feature.accounts.AccountsManager;
+import dev.horizon.android.HorizonRuntime;
 import com.flintlauncher.feature.accounts.LocalAccountUtils;
 import com.flintlauncher.feature.background.BackgroundManager;
 import com.flintlauncher.feature.background.BackgroundType;
@@ -644,6 +645,11 @@ public class LauncherActivity extends BaseActivity {
     }
 
     private void launchGame(Version version) {
+        File horizonMarker = new File(version.getVersionPath(), ".flint-horizon-rust");
+        if (horizonMarker.isFile()) {
+            HorizonRuntime.launch(this, version.getGameDir(), AccountsManager.INSTANCE.getCurrentAccount());
+            return;
+        }
         // This is the common launch entry point, so re-apply the preference on
         // every launch in case Minecraft or another tool changed options.txt.
         if (isVersionAtLeast26_2(getEffectiveMinecraftVersionName(version))

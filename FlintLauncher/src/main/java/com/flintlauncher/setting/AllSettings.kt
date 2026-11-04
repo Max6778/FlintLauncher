@@ -179,7 +179,7 @@ class AllSettings {
         val animation = BooleanSettingUnit("animation", true)
 
         @JvmStatic
-        val animationSpeed = IntSettingUnit("animationSpeed", 600)
+        val animationSpeed = IntSettingUnit("animationSpeed", 280)
 
         @JvmStatic
         val pageOpacity = IntSettingUnit("pageOpacity", 100)

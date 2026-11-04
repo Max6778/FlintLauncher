@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CompoundButton
 import android.widget.Toast
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import com.getkeepsafe.taptargetview.TapTargetSequence
 import com.movtery.anim.AnimPlayer
@@ -360,9 +361,15 @@ class FilesFragment : FragmentWithAnim(R.layout.fragment_files) {
     @SuppressLint("UseCompatLoadingForDrawables")
     private fun initViews() {
         binding.apply {
-            mSearchViewWrapper.setSearchListener(object : SearchViewWrapper.SearchListener {
-                override fun onSearch(string: String?, caseSensitive: Boolean): Int {
-                    return fileRecyclerView.searchFiles(string, caseSensitive)
+            mSearchViewWrapper.setSearchListener(null)
+            mSearchViewWrapper.setAsynchronousUpdatesListener(object : SearchViewWrapper.SearchAsynchronousUpdatesListener {
+                override fun onSearch(searchCountText: TextView?, string: String?, caseSensitive: Boolean) {
+                    fileRecyclerView.searchFiles(string, caseSensitive) { count ->
+                        searchCountText?.apply {
+                            text = context.getString(R.string.search_count, count)
+                            if (count != 0) visibility = View.VISIBLE
+                        }
+                    }
                 }
             })
             mSearchViewWrapper.setShowSearchResultsListener(object : SearchViewWrapper.ShowSearchResultsListener {

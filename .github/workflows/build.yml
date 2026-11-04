@@ -2,7 +2,7 @@ name: Build FlintLauncher APK
 
 on:
   push:
-    branches: [ Official, master, dev ]
+    branches: [ Official, official, master, dev ]
   pull_request:
     branches: [ Official, master ]
   workflow_dispatch:
@@ -46,6 +46,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      # The bundled LWJGL jars use a Java 8 toolchain. Keep JDK 21 as the
+      # Gradle runtime while making JDK 8 available for toolchain selection.
+      - name: Set Up JDK 8 Toolchain
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
       - name: Set Up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -75,7 +83,7 @@ jobs:
             ${{ runner.os }}-gradle-v2-
 
       - name: Build LWJGL 3.3.3 / 3.4.1 components
-        run: ./gradlew :jre_lwjgl3glfw:clean :jre_lwjgl3glfw_341:clean :jre_lwjgl3glfw:jar :jre_lwjgl3glfw_341:jar --stacktrace --no-daemon
+        run: ./gradlew :jre_lwjgl3glfw:clean :jre_lwjgl3glfw_341:clean :jre_lwjgl3glfw:jar :jre_lwjgl3glfw_341:jar -Dorg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64 --stacktrace --no-daemon
 
       - name: Build Debug APK
         if: github.event_name != 'workflow_dispatch' || inputs.build_type == 'debug'

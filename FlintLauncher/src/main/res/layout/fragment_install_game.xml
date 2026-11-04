@@ -655,6 +655,20 @@
 
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/horizon_rust_option"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_4sdp"
+                android:background="@drawable/background_item"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingHorizontal="@dimen/_12sdp"
+                android:paddingVertical="@dimen/_14sdp"
+                android:text="@string/version_install_horizon_rust"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
         </LinearLayout>
 
     </ScrollView>

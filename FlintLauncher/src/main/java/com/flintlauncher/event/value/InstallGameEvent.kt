@@ -13,5 +13,6 @@ import com.flintlauncher.feature.version.install.InstallTaskItem
 class InstallGameEvent(
     val minecraftVersion: String,
     val customVersionName: String,
-    val taskMap: Map<Addon, InstallTaskItem>
+    val taskMap: Map<Addon, InstallTaskItem>,
+    val isHorizon: Boolean = false
 )
