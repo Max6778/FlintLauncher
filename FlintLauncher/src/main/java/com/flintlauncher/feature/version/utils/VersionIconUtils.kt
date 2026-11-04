@@ -7,6 +7,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.flintlauncher.R
 import com.flintlauncher.feature.version.Version
 import com.flintlauncher.feature.version.VersionsManager
+import java.io.File
 import org.apache.commons.io.FileUtils
 
 /**
