@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #include <bytehook.h>
 #include <dlfcn.h>
 #include <string.h>
@@ -41,6 +42,10 @@ typedef SDL_Window *(*sdl_create_window_props_func)(uint32_t);
 typedef void (*sdl_destroy_window_func)(SDL_Window *);
 static SDL_Window *sdl_primary_window;
 static unsigned int sdl_primary_window_refs;
+// SDL's window lifecycle calls may arrive from different threads. Keep the
+// shared window/refcount pair consistent so a lost update cannot destroy the
+// Android window while another logical window still uses it.
+static pthread_mutex_t sdl_primary_window_mutex = PTHREAD_MUTEX_INITIALIZER;
 static sdl_create_window_func real_sdl_create_window;
 static sdl_create_window_props_func real_sdl_create_window_props;
 static sdl_destroy_window_func real_sdl_destroy_window;
@@ -50,10 +55,16 @@ static bool reuse_sdl_window_enabled(void) {
     return value == NULL || strcmp(value, "1") == 0;
 }
 
-static SDL_Window *reuse_sdl_primary_window(void) {
-    ++sdl_primary_window_refs;
-    __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Reusing SDL Android window %p (refs=%u)", sdl_primary_window, sdl_primary_window_refs);
-    return sdl_primary_window;
+static SDL_Window *acquire_sdl_primary_window(void) {
+    pthread_mutex_lock(&sdl_primary_window_mutex);
+    SDL_Window *window = sdl_primary_window;
+    unsigned int refs = 0;
+    if (window != NULL) refs = ++sdl_primary_window_refs;
+    pthread_mutex_unlock(&sdl_primary_window_mutex);
+    if (window != NULL) {
+        __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Reusing SDL Android window %p (refs=%u)", window, refs);
+    }
+    return window;
 }
 
 static void register_sdl_primary_window(SDL_Window *window) {
@@ -61,18 +72,22 @@ static void register_sdl_primary_window(SDL_Window *window) {
     // underlying SDL_CreateWindow call. Do not reset the reference count
     // when the outer layer reports the pointer already registered by the
     // inner layer.
+    pthread_mutex_lock(&sdl_primary_window_mutex);
     if (window == sdl_primary_window) {
+        pthread_mutex_unlock(&sdl_primary_window_mutex);
         __android_log_print(ANDROID_LOG_DEBUG, "sdl_hook",
             "Primary SDL window %p already registered", window);
         return;
     }
     sdl_primary_window = window;
     sdl_primary_window_refs = 1;
+    pthread_mutex_unlock(&sdl_primary_window_mutex);
     __android_log_print(ANDROID_LOG_INFO, "sdl_hook", "Registered primary SDL window %p", window);
 }
 
 static SDL_Window *custom_sdl_create_window(const char *title, int width, int height, uint64_t flags) {
-    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *existing = reuse_sdl_window_enabled() ? acquire_sdl_primary_window() : NULL;
+    if (existing != NULL) return existing;
     SDL_Window *window = BYTEHOOK_CALL_PREV(custom_sdl_create_window, sdl_create_window_func, title, width, height, flags);
     BYTEHOOK_POP_STACK();
     if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
@@ -80,7 +95,8 @@ static SDL_Window *custom_sdl_create_window(const char *title, int width, int he
 }
 
 static SDL_Window *custom_sdl_create_window_props(uint32_t properties) {
-    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *existing = reuse_sdl_window_enabled() ? acquire_sdl_primary_window() : NULL;
+    if (existing != NULL) return existing;
     SDL_Window *window = BYTEHOOK_CALL_PREV(custom_sdl_create_window_props, sdl_create_window_props_func, properties);
     BYTEHOOK_POP_STACK();
     if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
@@ -88,11 +104,18 @@ static SDL_Window *custom_sdl_create_window_props(uint32_t properties) {
 }
 
 static bool release_sdl_primary_window(SDL_Window *window) {
-    if (window != sdl_primary_window) return true;
-    if (sdl_primary_window_refs > 0) --sdl_primary_window_refs;
-    if (sdl_primary_window_refs > 0) return false;
-    sdl_primary_window = NULL;
-    return true;
+    pthread_mutex_lock(&sdl_primary_window_mutex);
+    bool should_destroy = true;
+    if (window == sdl_primary_window) {
+        if (sdl_primary_window_refs > 0) --sdl_primary_window_refs;
+        if (sdl_primary_window_refs > 0) {
+            should_destroy = false;
+        } else {
+            sdl_primary_window = NULL;
+        }
+    }
+    pthread_mutex_unlock(&sdl_primary_window_mutex);
+    return should_destroy;
 }
 
 static void custom_sdl_destroy_window(SDL_Window *window) {
@@ -102,14 +125,16 @@ static void custom_sdl_destroy_window(SDL_Window *window) {
 
 // LWJGL caches raw dlsym() results, so apply the same reuse policy there.
 static SDL_Window *proxy_sdl_create_window(const char *title, int width, int height, uint64_t flags) {
-    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *existing = reuse_sdl_window_enabled() ? acquire_sdl_primary_window() : NULL;
+    if (existing != NULL) return existing;
     SDL_Window *window = real_sdl_create_window(title, width, height, flags);
     if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
     return window;
 }
 
 static SDL_Window *proxy_sdl_create_window_props(uint32_t properties) {
-    if (reuse_sdl_window_enabled() && sdl_primary_window != NULL) return reuse_sdl_primary_window();
+    SDL_Window *existing = reuse_sdl_window_enabled() ? acquire_sdl_primary_window() : NULL;
+    if (existing != NULL) return existing;
     SDL_Window *window = real_sdl_create_window_props(properties);
     if (window != NULL && reuse_sdl_window_enabled()) register_sdl_primary_window(window);
     return window;

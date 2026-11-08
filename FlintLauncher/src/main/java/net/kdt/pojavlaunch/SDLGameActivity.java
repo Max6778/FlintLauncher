@@ -127,6 +127,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
     // was never being called at all anywhere before this port (gyro was fully
     // non-functional, not just "not live" as originally flagged).
     private net.kdt.pojavlaunch.customcontrols.mouse.GyroControl gyroControl;
+    private AndroidWebDisplaysBridge webDisplaysBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,6 +135,15 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         // constants via attachBaseContext() -> LocaleUtils.setLocale() ->
         // PathManager.initContextConstants(). SDLGameActivity extends SDLActivity
         // extends plain Activity, so it never goes through that path at all --
+        // Give Android WebView its own data directory in the game process.
+        // WebDisplays uses WebView here while the launcher process may also use one.
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            try { android.webkit.WebView.setDataDirectorySuffix("flint_webdisplays_game"); }
+            catch (IllegalStateException alreadyInitialized) {
+                Log.w(TAG, "WebView initialized before the game-process data suffix", alreadyInitialized);
+            }
+        }
+
         // PathManager.DIR_ACCOUNT_NEW (and potentially others) stay stuck at
         // whatever PojavApplication.onCreate() set them to, which uses a
         // DIFFERENT (wrong) formula than initContextConstants() does. Confirmed
@@ -260,6 +270,8 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         CallbackBridge.usingSdl3 = true;
 
         super.onCreate(savedInstanceState);
+        webDisplaysBridge = new AndroidWebDisplaysBridge(this);
+        webDisplaysBridge.start();
 
         // MainActivity's layout (activity_game.xml) wraps its render surface
         // AND the touch controls inside the same ControlLayout. SDLActivity's
@@ -324,12 +336,6 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
                 int progress = seekBar.getProgress();
                 AllSettings.getResolutionRatio().put(progress).save();
                 AllStaticSettings.scaleFactor = progress / 100f;
-                // NOTE: MainActivity also calls mainGameRenderView.refreshSize()
-                // here to apply the new resolution live, without restarting.
-                // There's no SDL-side equivalent hook confirmed yet -- the
-                // setting saves correctly and will take effect on next launch,
-                // but may not resize live during this session. Flagging rather
-                // than guessing at a live-resize call that might not exist.
             }
         });
 
@@ -636,6 +642,10 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
 
     @Override
     protected void onDestroy() {
+        if (webDisplaysBridge != null) {
+            webDisplaysBridge.stop();
+            webDisplaysBridge = null;
+        }
         super.onDestroy();
         if (gameServiceBound) {
             try {
@@ -756,6 +766,7 @@ public class SDLGameActivity extends SDLActivity implements ControlButtonMenuLis
         CallbackBridge.physicalWidth = displayMetrics.widthPixels;
         CallbackBridge.physicalHeight = displayMetrics.heightPixels;
     }
+
 
     /**
      * Ported from MainActivity -- was missing entirely, so the hardware/

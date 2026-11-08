@@ -125,9 +125,51 @@ public class CallbackBridge {
     private static float lastRelativeMouseX, lastRelativeMouseY;
     private static boolean relativeMouseBaselineValid = false;
 
+    /** Optional destination for controls hosted by a non-LWJGL native game. */
+    private static volatile HostInputSink hostInputSink;
+
+    public interface HostInputSink {
+        void character(char character);
+        void cursorPos(float x, float y);
+        void cursorPosSilently(float x, float y);
+        void key(int key, boolean down, int modifiers);
+        void mouseButton(int button, boolean down);
+        void scroll(double x, double y);
+        default void requestKeyboard() { }
+        default void toggleVirtualMouse() { }
+    }
+
+    public static void setHostInputSink(HostInputSink sink) {
+        hostInputSink = sink;
+        if (sink != null) relativeMouseBaselineValid = false;
+    }
+
+    public static void setHostGrabbed(boolean grabbed) {
+        onGrabStateChanged(grabbed);
+    }
+
+    public static boolean requestHostKeyboard() {
+        HostInputSink sink = hostInputSink;
+        if (sink == null) return false;
+        sink.requestKeyboard();
+        return true;
+    }
+
+    public static boolean toggleHostVirtualMouse() {
+        HostInputSink sink = hostInputSink;
+        if (sink == null) return false;
+        sink.toggleVirtualMouse();
+        return true;
+    }
+
     public static void sendCursorPos(float x, float y) {
         mouseX = x;
         mouseY = y;
+        HostInputSink sink = hostInputSink;
+        if (sink != null) {
+            sink.cursorPos(x, y);
+            return;
+        }
         if (usingSdl3) {
             if (isGrabbing()) {
                 if (!relativeMouseBaselineValid) {
@@ -152,6 +194,12 @@ public class CallbackBridge {
         }
     }
 public static void sendKeycode(int keycode, char keychar, int scancode, int modifiers, boolean isDown) {
+        HostInputSink sink = hostInputSink;
+        if (sink != null) {
+            if (keycode != 0) sink.key(keycode, isDown, modifiers);
+            if (isDown && keychar != '\u0000') sink.character(keychar);
+            return;
+        }
         if (usingSdl3) {
             if (keycode != 0) {
                 int androidKeycode = EfficientAndroidLWJGLKeycode.getAndroidKeycode(keycode);
@@ -172,6 +220,11 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
 }
 
     public static void sendChar(char keychar, int modifiers){
+        HostInputSink sink = hostInputSink;
+        if (sink != null) {
+            if (keychar != '\u0000') sink.character(keychar);
+            return;
+        }
         if (usingSdl3) {
             if (keychar != '\u0000') {
                 SDLInputConnection.nativeCommitText(String.valueOf(keychar), 1);
@@ -204,6 +257,11 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     }
 
     public static void sendMouseKeycode(int button, int modifiers, boolean isDown) {
+        HostInputSink sink = hostInputSink;
+        if (sink != null) {
+            sink.mouseButton(button, isDown);
+            return;
+        }
         if (usingSdl3) {
             // GLFW button index (0=left,1=right,2=middle) -> Android MotionEvent button mask
             int androidButton;
@@ -254,6 +312,11 @@ public static void sendKeycode(int keycode, char keychar, int scancode, int modi
     }
     
     public static void sendScroll(double xoffset, double yoffset) {
+        HostInputSink sink = hostInputSink;
+        if (sink != null) {
+            sink.scroll(xoffset, yoffset);
+            return;
+        }
         if (usingSdl3) {
             SDLActivity.onNativeMouse(0, MotionEvent.ACTION_SCROLL, (float) xoffset, (float) yoffset, false);
         } else {

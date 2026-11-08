@@ -263,7 +263,7 @@ public class ControlButton extends TextView implements ControlInterface {
     private void sendSpecialKey(int keycode, boolean isDown){
         switch (keycode) {
             case ControlData.SPECIALBTN_KEYBOARD:
-                if(isDown) MainActivity.switchKeyboardState();
+                if (isDown && !CallbackBridge.requestHostKeyboard()) MainActivity.switchKeyboardState();
                 break;
 
             case ControlData.SPECIALBTN_TOGGLECTRL:
@@ -271,7 +271,7 @@ public class ControlButton extends TextView implements ControlInterface {
                 break;
 
             case ControlData.SPECIALBTN_VIRTUALMOUSE:
-                if(isDown) MainActivity.toggleMouse(getContext());
+                if (isDown && !CallbackBridge.toggleHostVirtualMouse()) MainActivity.toggleMouse(getContext());
                 break;
 
             case ControlData.SPECIALBTN_MOUSEPRI:

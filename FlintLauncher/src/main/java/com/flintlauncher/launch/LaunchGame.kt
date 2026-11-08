@@ -235,6 +235,12 @@ class LaunchGame {
             val versionInfo = Tools.getVersionInfo(minecraftVersion)
             val gameDirPath = minecraftVersion.getGameDir()
 
+            try {
+                AndroidHorizonsInstaller.installIfNeeded(activity, minecraftVersion)
+            } catch (error: Exception) {
+                Logging.e("AndroidHorizons", "Failed to install Distant Horizons Android compatibility mod", error)
+            }
+
             //预处理
             Tools.disableSplash(gameDirPath)
             val launchClassPath = Tools.generateLaunchClassPath(versionInfo, minecraftVersion)
