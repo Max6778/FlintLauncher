@@ -80,6 +80,7 @@ public class MinecraftGLSurface extends View implements GrabListener {
     final Object mSurfaceReadyListenerLock = new Object();
     /* View holding the surface, either a SurfaceView or a TextureView */
     View mSurface;
+    private boolean mUseSurfaceView;
 
     private final InGameEventProcessor mIngameProcessor = new InGameEventProcessor(mSensitivityFactor);
     private final InGUIEventProcessor mInGUIProcessor = new InGUIEventProcessor();
@@ -111,9 +112,19 @@ public class MinecraftGLSurface extends View implements GrabListener {
      *                 when the cursor is not grabbed
      */
     public void start(boolean isAlreadyRunning, AbstractTouchpad touchpad){
+        start(isAlreadyRunning, touchpad, false);
+    }
+
+    /**
+     * New SDL3 Minecraft builds render continuously into the Android surface.
+     * Prefer SurfaceView there to avoid TextureView's extra GPU composition/copy;
+     * the user's alternate-surface setting remains honored for every version.
+     */
+    public void start(boolean isAlreadyRunning, AbstractTouchpad touchpad, boolean preferSurfaceView){
         setUpPointerCapture(touchpad);
         mInGUIProcessor.setAbstractTouchpad(touchpad);
-        if(AllSettings.getAlternateSurface().getValue()){
+        mUseSurfaceView = AllSettings.getAlternateSurface().getValue() || preferSurfaceView;
+        if(mUseSurfaceView){
             SurfaceView surfaceView = new SurfaceView(getContext());
             mSurface = surfaceView;
 
@@ -121,6 +132,7 @@ public class MinecraftGLSurface extends View implements GrabListener {
                 private boolean isCalled = isAlreadyRunning;
                 @Override
                 public void surfaceCreated(@NonNull SurfaceHolder holder) {
+                    notifyRenderingStarted();
                     if(isCalled) {
                         JREUtils.setupBridgeWindow(surfaceView.getHolder().getSurface());
                         return;
@@ -172,11 +184,7 @@ public class MinecraftGLSurface extends View implements GrabListener {
 
                 @Override
                 public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {
-                    if (!mIsRenderingStarted) {
-                        mIsRenderingStarted = true;
-                        //在正式渲染画面的时候，调用这个监听器，关闭启动器背景图像，防止一些设备的半透明问题
-                        if (mOnRenderingStartedListener != null) mOnRenderingStartedListener.isStarted();
-                    }
+                    notifyRenderingStarted();
                 }
             });
 
@@ -184,6 +192,14 @@ public class MinecraftGLSurface extends View implements GrabListener {
         }
 
 
+    }
+
+    private void notifyRenderingStarted() {
+        if (mIsRenderingStarted) return;
+        mIsRenderingStarted = true;
+        // SurfaceView has no texture-update callback, so clear the launcher image
+        // when its surface is created. TextureView uses its first updated frame.
+        if (mOnRenderingStartedListener != null) mOnRenderingStartedListener.isStarted();
     }
 
     /**
@@ -412,7 +428,7 @@ public class MinecraftGLSurface extends View implements GrabListener {
             Logging.w("MGLSurface", "Attempt to refresh size on null surface");
             return;
         }
-        if(AllSettings.getAlternateSurface().getValue()){
+        if(mUseSurfaceView){
             SurfaceView view = (SurfaceView) mSurface;
             if(view.getHolder() != null){
                 view.getHolder().setFixedSize(windowWidth, windowHeight);

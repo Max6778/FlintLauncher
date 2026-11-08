@@ -730,9 +730,37 @@ public class MainActivity extends BaseActivity implements ControlButtonMenuListe
         isInEditor = false;
     }
 
+    private static String getMinecraftVersionId(Version version) {
+        VersionInfo info = version == null ? null : version.getVersionInfo();
+        return info != null && info.getMinecraftVersion() != null
+                ? info.getMinecraftVersion() : version == null ? "" : version.getVersionName();
+    }
+
+    private static boolean shouldUseSdlSurface(Version version) {
+        String id = getMinecraftVersionId(version);
+        java.util.regex.Matcher versionMatcher = java.util.regex.Pattern
+                .compile("(?:^|[^0-9])(\\d+)\\.(\\d+)(?:[-.]|$)")
+                .matcher(id);
+        int major = -1, minor = -1;
+        while (versionMatcher.find()) {
+            major = Integer.parseInt(versionMatcher.group(1));
+            minor = Integer.parseInt(versionMatcher.group(2));
+        }
+        if (major < 26 || major == 26 && minor < 3) return false;
+        if (major > 26 || minor > 3 || !id.toLowerCase(java.util.Locale.ROOT).contains("snapshot")) return true;
+        java.util.regex.Matcher snapshot = java.util.regex.Pattern
+                .compile("26\\.3-snapshot-(\\d+)", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(id);
+        return !snapshot.find() || Integer.parseInt(snapshot.group(1)) >= 5;
+    }
+
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
-        binding.mainGameRenderView.start(GameService.isActive(), binding.mainTouchpad);
+        boolean useSdlSurface = shouldUseSdlSurface(minecraftVersion);
+        if (useSdlSurface) {
+            Logging.i("RenderSurface", "Using SurfaceView for Minecraft " + getMinecraftVersionId(minecraftVersion) + " to reduce TextureView composition overhead");
+        }
+        binding.mainGameRenderView.start(GameService.isActive(), binding.mainTouchpad, useSdlSurface);
         GameService.setActive(true);
     }
 

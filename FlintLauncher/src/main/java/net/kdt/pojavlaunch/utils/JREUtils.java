@@ -319,7 +319,9 @@ public final class JREUtils {
         if (!rendererId.startsWith("opengles")) {
             envMap.put("MESA_LOADER_DRIVER_OVERRIDE", "zink");
             envMap.put("MESA_GLSL_CACHE_DIR", PathManager.DIR_CACHE.getAbsolutePath());
-            envMap.put("force_glsl_extensions_warn", "true");
+            // Do not force GLSL extension warnings globally: this is a Mesa
+            // diagnostics workaround for specific titles, and Minecraft's
+            // shader pipeline can otherwise emit warnings on every compilation.
             envMap.put("allow_higher_compat_version", "true");
             envMap.put("allow_glsl_extension_directive_midshader", "true");
             envMap.put("LIB_MESA_NAME", loadGraphicsLibrary());
